@@ -4,4 +4,18 @@ export const colors = {
   sage: '#78866B', sageSoft: '#DDE2D3', white: '#FFFFFF',
 };
 
+export const darkTheme = {
+  bg: '#131520',
+  surface: '#1E202E',
+  surfaceElevated: '#25293A',
+  border: '#2C3044',
+  text: '#FAF4EB',
+  textMuted: '#A6ADBB',
+  textSubtle: '#7C839C',
+  inputBg: '#232636',
+  inputBorder: '#2F344A',
+  accent: '#FFAE70',
+  accentDark: '#B95F3B',
+};
+
 export const radii = { small: 10, medium: 16, large: 24 };

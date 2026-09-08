@@ -4,8 +4,9 @@ import { router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 
+import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, radii } from '@/src/theme';
+import { colors, darkTheme, radii } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -64,6 +65,9 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
     );
   };
 
+  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const isNight = resolveAmbience(ambienceMode) === 'night';
+
   const handleComplete = () => {
     triggerHaptic();
     requestCompletion(book.id);
@@ -81,7 +85,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
         accessibilityLabel={`Livro ${book.title}, ${book.author}, ${percent}% lido`}
         accessibilityRole="button"
         onPress={handleOpenDetails}
-        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        style={({ pressed }) => [styles.card, isNight && styles.darkCard, pressed && styles.cardPressed]}
       >
         {/* Capa 3D estilizada */}
         <View style={[styles.coverContainer, { backgroundColor: book.coverColor }]}>
@@ -94,10 +98,10 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
         <View style={styles.content}>
           <View style={styles.headerRow}>
             <View style={styles.titlesWrap}>
-              <Text selectable numberOfLines={1} style={styles.title}>
+              <Text selectable numberOfLines={1} style={[styles.title, isNight && styles.darkTitle]}>
                 {book.title}
               </Text>
-              <Text selectable numberOfLines={1} style={styles.author}>
+              <Text selectable numberOfLines={1} style={[styles.author, isNight && styles.darkMutedText]}>
                 {book.author}
               </Text>
             </View>
@@ -109,16 +113,16 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
               onPress={handleConfirmDelete}
               style={styles.deleteButton}
             >
-              <Ionicons color={colors.muted} name="ellipsis-horizontal" size={18} />
+              <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="ellipsis-horizontal" size={18} />
             </Pressable>
           </View>
 
           {/* Status e badges */}
           <View style={styles.statusRow}>
             {isCompleted ? (
-              <View style={styles.completedBadge}>
-                <Ionicons color={colors.sage} name="checkmark-circle" size={14} />
-                <Text selectable style={styles.completedText}>Na estante</Text>
+              <View style={[styles.completedBadge, isNight && styles.darkCompletedBadge]}>
+                <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark-circle" size={14} />
+                <Text selectable style={[styles.completedText, isNight && styles.darkCompletedText]}>Na estante</Text>
                 {book.rating ? (
                   <View style={styles.ratingInline}>
                     <Ionicons color={colors.terracotta} name="star" size={12} />
@@ -129,25 +133,25 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
             ) : (
               <View style={styles.badgeRow}>
                 {isActiveOnDesk ? (
-                  <View style={styles.activeBadge}>
+                  <View style={[styles.activeBadge, isNight && styles.darkActiveBadge]}>
                     <View style={styles.activeDot} />
-                    <Text selectable style={styles.activeBadgeText}>Aberto na mesa</Text>
+                    <Text selectable style={[styles.activeBadgeText, isNight && styles.darkActiveBadgeText]}>Aberto na mesa</Text>
                   </View>
                 ) : (
-                  <Pressable hitSlop={6} onPress={handleSelectActive} style={styles.inactiveBadge}>
-                    <Text selectable style={styles.inactiveBadgeText}>Colocar na mesa</Text>
+                  <Pressable hitSlop={6} onPress={handleSelectActive} style={[styles.inactiveBadge, isNight && styles.darkInactiveBadge]}>
+                    <Text selectable style={[styles.inactiveBadgeText, isNight && styles.darkMutedText]}>Colocar na mesa</Text>
                   </Pressable>
                 )}
-                <Text selectable style={styles.pageInfo}>
+                <Text selectable style={[styles.pageInfo, isNight && styles.darkSubtleText]}>
                   {book.currentPage}/{book.totalPages} pág.
                 </Text>
               </View>
             )}
-            <Text selectable style={styles.percentText}>{percent}%</Text>
+            <Text selectable style={[styles.percentText, isNight && styles.darkPercentText]}>{percent}%</Text>
           </View>
 
           {/* Barra de progresso */}
-          <View style={styles.progressBarBg}>
+          <View style={[styles.progressBarBg, isNight && styles.darkProgressBarBg]}>
             <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
           </View>
 
@@ -159,17 +163,17 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
                   accessibilityLabel="Retroceder 10 páginas"
                   hitSlop={4}
                   onPress={() => handleStep(-10)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, isNight && styles.darkStepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Text style={styles.stepBtnText}>-10</Text>
+                  <Text style={[styles.stepBtnText, isNight && styles.darkTitle]}>-10</Text>
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Avançar 10 páginas"
                   hitSlop={4}
                   onPress={() => handleStep(10)}
-                  style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+                  style={({ pressed }) => [styles.stepBtn, isNight && styles.darkStepBtn, pressed && styles.stepBtnPressed]}
                 >
-                  <Text style={styles.stepBtnText}>+10</Text>
+                  <Text style={[styles.stepBtnText, isNight && styles.darkTitle]}>+10</Text>
                 </Pressable>
               </View>
 
@@ -187,8 +191,8 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
                   onPress={handleOpenDetails}
                   style={styles.detailsPill}
                 >
-                  <Text style={styles.detailsPillText}>Editar notas</Text>
-                  <Ionicons color={colors.muted} name="chevron-forward" size={12} />
+                  <Text style={[styles.detailsPillText, isNight && styles.darkMutedText]}>Editar notas</Text>
+                  <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="chevron-forward" size={12} />
                 </Pressable>
               )}
             </View>
@@ -426,5 +430,43 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 12,
     fontWeight: '600',
+  },
+  darkCard: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+  },
+  darkTitle: {
+    color: darkTheme.text,
+  },
+  darkMutedText: {
+    color: darkTheme.textMuted,
+  },
+  darkSubtleText: {
+    color: darkTheme.textSubtle,
+  },
+  darkCompletedBadge: {
+    backgroundColor: 'rgba(120, 194, 150, 0.16)',
+  },
+  darkCompletedText: {
+    color: '#78C296',
+  },
+  darkActiveBadge: {
+    backgroundColor: 'rgba(255, 174, 112, 0.18)',
+  },
+  darkActiveBadgeText: {
+    color: '#FFAE70',
+  },
+  darkInactiveBadge: {
+    backgroundColor: darkTheme.surfaceElevated,
+  },
+  darkPercentText: {
+    color: '#FFAE70',
+  },
+  darkProgressBarBg: {
+    backgroundColor: '#2C3044',
+  },
+  darkStepBtn: {
+    backgroundColor: darkTheme.surfaceElevated,
   },
 });

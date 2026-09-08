@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IsometricScene } from '@/src/components/room/isometric-scene';
+import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 
@@ -18,6 +18,11 @@ export default function RoomScreen() {
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
+  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+
+  const resolvedAmbience = resolveAmbience(ambienceMode);
+  const theme = AMBIENCE_THEMES[resolvedAmbience];
+  const isNight = resolvedAmbience === 'night';
 
   const activeBook = books.find((book) => book.id === activeBookId && book.status === 'reading')
     ?? [...books].reverse().find((book) => book.status === 'reading');
@@ -33,7 +38,7 @@ export default function RoomScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: theme.bgColor }]}>
       <IsometricScene
         onAddBook={() => {
           tapFeedback();
@@ -56,6 +61,7 @@ export default function RoomScreen() {
         style={({ pressed }) => [
           styles.floatingAddBtn,
           { top: insets.top + 10 },
+          isNight && styles.darkPill,
           pressed && styles.btnPressed,
         ]}
       >
@@ -70,8 +76,8 @@ export default function RoomScreen() {
           pointerEvents="none"
           style={styles.bottomHintWrap}
         >
-          <Text selectable style={styles.hintPill}>
-            Toque no livro ou no + para começar sua sala
+          <Text selectable style={[styles.hintPill, isNight && styles.darkHintPill]}>
+            Toque na mesa ou no + para começar uma leitura
           </Text>
         </Animated.View>
       ) : activeBook ? (
@@ -86,14 +92,18 @@ export default function RoomScreen() {
             accessibilityLabel={`Livro na mesa: ${activeBook.title}, página ${activeBook.currentPage} de ${activeBook.totalPages}`}
             accessibilityRole="button"
             onPress={() => openProgress(activeBook.id)}
-            style={({ pressed }) => [styles.activeWidget, pressed && styles.widgetPressed]}
+            style={({ pressed }) => [
+              styles.activeWidget,
+              isNight && styles.darkWidget,
+              pressed && styles.widgetPressed,
+            ]}
           >
             <View style={[styles.widgetCover, { backgroundColor: activeBook.coverColor }]} />
             <View style={styles.widgetInfo}>
-              <Text numberOfLines={1} style={styles.widgetTitle}>
+              <Text numberOfLines={1} style={[styles.widgetTitle, isNight && styles.darkTitle]}>
                 {activeBook.title}
               </Text>
-              <Text style={styles.widgetSub}>
+              <Text style={[styles.widgetSub, isNight && styles.darkSub]}>
                 pág. {activeBook.currentPage} de {activeBook.totalPages} · {Math.round((activeBook.currentPage / activeBook.totalPages) * 100)}%
               </Text>
             </View>
@@ -106,13 +116,13 @@ export default function RoomScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#DFCBAF' },
+  screen: { flex: 1 },
   floatingAddBtn: {
     position: 'absolute',
     right: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(255, 249, 240, 0.94)',
     alignItems: 'center',
@@ -144,6 +154,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 249, 240, 0.92)',
     boxShadow: '0 4px 12px rgba(53, 42, 36, 0.12)',
   },
+  darkHintPill: {
+    backgroundColor: 'rgba(35, 38, 52, 0.94)',
+    color: '#F5E8D3',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
+  },
   activeBookWidgetWrap: {
     position: 'absolute',
     bottom: 20,
@@ -162,6 +177,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     boxShadow: '0 4px 14px rgba(53, 42, 36, 0.12)',
+  },
+  darkWidget: {
+    backgroundColor: 'rgba(32, 35, 48, 0.94)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
+  },
+  darkPill: {
+    backgroundColor: 'rgba(32, 35, 48, 0.94)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
   },
   widgetPressed: {
     opacity: 0.88,
@@ -183,9 +208,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  darkTitle: {
+    color: '#FAF4EB',
+  },
   widgetSub: {
     color: colors.muted,
     fontSize: 12,
     fontVariant: ['tabular-nums'],
+  },
+  darkSub: {
+    color: '#B2B7C8',
   },
 });

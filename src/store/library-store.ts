@@ -3,11 +3,16 @@ import { create } from 'zustand';
 import { mockBooks } from '@/src/data/mock-books';
 import type { Book } from '@/src/types/book';
 
+export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
+
 type LibraryState = {
   books: Book[];
   activeBookId?: string;
   completingBookId?: string;
   isLampOn: boolean;
+  ambienceMode: AmbienceMode;
+  setAmbienceMode: (mode: AmbienceMode) => void;
+  cycleAmbienceMode: () => void;
   toggleLamp: () => void;
   addBook: (bookId: string) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
@@ -22,11 +27,21 @@ type LibraryState = {
 const clampPage = (page: number, total: number) =>
   Math.min(total, Math.max(0, Math.round(page)));
 
+const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
+  auto: 'day',
+  day: 'sunset',
+  sunset: 'night',
+  night: 'auto',
+};
+
 export const useLibraryStore = create<LibraryState>((set) => ({
   books: [],
   activeBookId: undefined,
   completingBookId: undefined,
   isLampOn: true,
+  ambienceMode: 'auto',
+  setAmbienceMode: (mode) => set({ ambienceMode: mode }),
+  cycleAmbienceMode: () => set((state) => ({ ambienceMode: NEXT_AMBIENCE[state.ambienceMode] })),
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
   addBook: (bookId) => set((state) => {
     if (state.books.some((book) => book.id === bookId)) return state;

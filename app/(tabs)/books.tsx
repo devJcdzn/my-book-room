@@ -6,14 +6,18 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCard } from '@/src/components/book-card';
 import { PrimaryButton } from '@/src/components/primary-button';
+import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, radii } from '@/src/theme';
+import { colors, darkTheme, radii } from '@/src/theme';
 
 type FilterTab = 'all' | 'reading' | 'completed';
 
 export default function BooksScreen() {
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
+  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const isNight = resolveAmbience(ambienceMode) === 'night';
+
   const [filter, setFilter] = useState<FilterTab>('all');
 
   const readingBooks = useMemo(() => books.filter((book) => book.status !== 'completed'), [books]);
@@ -36,17 +40,17 @@ export default function BooksScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator
-      style={styles.screen}
+      style={[styles.screen, isNight && styles.darkScreen]}
     >
       {books.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons color={colors.sage} name="library-outline" size={38} />
+        <View style={[styles.emptyState, isNight && styles.darkEmptyState]}>
+          <View style={[styles.emptyIcon, isNight && styles.darkEmptyIcon]}>
+            <Ionicons color={isNight ? '#78C296' : colors.sage} name="library-outline" size={38} />
           </View>
-          <Text selectable style={styles.emptyTitle}>
+          <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>
             Sua estante aguarda leituras.
           </Text>
-          <Text selectable style={styles.emptyText}>
+          <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
             Adicione um livro para acompanhar o progresso na mesa 3D e preencher sua sala.
           </Text>
           <PrimaryButton label="Adicionar primeiro livro" onPress={() => router.push('/add-book')} />
@@ -54,22 +58,22 @@ export default function BooksScreen() {
       ) : (
         <>
           {/* Barra de resumo */}
-          <View style={styles.summaryBar}>
+          <View style={[styles.summaryBar, isNight && styles.darkSummaryBar]}>
             <View style={styles.summaryStat}>
-              <Text selectable style={styles.summaryNumber}>{readingBooks.length}</Text>
-              <Text selectable style={styles.summaryLabel}>na mesa</Text>
+              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>{readingBooks.length}</Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>na mesa</Text>
             </View>
-            <View style={styles.summaryDivider} />
+            <View style={[styles.summaryDivider, isNight && styles.darkSummaryDivider]} />
             <View style={styles.summaryStat}>
-              <Text selectable style={styles.summaryNumber}>{completedBooks.length}</Text>
-              <Text selectable style={styles.summaryLabel}>concluídos</Text>
+              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>{completedBooks.length}</Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>concluídos</Text>
             </View>
-            <View style={styles.summaryDivider} />
+            <View style={[styles.summaryDivider, isNight && styles.darkSummaryDivider]} />
             <View style={styles.summaryStat}>
-              <Text selectable style={styles.summaryNumber}>
+              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>
                 {books.reduce((sum, b) => sum + b.currentPage, 0)}
               </Text>
-              <Text selectable style={styles.summaryLabel}>pág. lidas</Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>pág. lidas</Text>
             </View>
           </View>
 
@@ -78,27 +82,51 @@ export default function BooksScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => handleFilterChange('all')}
-              style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                isNight && styles.darkFilterChip,
+                filter === 'all' && styles.filterChipActive,
+              ]}
             >
-              <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+              <Text style={[
+                styles.filterText,
+                isNight && styles.darkFilterText,
+                filter === 'all' && styles.filterTextActive,
+              ]}>
                 Todos ({books.length})
               </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => handleFilterChange('reading')}
-              style={[styles.filterChip, filter === 'reading' && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                isNight && styles.darkFilterChip,
+                filter === 'reading' && styles.filterChipActive,
+              ]}
             >
-              <Text style={[styles.filterText, filter === 'reading' && styles.filterTextActive]}>
+              <Text style={[
+                styles.filterText,
+                isNight && styles.darkFilterText,
+                filter === 'reading' && styles.filterTextActive,
+              ]}>
                 Na mesa ({readingBooks.length})
               </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => handleFilterChange('completed')}
-              style={[styles.filterChip, filter === 'completed' && styles.filterChipActive]}
+              style={[
+                styles.filterChip,
+                isNight && styles.darkFilterChip,
+                filter === 'completed' && styles.filterChipActive,
+              ]}
             >
-              <Text style={[styles.filterText, filter === 'completed' && styles.filterTextActive]}>
+              <Text style={[
+                styles.filterText,
+                isNight && styles.darkFilterText,
+                filter === 'completed' && styles.filterTextActive,
+              ]}>
                 Concluídos ({completedBooks.length})
               </Text>
             </Pressable>
@@ -117,17 +145,16 @@ export default function BooksScreen() {
           </View>
 
           {/* Botão para adicionar mais um livro */}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/add-book');
-            }}
-            style={({ pressed }) => [styles.addBanner, pressed && styles.addBannerPressed]}
-          >
-            <Ionicons color={colors.terracotta} name="add-circle-outline" size={24} />
-            <Text style={styles.addBannerText}>Adicionar outro livro</Text>
-          </Pressable>
+          <View style={styles.addBtnWrap}>
+            <PrimaryButton
+              label="Adicionar outro livro"
+              tone="secondary"
+              onPress={() => {
+                if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/add-book');
+              }}
+            />
+          </View>
         </>
       )}
     </ScrollView>
@@ -139,10 +166,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.cream,
   },
+  darkScreen: {
+    backgroundColor: darkTheme.bg,
+  },
   content: {
     gap: 14,
     padding: 16,
-    paddingBottom: 110, // Margem generosa para nunca ficar atrás da tab bar
+    paddingBottom: 110,
   },
   emptyState: {
     gap: 14,
@@ -154,6 +184,11 @@ const styles = StyleSheet.create({
     marginTop: 20,
     boxShadow: '0 4px 12px rgba(53, 42, 36, 0.06)',
   },
+  darkEmptyState: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+    borderWidth: 1,
+  },
   emptyIcon: {
     width: 72,
     height: 72,
@@ -162,6 +197,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderCurve: 'continuous',
     backgroundColor: colors.sageSoft,
+  },
+  darkEmptyIcon: {
+    backgroundColor: 'rgba(120, 194, 150, 0.16)',
   },
   emptyTitle: {
     color: colors.ink,
@@ -187,6 +225,11 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: colors.sageSoft,
   },
+  darkSummaryBar: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+    borderWidth: 1,
+  },
   summaryStat: {
     alignItems: 'center',
     gap: 2,
@@ -208,6 +251,9 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: '#B9C2AB',
   },
+  darkSummaryDivider: {
+    backgroundColor: darkTheme.border,
+  },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -223,6 +269,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  darkFilterChip: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+  },
   filterChipActive: {
     backgroundColor: colors.terracotta,
     borderColor: colors.terracotta,
@@ -232,6 +282,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  darkFilterText: {
+    color: darkTheme.textMuted,
+  },
   filterTextActive: {
     color: colors.white,
     fontWeight: '700',
@@ -239,26 +292,13 @@ const styles = StyleSheet.create({
   bookList: {
     gap: 10,
   },
-  addBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
+  addBtnWrap: {
     marginTop: 6,
-    borderRadius: radii.medium,
-    borderCurve: 'continuous',
-    backgroundColor: colors.paper,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderStyle: 'dashed',
   },
-  addBannerPressed: {
-    opacity: 0.7,
+  darkTitle: {
+    color: darkTheme.text,
   },
-  addBannerText: {
-    color: colors.terracotta,
-    fontSize: 15,
-    fontWeight: '700',
+  darkMutedText: {
+    color: darkTheme.textMuted,
   },
 });

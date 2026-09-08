@@ -5,9 +5,10 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { PrimaryButton } from '@/src/components/primary-button';
+import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { mockBooks } from '@/src/data/mock-books';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, radii } from '@/src/theme';
+import { colors, darkTheme, radii } from '@/src/theme';
 
 const PALETTE = [
   '#B95F3B', // Terracotta
@@ -34,6 +35,8 @@ export default function AddBookScreen() {
   const books = useLibraryStore((state) => state.books);
   const addBook = useLibraryStore((state) => state.addBook);
   const addCustomBook = useLibraryStore((state) => state.addCustomBook);
+  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const isNight = resolveAmbience(ambienceMode) === 'night';
 
   const addedIds = useMemo(() => new Set(books.map((book) => book.id)), [books]);
 
@@ -72,16 +75,16 @@ export default function AddBookScreen() {
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
-      style={styles.screen}
+      style={[styles.screen, isNight && styles.darkScreen]}
     >
       {/* Alternador entre Catálogo e Criar */}
-      <View style={styles.tabToggleRow}>
+      <View style={[styles.tabToggleRow, isNight && styles.darkTabToggleRow]}>
         <Pressable
           accessibilityRole="button"
           onPress={() => setShowCustomForm(false)}
           style={[styles.toggleBtn, !showCustomForm && styles.toggleBtnActive]}
         >
-          <Text style={[styles.toggleBtnText, !showCustomForm && styles.toggleBtnTextActive]}>
+          <Text style={[styles.toggleBtnText, !showCustomForm ? styles.toggleBtnTextActive : (isNight && styles.darkMutedText)]}>
             Catálogo sugerido
           </Text>
         </Pressable>
@@ -90,7 +93,7 @@ export default function AddBookScreen() {
           onPress={() => setShowCustomForm(true)}
           style={[styles.toggleBtn, showCustomForm && styles.toggleBtnActive]}
         >
-          <Text style={[styles.toggleBtnText, showCustomForm && styles.toggleBtnTextActive]}>
+          <Text style={[styles.toggleBtnText, showCustomForm ? styles.toggleBtnTextActive : (isNight && styles.darkMutedText)]}>
             Criar manualmente
           </Text>
         </Pressable>
@@ -98,48 +101,50 @@ export default function AddBookScreen() {
 
       {showCustomForm ? (
         /* Formulário de criação personalizada */
-        <View style={styles.formContainer}>
-          <Text selectable style={styles.formSectionTitle}>Novo livro para sua mesa</Text>
+        <View style={[styles.formContainer, isNight && styles.darkCard]}>
+          <Text selectable style={[styles.formSectionTitle, isNight && styles.darkTitle]}>
+            Novo livro para sua mesa
+          </Text>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={styles.label}>Título da obra *</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Título da obra *</Text>
             <TextInput
               autoCapitalize="sentences"
               onChangeText={setCustomTitle}
               placeholder="Ex: Cem Anos de Solidão"
-              placeholderTextColor={colors.muted}
-              style={styles.textInput}
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
+              style={[styles.textInput, isNight && styles.darkTextInput]}
               value={customTitle}
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={styles.label}>Autor(a)</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Autor(a)</Text>
             <TextInput
               autoCapitalize="words"
               onChangeText={setCustomAuthor}
               placeholder="Ex: Gabriel García Márquez"
-              placeholderTextColor={colors.muted}
-              style={styles.textInput}
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
+              style={[styles.textInput, isNight && styles.darkTextInput]}
               value={customAuthor}
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={styles.label}>Número total de páginas</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Número total de páginas</Text>
             <TextInput
               keyboardType="number-pad"
               maxLength={5}
               onChangeText={setCustomPages}
               placeholder="Ex: 350"
-              placeholderTextColor={colors.muted}
-              style={styles.textInput}
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
+              style={[styles.textInput, isNight && styles.darkTextInput]}
               value={customPages}
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={styles.label}>Cor da capa 3D</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Cor da capa 3D</Text>
             <View style={styles.paletteRow}>
               {PALETTE.map((color) => {
                 const selected = customColor === color;
@@ -165,18 +170,18 @@ export default function AddBookScreen() {
             </View>
           </View>
 
-          <View style={styles.previewBox}>
+          <View style={[styles.previewBox, isNight && styles.darkPreviewBox]}>
             <View style={[styles.coverPreview, { backgroundColor: customColor }]}>
               <View style={styles.coverPreviewSpine} />
             </View>
             <View style={styles.previewInfo}>
-              <Text numberOfLines={1} style={styles.previewTitle}>
+              <Text numberOfLines={1} style={[styles.previewTitle, isNight && styles.darkTitle]}>
                 {customTitle.trim() || 'Título do livro'}
               </Text>
-              <Text numberOfLines={1} style={styles.previewAuthor}>
+              <Text numberOfLines={1} style={[styles.previewAuthor, isNight && styles.darkMutedText]}>
                 {customAuthor.trim() || 'Nome do autor'}
               </Text>
-              <Text style={styles.previewPages}>
+              <Text style={[styles.previewPages, isNight && styles.darkPageCount]}>
                 {customPages ? `${customPages} páginas` : '0 páginas'}
               </Text>
             </View>
@@ -191,8 +196,8 @@ export default function AddBookScreen() {
       ) : (
         /* Busca no Catálogo */
         <>
-          <View style={styles.searchWrap}>
-            <Ionicons color={colors.muted} name="search" size={20} />
+          <View style={[styles.searchWrap, isNight && styles.darkSearchWrap]}>
+            <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="search" size={20} />
             <TextInput
               accessibilityLabel="Buscar por título ou autor"
               autoCapitalize="none"
@@ -200,18 +205,18 @@ export default function AddBookScreen() {
               clearButtonMode="while-editing"
               onChangeText={setQuery}
               placeholder="Buscar por título ou autor…"
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
               returnKeyType="search"
-              style={styles.searchInput}
+              style={[styles.searchInput, isNight && styles.darkSearchInput]}
               value={query}
             />
           </View>
 
           {filtered.length === 0 ? (
-            <View style={styles.emptyState}>
+            <View style={[styles.emptyState, isNight && styles.darkCard]}>
               <Ionicons color={colors.sage} name="book-outline" size={38} />
-              <Text selectable style={styles.emptyTitle}>Livro não encontrado no catálogo</Text>
-              <Text selectable style={styles.emptyText}>
+              <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>Livro não encontrado no catálogo</Text>
+              <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
                 Quer cadastrar &quot;{query}&quot; manualmente para sua mesa?
               </Text>
               <PrimaryButton
@@ -232,6 +237,7 @@ export default function AddBookScreen() {
                     onPress={() => selectCatalogBook(book.id)}
                     style={({ pressed }) => [
                       styles.bookRow,
+                      isNight && styles.darkCard,
                       added && styles.bookRowDisabled,
                       pressed && styles.pressed,
                     ]}
@@ -240,18 +246,18 @@ export default function AddBookScreen() {
                       <View style={styles.coverPage} />
                     </View>
                     <View style={styles.bookInfo}>
-                      <Text selectable numberOfLines={2} style={styles.bookTitle}>
+                      <Text selectable numberOfLines={2} style={[styles.bookTitle, isNight && styles.darkTitle]}>
                         {book.title}
                       </Text>
-                      <Text selectable style={styles.bookAuthor}>{book.author}</Text>
-                      <Text selectable style={styles.pageCount}>{book.totalPages} páginas</Text>
+                      <Text selectable style={[styles.bookAuthor, isNight && styles.darkMutedText]}>{book.author}</Text>
+                      <Text selectable style={[styles.pageCount, isNight && styles.darkPageCount]}>{book.totalPages} páginas</Text>
                     </View>
                     {added ? (
-                      <View style={styles.addedMark}>
-                        <Ionicons color={colors.sage} name="checkmark" size={18} />
+                      <View style={[styles.addedMark, isNight && styles.darkAddedMark]}>
+                        <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark" size={18} />
                       </View>
                     ) : (
-                      <Ionicons color={colors.terracotta} name="add-circle-outline" size={26} />
+                      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add-circle-outline" size={26} />
                     )}
                   </Pressable>
                 );
@@ -266,6 +272,7 @@ export default function AddBookScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
+  darkScreen: { backgroundColor: darkTheme.bg },
   content: { gap: 16, padding: 16, paddingBottom: 48 },
   tabToggleRow: {
     flexDirection: 'row',
@@ -275,6 +282,10 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: colors.line,
+  },
+  darkTabToggleRow: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
   },
   toggleBtn: {
     flex: 1,
@@ -307,7 +318,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: colors.paper,
   },
+  darkSearchWrap: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+  },
   searchInput: { flex: 1, minHeight: 48, color: colors.ink, fontSize: 16 },
+  darkSearchInput: { color: darkTheme.text },
   list: { gap: 10 },
   bookRow: {
     minHeight: 90,
@@ -346,6 +362,9 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: colors.sageSoft,
   },
+  darkAddedMark: {
+    backgroundColor: 'rgba(120, 194, 150, 0.18)',
+  },
   emptyState: {
     alignItems: 'center',
     gap: 10,
@@ -383,6 +402,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  darkLabel: {
+    color: darkTheme.textMuted,
+  },
   textInput: {
     minHeight: 46,
     paddingHorizontal: 12,
@@ -393,6 +415,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.small,
     borderCurve: 'continuous',
     backgroundColor: colors.white,
+  },
+  darkTextInput: {
+    backgroundColor: darkTheme.inputBg,
+    borderColor: darkTheme.inputBorder,
+    color: darkTheme.text,
   },
   paletteRow: {
     flexDirection: 'row',
@@ -421,6 +448,9 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: colors.cream,
     marginTop: 6,
+  },
+  darkPreviewBox: {
+    backgroundColor: darkTheme.inputBg,
   },
   coverPreview: {
     width: 38,
@@ -454,5 +484,19 @@ const styles = StyleSheet.create({
     color: colors.sage,
     fontSize: 12,
     fontWeight: '700',
+  },
+  darkCard: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+  },
+  darkTitle: {
+    color: darkTheme.text,
+  },
+  darkMutedText: {
+    color: darkTheme.textMuted,
+  },
+  darkPageCount: {
+    color: '#818CF8',
   },
 });

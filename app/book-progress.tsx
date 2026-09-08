@@ -5,8 +5,9 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { PrimaryButton } from '@/src/components/primary-button';
 import { ProgressEditor } from '@/src/components/progress-editor';
+import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, radii } from '@/src/theme';
+import { colors, darkTheme, radii } from '@/src/theme';
 
 export default function BookProgressSheet() {
   const params = useLocalSearchParams<{ bookId?: string | string[] }>();
@@ -17,11 +18,13 @@ export default function BookProgressSheet() {
   const updateOpinion = useLibraryStore((state) => state.updateOpinion);
   const removeBook = useLibraryStore((state) => state.removeBook);
   const requestCompletion = useLibraryStore((state) => state.requestCompletion);
+  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const isNight = resolveAmbience(ambienceMode) === 'night';
 
   if (!book) {
     return (
-      <View style={styles.unavailable}>
-        <Text selectable style={styles.unavailableTitle}>Livro indisponível</Text>
+      <View style={[styles.unavailable, isNight && styles.darkScreen]}>
+        <Text selectable style={[styles.unavailableTitle, isNight && styles.darkTitle]}>Livro indisponível</Text>
         <PrimaryButton label="Voltar ao ambiente" onPress={() => router.back()} />
       </View>
     );
@@ -62,7 +65,7 @@ export default function BookProgressSheet() {
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
-      style={styles.screen}
+      style={[styles.screen, isNight && styles.darkScreen]}
     >
       {/* Cabeçalho do livro */}
       <View style={styles.bookHeading}>
@@ -70,22 +73,22 @@ export default function BookProgressSheet() {
           <View style={styles.bookSpineLine} />
         </View>
         <View style={styles.bookInfo}>
-          <Text selectable numberOfLines={2} style={styles.title}>{book.title}</Text>
-          <Text selectable style={styles.author}>{book.author}</Text>
+          <Text selectable numberOfLines={2} style={[styles.title, isNight && styles.darkTitle]}>{book.title}</Text>
+          <Text selectable style={[styles.author, isNight && styles.darkMutedText]}>{book.author}</Text>
         </View>
         <Pressable
           accessibilityLabel="Fechar"
           hitSlop={8}
           onPress={() => router.back()}
-          style={styles.closeBtn}
+          style={[styles.closeBtn, isNight && styles.darkCloseBtn]}
         >
-          <Ionicons color={colors.muted} name="close" size={22} />
+          <Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="close" size={22} />
         </Pressable>
       </View>
 
       {/* Editor de progresso */}
-      <View style={styles.section}>
-        <Text selectable style={styles.sectionTitle}>Progresso de leitura</Text>
+      <View style={[styles.section, isNight && styles.darkSection]}>
+        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Progresso de leitura</Text>
         <ProgressEditor
           book={book}
           completionLocked={Boolean(completingBookId)}
@@ -96,8 +99,8 @@ export default function BookProgressSheet() {
       </View>
 
       {/* Avaliação e Notas */}
-      <View style={styles.section}>
-        <Text selectable style={styles.sectionTitle}>Sua avaliação & impressões</Text>
+      <View style={[styles.section, isNight && styles.darkSection]}>
+        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Sua avaliação & impressões</Text>
         <View accessibilityLabel="Avaliação por estrelas" style={styles.ratingRow}>
           {[1, 2, 3, 4, 5].map((value) => (
             <Pressable
@@ -106,10 +109,10 @@ export default function BookProgressSheet() {
               accessibilityRole="button"
               hitSlop={6}
               onPress={() => handleRating(value)}
-              style={styles.starButton}
+              style={[styles.starButton, isNight && styles.darkStarButton]}
             >
               <Ionicons
-                color={value <= (book.rating ?? 0) ? colors.terracotta : colors.line}
+                color={value <= (book.rating ?? 0) ? (isNight ? '#FFAE70' : colors.terracotta) : (isNight ? '#383D54' : colors.line)}
                 name={value <= (book.rating ?? 0) ? 'star' : 'star-outline'}
                 size={26}
               />
@@ -121,8 +124,8 @@ export default function BookProgressSheet() {
           multiline
           onChangeText={(notes) => updateOpinion(book.id, { notes })}
           placeholder="Uma lembrança, uma frase favorita, o que ficou desta leitura…"
-          placeholderTextColor={colors.muted}
-          style={styles.notes}
+          placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
+          style={[styles.notes, isNight && styles.darkNotes]}
           textAlignVertical="top"
           value={book.notes ?? ''}
         />
@@ -130,7 +133,7 @@ export default function BookProgressSheet() {
 
       {/* Ação de remover */}
       <Pressable onPress={handleDelete} style={styles.deleteLink}>
-        <Ionicons color="#B24538" name="trash-outline" size={16} />
+        <Ionicons color="#E05243" name="trash-outline" size={16} />
         <Text style={styles.deleteLinkText}>Remover livro da biblioteca</Text>
       </Pressable>
     </ScrollView>
@@ -139,6 +142,7 @@ export default function BookProgressSheet() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
+  darkScreen: { backgroundColor: darkTheme.bg },
   content: { gap: 20, padding: 20, paddingBottom: 48 },
   bookHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   bookColor: {
@@ -166,11 +170,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.cream,
   },
+  darkCloseBtn: {
+    backgroundColor: darkTheme.surfaceElevated,
+  },
   section: {
     gap: 12,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.line,
+  },
+  darkSection: {
+    borderTopColor: darkTheme.border,
   },
   sectionTitle: {
     color: colors.ink,
@@ -186,6 +196,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.cream,
   },
+  darkStarButton: {
+    backgroundColor: darkTheme.surfaceElevated,
+  },
   notes: {
     minHeight: 100,
     padding: 12,
@@ -198,6 +211,11 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     backgroundColor: colors.white,
   },
+  darkNotes: {
+    backgroundColor: darkTheme.surface,
+    borderColor: darkTheme.border,
+    color: darkTheme.text,
+  },
   deleteLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -207,10 +225,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   deleteLinkText: {
-    color: '#B24538',
+    color: '#E05243',
     fontSize: 14,
     fontWeight: '600',
   },
   unavailable: { flex: 1, justifyContent: 'center', gap: 20, padding: 24, backgroundColor: colors.paper },
   unavailableTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 24, textAlign: 'center' },
+  darkTitle: { color: darkTheme.text },
+  darkMutedText: { color: darkTheme.textMuted },
 });
