@@ -70,7 +70,7 @@ export default function BookProgressSheet() {
     >
       {/* Cabeçalho do livro */}
       <View style={styles.bookHeading}>
-        <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.bookColor}>
+        <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.bookCover}>
           <View style={styles.bookSpineLine} />
         </BookCover>
         <View style={styles.bookInfo}>
@@ -83,7 +83,7 @@ export default function BookProgressSheet() {
           onPress={() => router.back()}
           style={[styles.closeBtn, isNight && styles.darkCloseBtn]}
         >
-          <Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="close" size={22} />
+          <Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="close" size={20} />
         </Pressable>
       </View>
 
@@ -101,7 +101,7 @@ export default function BookProgressSheet() {
 
       {/* Avaliação e Notas */}
       <View style={[styles.section, isNight && styles.darkSection]}>
-        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Sua avaliação & impressões</Text>
+        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Diário & impressões</Text>
         <View accessibilityLabel="Avaliação por estrelas" style={styles.ratingRow}>
           {[1, 2, 3, 4, 5].map((value) => (
             <Pressable
@@ -115,7 +115,7 @@ export default function BookProgressSheet() {
               <Ionicons
                 color={value <= (book.rating ?? 0) ? (isNight ? '#FFAE70' : colors.terracotta) : (isNight ? '#383D54' : colors.line)}
                 name={value <= (book.rating ?? 0) ? 'star' : 'star-outline'}
-                size={26}
+                size={24}
               />
             </Pressable>
           ))}
@@ -124,7 +124,7 @@ export default function BookProgressSheet() {
           accessibilityLabel={`Anotações sobre ${book.title}`}
           multiline
           onChangeText={(notes) => updateOpinion(book.id, { notes })}
-          placeholder="Uma lembrança, uma frase favorita, o que ficou desta leitura…"
+          placeholder="Uma frase marcante, uma memória ou o que ficou deste capítulo…"
           placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
           style={[styles.notes, isNight && styles.darkNotes]}
           textAlignVertical="top"
@@ -134,8 +134,8 @@ export default function BookProgressSheet() {
 
       {/* Ação de remover */}
       <Pressable onPress={handleDelete} style={styles.deleteLink}>
-        <Ionicons color="#E05243" name="trash-outline" size={16} />
-        <Text style={styles.deleteLinkText}>Remover livro da biblioteca</Text>
+        <Ionicons color="#C04D40" name="trash-outline" size={15} />
+        <Text style={styles.deleteLinkText}>Remover da estante</Text>
       </Pressable>
     </ScrollView>
   );
@@ -146,13 +146,14 @@ const styles = StyleSheet.create({
   darkScreen: { backgroundColor: darkTheme.bg },
   content: { gap: 20, padding: 20, paddingBottom: 48 },
   bookHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  bookColor: {
-    width: 20,
-    height: 60,
-    borderRadius: 5,
+  bookCover: {
+    width: 46,
+    height: 68,
+    borderRadius: 4,
     borderCurve: 'continuous',
     justifyContent: 'center',
     overflow: 'hidden',
+    boxShadow: '0 4px 12px rgba(53, 42, 36, 0.16)',
   },
   bookSpineLine: {
     width: 3,

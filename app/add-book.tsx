@@ -278,7 +278,7 @@ export default function AddBookScreen() {
               <Text numberOfLines={1} style={[styles.previewAuthor, isNight && styles.darkMutedText]}>
                 {customAuthor.trim() || 'Autor(a)'}
               </Text>
-              <Text style={[styles.previewPages, isNight && styles.darkPageCount]}>
+              <Text style={[styles.previewPages, isNight && styles.darkMutedText]}>
                 {customPages ? `${customPages} páginas` : '0 páginas'}
               </Text>
             </View>
@@ -315,27 +315,22 @@ export default function AddBookScreen() {
           {/* Título da seção */}
           <View style={styles.sectionHeaderRow}>
             <Text selectable style={[styles.sectionTitle, isNight && styles.darkSectionTitle]}>
-              {isSearching ? `Resultados para "${query.trim()}"` : 'Tendências do dia'}
+              {isSearching ? `Resultados para "${query.trim()}"` : 'Sugestões para sua estante'}
             </Text>
-            {!isSearching ? (
-              <Text style={[styles.sectionBadge, isNight && styles.darkSectionBadge]}>
-                Catálogo online
-              </Text>
-            ) : null}
           </View>
 
           {status === 'loading' && results.length === 0 ? (
             <View style={[styles.emptyState, isNight && styles.darkCard]}>
               <ActivityIndicator color={isNight ? '#FFAE70' : colors.terracotta} />
               <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
-                Carregando catálogo…
+                Consultando acervo literário…
               </Text>
             </View>
           ) : status === 'error' && results.length === 0 ? (
             <View style={[styles.emptyState, isNight && styles.darkCard]}>
-              <Ionicons color={colors.sage} name="cloud-offline-outline" size={38} />
+              <Ionicons color={colors.sage} name="book-outline" size={38} />
               <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>
-                Catálogo online indisponível
+                Não foi possível consultar o acervo
               </Text>
               <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
                 {error}
@@ -406,27 +401,21 @@ export default function AddBookScreen() {
                         {book.author}
                       </Text>
                       <View style={styles.bookMetaRow}>
-                        <View style={[styles.pageBadge, isNight && styles.darkPageBadge]}>
-                          <Text
-                            selectable
-                            style={[styles.pageCount, isNight && styles.darkPageCount]}
-                          >
-                            {book.totalPages ? `${book.totalPages} páginas` : 'Páginas a definir'}
-                          </Text>
-                        </View>
-                        {book.firstPublishYear ? (
-                          <Text style={[styles.yearText, isNight && styles.darkMutedText]}>
-                            {book.firstPublishYear}
-                          </Text>
-                        ) : null}
+                        <Text
+                          selectable
+                          style={[styles.bookMetaText, isNight && styles.darkMutedText]}
+                        >
+                          {book.totalPages ? `${book.totalPages} págs.` : 'Páginas a definir'}
+                          {book.firstPublishYear ? ` · ${book.firstPublishYear}` : ''}
+                        </Text>
                       </View>
                     </View>
 
                     {/* Ação / Status */}
                     {added ? (
                       <View style={[styles.addedMark, isNight && styles.darkAddedMark]}>
-                        <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark" size={16} />
-                        <Text style={[styles.addedText, isNight && styles.darkAddedText]}>Na mesa</Text>
+                        <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark" size={14} />
+                        <Text style={[styles.addedText, isNight && styles.darkAddedText]}>Na biblioteca</Text>
                       </View>
                     ) : (
                       <View style={[styles.addBtn, isNight && styles.darkAddBtn]}>
@@ -595,20 +584,6 @@ const styles = StyleSheet.create({
   darkSectionTitle: {
     color: '#FAF4EB',
   },
-  sectionBadge: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.terracotta,
-    backgroundColor: 'rgba(185, 95, 59, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  darkSectionBadge: {
-    color: '#FFAE70',
-    backgroundColor: 'rgba(255, 174, 112, 0.12)',
-  },
   list: {
     gap: 10,
   },
@@ -664,31 +639,13 @@ const styles = StyleSheet.create({
   bookMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginTop: 2,
   },
-  pageBadge: {
-    backgroundColor: colors.sageSoft,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  darkPageBadge: {
-    backgroundColor: 'rgba(255, 174, 112, 0.12)',
-  },
-  pageCount: {
-    color: colors.sage,
-    fontSize: 11,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  darkPageCount: {
-    color: '#FFAE70',
-  },
-  yearText: {
-    fontSize: 11,
+  bookMetaText: {
     color: colors.muted,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.1,
   },
   addedMark: {
     flexDirection: 'row',

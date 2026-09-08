@@ -121,12 +121,12 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
           <View style={styles.statusRow}>
             {isCompleted ? (
               <View style={[styles.completedBadge, isNight && styles.darkCompletedBadge]}>
-                <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark-circle" size={14} />
-                <Text selectable style={[styles.completedText, isNight && styles.darkCompletedText]}>Na estante</Text>
+                <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark-circle-outline" size={14} />
+                <Text selectable style={[styles.completedText, isNight && styles.darkCompletedText]}>Concluído</Text>
                 {book.rating ? (
                   <View style={styles.ratingInline}>
-                    <Ionicons color={colors.terracotta} name="star" size={12} />
-                    <Text style={styles.ratingText}>{book.rating}</Text>
+                    <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="star" size={12} />
+                    <Text style={[styles.ratingText, isNight && styles.darkTitle]}>{book.rating}</Text>
                   </View>
                 ) : null}
               </View>
@@ -134,16 +134,17 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
               <View style={styles.badgeRow}>
                 {isActiveOnDesk ? (
                   <View style={[styles.activeBadge, isNight && styles.darkActiveBadge]}>
-                    <View style={styles.activeDot} />
+                    <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="book-outline" size={13} />
                     <Text selectable style={[styles.activeBadgeText, isNight && styles.darkActiveBadgeText]}>Aberto na mesa</Text>
                   </View>
                 ) : (
                   <Pressable hitSlop={6} onPress={handleSelectActive} style={[styles.inactiveBadge, isNight && styles.darkInactiveBadge]}>
+                    <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="arrow-up-circle-outline" size={13} />
                     <Text selectable style={[styles.inactiveBadgeText, isNight && styles.darkMutedText]}>Colocar na mesa</Text>
                   </Pressable>
                 )}
                 <Text selectable style={[styles.pageInfo, isNight && styles.darkSubtleText]}>
-                  {book.currentPage}/{book.totalPages} pág.
+                  {book.currentPage}/{book.totalPages} págs.
                 </Text>
               </View>
             )}
@@ -155,7 +156,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
             <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
           </View>
 
-          {/* Steppers rápidos se estiver lendo */}
+          {/* Ações rápidas */}
           {isReading && (
             <View style={styles.actionsRow}>
               <View style={styles.steppers}>
@@ -183,7 +184,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
                   onPress={handleComplete}
                   style={styles.finishBtn}
                 >
-                  <Ionicons color={colors.white} name="checkmark" size={14} />
+                  <Ionicons color={colors.white} name="checkmark" size={13} />
                   <Text style={styles.finishBtnText}>Concluir</Text>
                 </Pressable>
               ) : (
@@ -191,8 +192,8 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
                   onPress={handleOpenDetails}
                   style={styles.detailsPill}
                 >
-                  <Text style={[styles.detailsPillText, isNight && styles.darkMutedText]}>Editar notas</Text>
-                  <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="chevron-forward" size={12} />
+                  <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="document-text-outline" size={13} />
+                  <Text style={[styles.detailsPillText, isNight && styles.darkMutedText]}>Diário & notas</Text>
                 </Pressable>
               )}
             </View>
@@ -300,30 +301,27 @@ const styles = StyleSheet.create({
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
-    backgroundColor: '#EBE2D5',
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.terracotta,
+    backgroundColor: 'rgba(185, 95, 59, 0.08)',
   },
   activeBadgeText: {
-    color: colors.ink,
+    color: colors.terracotta,
     fontSize: 11,
     fontWeight: '700',
   },
   inactiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
-    backgroundColor: colors.cream,
+    backgroundColor: 'rgba(53, 42, 36, 0.04)',
   },
   inactiveBadgeText: {
     color: colors.muted,
@@ -336,7 +334,7 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
     backgroundColor: colors.sageSoft,
   },
@@ -368,14 +366,14 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   progressBarBg: {
-    height: 5,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: colors.line,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
     backgroundColor: colors.terracotta,
   },
   actionsRow: {
@@ -391,18 +389,22 @@ const styles = StyleSheet.create({
   },
   stepBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 7,
+    paddingVertical: 4,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
-    backgroundColor: colors.sageSoft,
+    backgroundColor: '#EDE5D8',
+    borderWidth: 1,
+    borderColor: 'rgba(53, 42, 36, 0.06)',
   },
   stepBtnPressed: {
-    opacity: 0.7,
+    opacity: 0.65,
+    transform: [{ scale: 0.96 }],
   },
   stepBtnText: {
     color: colors.ink,
     fontSize: 12,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   finishBtn: {
     flexDirection: 'row',
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 7,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
     backgroundColor: colors.terracotta,
   },
@@ -422,9 +424,10 @@ const styles = StyleSheet.create({
   detailsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: radii.small,
   },
   detailsPillText: {
     color: colors.muted,

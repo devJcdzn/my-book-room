@@ -58,42 +58,53 @@ export default function BooksScreen() {
         </View>
       ) : (
         <>
-          {/* Barra de resumo */}
-          <View style={[styles.summaryBar, isNight && styles.darkSummaryBar]}>
+          {/* Ficha de resumo literário (Ex-Libris) */}
+          <View style={[styles.summaryCard, isNight && styles.darkSummaryCard]}>
             <View style={styles.summaryStat}>
-              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>{readingBooks.length}</Text>
-              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>na mesa</Text>
+              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>
+                {readingBooks.length}
+              </Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>
+                em leitura
+              </Text>
             </View>
             <View style={[styles.summaryDivider, isNight && styles.darkSummaryDivider]} />
             <View style={styles.summaryStat}>
-              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>{completedBooks.length}</Text>
-              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>concluídos</Text>
+              <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>
+                {completedBooks.length}
+              </Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>
+                concluídos
+              </Text>
             </View>
             <View style={[styles.summaryDivider, isNight && styles.darkSummaryDivider]} />
             <View style={styles.summaryStat}>
               <Text selectable style={[styles.summaryNumber, isNight && styles.darkTitle]}>
                 {books.reduce((sum, b) => sum + b.currentPage, 0)}
               </Text>
-              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>pág. lidas</Text>
+              <Text selectable style={[styles.summaryLabel, isNight && styles.darkMutedText]}>
+                páginas lidas
+              </Text>
             </View>
           </View>
 
-          {/* Filtros em chips */}
-          <View style={styles.filterRow}>
+          {/* Seletor de estante refinado */}
+          <View style={[styles.shelfSelector, isNight && styles.darkShelfSelector]}>
             <Pressable
               accessibilityRole="button"
               onPress={() => handleFilterChange('all')}
               style={[
-                styles.filterChip,
-                isNight && styles.darkFilterChip,
-                filter === 'all' && styles.filterChipActive,
+                styles.shelfTab,
+                filter === 'all' && (isNight ? styles.shelfTabActiveNight : styles.shelfTabActive),
               ]}
             >
-              <Text style={[
-                styles.filterText,
-                isNight && styles.darkFilterText,
-                filter === 'all' && styles.filterTextActive,
-              ]}>
+              <Text
+                style={[
+                  styles.shelfTabText,
+                  isNight && styles.darkMutedText,
+                  filter === 'all' && (isNight ? styles.shelfTabTextActiveNight : styles.shelfTabTextActive),
+                ]}
+              >
                 Todos ({books.length})
               </Text>
             </Pressable>
@@ -101,16 +112,17 @@ export default function BooksScreen() {
               accessibilityRole="button"
               onPress={() => handleFilterChange('reading')}
               style={[
-                styles.filterChip,
-                isNight && styles.darkFilterChip,
-                filter === 'reading' && styles.filterChipActive,
+                styles.shelfTab,
+                filter === 'reading' && (isNight ? styles.shelfTabActiveNight : styles.shelfTabActive),
               ]}
             >
-              <Text style={[
-                styles.filterText,
-                isNight && styles.darkFilterText,
-                filter === 'reading' && styles.filterTextActive,
-              ]}>
+              <Text
+                style={[
+                  styles.shelfTabText,
+                  isNight && styles.darkMutedText,
+                  filter === 'reading' && (isNight ? styles.shelfTabTextActiveNight : styles.shelfTabTextActive),
+                ]}
+              >
                 Na mesa ({readingBooks.length})
               </Text>
             </Pressable>
@@ -118,16 +130,17 @@ export default function BooksScreen() {
               accessibilityRole="button"
               onPress={() => handleFilterChange('completed')}
               style={[
-                styles.filterChip,
-                isNight && styles.darkFilterChip,
-                filter === 'completed' && styles.filterChipActive,
+                styles.shelfTab,
+                filter === 'completed' && (isNight ? styles.shelfTabActiveNight : styles.shelfTabActive),
               ]}
             >
-              <Text style={[
-                styles.filterText,
-                isNight && styles.darkFilterText,
-                filter === 'completed' && styles.filterTextActive,
-              ]}>
+              <Text
+                style={[
+                  styles.shelfTabText,
+                  isNight && styles.darkMutedText,
+                  filter === 'completed' && (isNight ? styles.shelfTabTextActiveNight : styles.shelfTabTextActive),
+                ]}
+              >
                 Concluídos ({completedBooks.length})
               </Text>
             </Pressable>
@@ -231,78 +244,90 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
   },
-  summaryBar: {
+  summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: radii.medium,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: radii.large,
     borderCurve: 'continuous',
-    backgroundColor: colors.sageSoft,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.line,
+    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.04)',
   },
-  darkSummaryBar: {
+  darkSummaryCard: {
     backgroundColor: darkTheme.surface,
     borderColor: darkTheme.border,
-    borderWidth: 1,
   },
   summaryStat: {
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   summaryNumber: {
     color: colors.ink,
     fontFamily: 'Georgia',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   summaryLabel: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   summaryDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: '#B9C2AB',
+    height: 28,
+    backgroundColor: colors.line,
   },
   darkSummaryDivider: {
     backgroundColor: darkTheme.border,
   },
-  filterRow: {
+  shelfSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 2,
-  },
-  filterChip: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 20,
+    padding: 3,
+    borderRadius: radii.medium,
     borderCurve: 'continuous',
-    backgroundColor: colors.paper,
+    backgroundColor: '#EDE5D8',
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: 'rgba(53, 42, 36, 0.06)',
   },
-  darkFilterChip: {
-    backgroundColor: darkTheme.surface,
+  darkShelfSelector: {
+    backgroundColor: '#161824',
     borderColor: darkTheme.border,
   },
-  filterChipActive: {
-    backgroundColor: colors.terracotta,
-    borderColor: colors.terracotta,
+  shelfTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.small,
+    borderCurve: 'continuous',
   },
-  filterText: {
+  shelfTabActive: {
+    backgroundColor: colors.paper,
+    boxShadow: '0 1px 4px rgba(53, 42, 36, 0.08)',
+  },
+  shelfTabActiveNight: {
+    backgroundColor: '#262A3C',
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.3)',
+  },
+  shelfTabText: {
     color: colors.muted,
     fontSize: 13,
     fontWeight: '600',
   },
-  darkFilterText: {
-    color: darkTheme.textMuted,
+  shelfTabTextActive: {
+    color: colors.terracotta,
+    fontWeight: '700',
   },
-  filterTextActive: {
-    color: colors.white,
+  shelfTabTextActiveNight: {
+    color: '#FFAE70',
     fontWeight: '700',
   },
   bookList: {
