@@ -1,31 +1,191 @@
-import { StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import { IsometricScene } from '@/src/components/room/isometric-scene';
+import { useLibraryStore } from '@/src/store/library-store';
+import { colors } from '@/src/theme';
 
-export default function TabOneScreen() {
+const tapFeedback = () => {
+  if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+};
+
+export default function RoomScreen() {
+  const insets = useSafeAreaInsets();
+  const books = useLibraryStore((state) => state.books);
+  const activeBookId = useLibraryStore((state) => state.activeBookId);
+  const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
+
+  const activeBook = books.find((book) => book.id === activeBookId && book.status === 'reading')
+    ?? [...books].reverse().find((book) => book.status === 'reading');
+
+  const openProgress = (bookId: string) => {
+    tapFeedback();
+    router.push({ pathname: '/book-progress', params: { bookId } });
+  };
+
+  const selectBook = (bookId: string) => {
+    tapFeedback();
+    selectActiveBook(bookId);
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+    <View style={styles.screen}>
+      <IsometricScene
+        onAddBook={() => {
+          tapFeedback();
+          router.push('/add-book');
+        }}
+        onOpenBook={openProgress}
+        onSelectBook={selectBook}
+      />
+
+      {/* Botão flutuante nativo no topo direito para adicionar livro */}
+      <Pressable
+        accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
+        accessibilityLabel="Adicionar livro"
+        accessibilityRole="button"
+        hitSlop={8}
+        onPress={() => {
+          tapFeedback();
+          router.push('/add-book');
+        }}
+        style={({ pressed }) => [
+          styles.floatingAddBtn,
+          { top: insets.top + 10 },
+          pressed && styles.btnPressed,
+        ]}
+      >
+        <Ionicons color={colors.terracotta} name="add" size={25} />
+      </Pressable>
+
+      {/* Dica inicial se não houver livros */}
+      {books.length === 0 ? (
+        <Animated.View
+          entering={FadeIn.delay(350).duration(300)}
+          exiting={FadeOut.duration(180)}
+          pointerEvents="none"
+          style={styles.bottomHintWrap}
+        >
+          <Text selectable style={styles.hintPill}>
+            Toque no livro ou no + para começar sua sala
+          </Text>
+        </Animated.View>
+      ) : activeBook ? (
+        /* Card flutuante compacto com o livro aberto na mesa */
+        <Animated.View
+          entering={FadeIn.duration(260)}
+          exiting={FadeOut.duration(180)}
+          style={styles.activeBookWidgetWrap}
+        >
+          <Pressable
+            accessibilityHint="Abre o progresso do livro ativo"
+            accessibilityLabel={`Livro na mesa: ${activeBook.title}, página ${activeBook.currentPage} de ${activeBook.totalPages}`}
+            accessibilityRole="button"
+            onPress={() => openProgress(activeBook.id)}
+            style={({ pressed }) => [styles.activeWidget, pressed && styles.widgetPressed]}
+          >
+            <View style={[styles.widgetCover, { backgroundColor: activeBook.coverColor }]} />
+            <View style={styles.widgetInfo}>
+              <Text numberOfLines={1} style={styles.widgetTitle}>
+                {activeBook.title}
+              </Text>
+              <Text style={styles.widgetSub}>
+                pág. {activeBook.currentPage} de {activeBook.totalPages} · {Math.round((activeBook.currentPage / activeBook.totalPages) * 100)}%
+              </Text>
+            </View>
+            <Ionicons color={colors.terracotta} name="chevron-forward" size={18} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  screen: { flex: 1, backgroundColor: '#DFCBAF' },
+  floatingAddBtn: {
+    position: 'absolute',
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(255, 249, 240, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  btnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  bottomHintWrap: {
+    position: 'absolute',
+    right: 0,
+    bottom: 24,
+    left: 0,
+    alignItems: 'center',
+  },
+  hintPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    overflow: 'hidden',
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    backgroundColor: 'rgba(255, 249, 240, 0.92)',
+    boxShadow: '0 4px 12px rgba(53, 42, 36, 0.12)',
+  },
+  activeBookWidgetWrap: {
+    position: 'absolute',
+    bottom: 20,
+    left: 18,
+    right: 18,
+  },
+  activeWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    paddingRight: 14,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(255, 249, 240, 0.94)',
+    borderWidth: 1,
+    borderColor: colors.line,
+    boxShadow: '0 4px 14px rgba(53, 42, 36, 0.12)',
+  },
+  widgetPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
+  widgetCover: {
+    width: 26,
+    height: 38,
+    borderRadius: 3,
+    borderCurve: 'continuous',
+  },
+  widgetInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  widgetTitle: {
+    color: colors.ink,
+    fontFamily: 'Georgia',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  widgetSub: {
+    color: colors.muted,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
   },
 });
