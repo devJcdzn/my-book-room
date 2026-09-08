@@ -28,7 +28,7 @@ export default function RoomScreen() {
 
   const openProgress = (bookId: string) => {
     tapFeedback();
-    router.push({ pathname: '/book-progress', params: { bookId } });
+    router.navigate({ pathname: '/book-progress', params: { bookId } });
   };
 
   const selectBook = (bookId: string) => {
@@ -41,7 +41,7 @@ export default function RoomScreen() {
       <IsometricScene
         onAddBook={() => {
           tapFeedback();
-          router.push('/add-book');
+          router.navigate('/add-book');
         }}
         onOpenBook={openProgress}
         onSelectBook={selectBook}

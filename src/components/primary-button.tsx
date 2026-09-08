@@ -26,7 +26,7 @@ export function PrimaryButton({ label, loading = false, tone = 'primary', disabl
       ]}
     >
       {loading ? <ActivityIndicator color={colors.white} /> : (
-        <Text selectable style={[styles.label, secondary && styles.secondaryLabel]}>{label}</Text>
+        <Text style={[styles.label, secondary && styles.secondaryLabel]}>{label}</Text>
       )}
     </Pressable>
   );

@@ -5,11 +5,27 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AdditiveBlending, DoubleSide, type Group, type OrthographicCamera } from 'three';
+import { AdditiveBlending, DoubleSide, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
 
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
+
+setConsoleFunction?.((type, message, ...params) => {
+  if (
+    message.includes('Multiple instances of Three.js being imported') ||
+    message.includes('Clock: This module has been deprecated')
+  ) {
+    return;
+  }
+  if (type === 'warn') {
+    console.warn(message, ...params);
+  } else if (type === 'error') {
+    console.error(message, ...params);
+  } else {
+    console.log(message, ...params);
+  }
+});
 
 type Vector = [number, number, number];
 type SceneProps = {

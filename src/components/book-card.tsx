@@ -34,7 +34,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
 
   const handleOpenDetails = () => {
     triggerHaptic();
-    router.push({ pathname: '/book-progress', params: { bookId: book.id } });
+    router.navigate({ pathname: '/book-progress', params: { bookId: book.id } });
   };
 
   const handleStep = (delta: number) => {

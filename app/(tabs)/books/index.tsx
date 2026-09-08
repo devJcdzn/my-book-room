@@ -54,7 +54,7 @@ export default function BooksScreen() {
           <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
             Adicione um livro para acompanhar o progresso na mesa 3D e preencher sua sala.
           </Text>
-          <PrimaryButton label="Adicionar primeiro livro" onPress={() => router.push('/add-book')} />
+          <PrimaryButton label="Adicionar primeiro livro" onPress={() => router.navigate('/add-book')} />
         </View>
       ) : (
         <>
@@ -152,7 +152,7 @@ export default function BooksScreen() {
               tone="secondary"
               onPress={() => {
                 if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/add-book');
+                router.navigate('/add-book');
               }}
             />
           </View>
@@ -167,7 +167,7 @@ export default function BooksScreen() {
           icon="plus"
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/add-book');
+            router.navigate('/add-book');
           }}
           tintColor={isNight ? '#FFAE70' : colors.terracotta}
         />

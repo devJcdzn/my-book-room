@@ -1,11 +1,32 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
+import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
+
+LogBox.ignoreLogs([
+  'THREE.WARNING: Multiple instances of Three.js being imported.',
+  'THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.',
+  'Clock: This module has been deprecated. Please use THREE.Timer instead.',
+]);
+
+if (typeof __DEV__ !== 'undefined' && __DEV__) {
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const first = typeof args[0] === 'string' ? args[0] : '';
+    if (
+      first.includes('Multiple instances of Three.js being imported') ||
+      first.includes('Clock: This module has been deprecated')
+    ) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
 
 export const unstable_settings = { anchor: '(tabs)' };
 

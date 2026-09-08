@@ -45,10 +45,10 @@ export default function BooksLayout() {
               accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
               accessibilityLabel="Adicionar livro"
               accessibilityRole="button"
-              hitSlop={8}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => {
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/add-book');
+                router.navigate('/add-book');
               }}
               style={({ pressed }) => [
                 styles.headerAddBtn,
