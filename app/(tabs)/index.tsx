@@ -3,8 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BookCover } from '@/src/components/book-cover';
 import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
@@ -14,7 +14,6 @@ const tapFeedback = () => {
 };
 
 export default function RoomScreen() {
-  const insets = useSafeAreaInsets();
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
@@ -48,26 +47,6 @@ export default function RoomScreen() {
         onSelectBook={selectBook}
       />
 
-      {/* Botão flutuante nativo no topo direito para adicionar livro */}
-      <Pressable
-        accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
-        accessibilityLabel="Adicionar livro"
-        accessibilityRole="button"
-        hitSlop={8}
-        onPress={() => {
-          tapFeedback();
-          router.push('/add-book');
-        }}
-        style={({ pressed }) => [
-          styles.floatingAddBtn,
-          { top: insets.top + 10 },
-          isNight && styles.darkPill,
-          pressed && styles.btnPressed,
-        ]}
-      >
-        <Ionicons color={colors.terracotta} name="add" size={25} />
-      </Pressable>
-
       {/* Dica inicial se não houver livros */}
       {books.length === 0 ? (
         <Animated.View
@@ -98,7 +77,7 @@ export default function RoomScreen() {
               pressed && styles.widgetPressed,
             ]}
           >
-            <View style={[styles.widgetCover, { backgroundColor: activeBook.coverColor }]} />
+            <BookCover color={activeBook.coverColor} coverUrl={activeBook.coverUrl} style={styles.widgetCover} />
             <View style={styles.widgetInfo}>
               <Text numberOfLines={1} style={[styles.widgetTitle, isNight && styles.darkTitle]}>
                 {activeBook.title}
@@ -117,28 +96,10 @@ export default function RoomScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  floatingAddBtn: {
-    position: 'absolute',
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.line,
-    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
-  },
-  btnPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
-  },
   bottomHintWrap: {
     position: 'absolute',
     right: 0,
-    bottom: 24,
+    bottom: 104,
     left: 0,
     alignItems: 'center',
   },
@@ -161,7 +122,7 @@ const styles = StyleSheet.create({
   },
   activeBookWidgetWrap: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 100,
     left: 18,
     right: 18,
   },

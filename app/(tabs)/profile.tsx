@@ -51,7 +51,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   darkScreen: { backgroundColor: darkTheme.bg },
-  content: { gap: 22, padding: 22, paddingBottom: 40 },
+  content: { gap: 22, padding: 22, paddingBottom: 110 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   avatar: {
     width: 78,

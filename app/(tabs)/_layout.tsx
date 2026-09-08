@@ -1,50 +1,56 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Haptics from 'expo-haptics';
-import { router, Tabs } from 'expo-router';
-import { Pressable, StyleSheet } from 'react-native';
+import { Tabs } from 'expo-router';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { StyleSheet } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 
-function HeaderAddButton() {
-  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
-  const isNight = resolveAmbience(ambienceMode) === 'night';
-
-  return (
-    <Pressable
-      accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
-      accessibilityLabel="Adicionar livro"
-      accessibilityRole="button"
-      hitSlop={12}
-      onPress={() => {
-        if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push('/add-book');
-      }}
-      style={({ pressed }) => [styles.nativeHeaderBtn, isNight && styles.darkHeaderBtn, pressed && styles.nativeHeaderBtnPressed]}
-    >
-      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={28} />
-    </Pressable>
-  );
-}
-
 export default function TabLayout() {
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
 
+  if (process.env.EXPO_OS === 'ios') {
+    return (
+      <NativeTabs
+        backgroundColor={isNight ? '#181A26' : '#FAF5EF'}
+        blurEffect={isNight ? 'systemUltraThinMaterialDark' : 'systemUltraThinMaterialLight'}
+        tintColor={isNight ? '#FFAE70' : colors.terracotta}
+      >
+        <NativeTabs.Trigger disableAutomaticContentInsets name="index">
+          <NativeTabs.Trigger.Icon md="home" sf="house.fill" />
+          <NativeTabs.Trigger.Label>Ambiente</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="books">
+          <NativeTabs.Trigger.Icon md="auto_stories" sf="books.vertical.fill" />
+          <NativeTabs.Trigger.Label>Biblioteca</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile">
+          <NativeTabs.Trigger.Icon md="person" sf="person.crop.circle.fill" />
+          <NativeTabs.Trigger.Label>Perfil</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
+    );
+  }
+
   return (
     <Tabs
       screenOptions={{
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: isNight ? '#161824' : colors.paper },
-        headerTintColor: isNight ? '#F5E8D3' : colors.ink,
-        headerTitleStyle: { fontWeight: '700', fontSize: 18 },
-        sceneStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
-        tabBarActiveTintColor: isNight ? '#FFAE70' : colors.terracotta,
-        tabBarInactiveTintColor: isNight ? '#7C839C' : colors.muted,
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor: isNight ? '#161824' : colors.paper,
-          borderTopColor: isNight ? 'rgba(255, 255, 255, 0.08)' : colors.line,
+          backgroundColor: isNight ? '#181A26' : '#FAF5EF',
+          borderTopColor: isNight ? '#2C3044' : '#E8DFD1',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: 62,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarActiveTintColor: isNight ? '#FFAE70' : colors.terracotta,
+        tabBarInactiveTintColor: isNight ? '#9EA3B0' : colors.muted,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
         },
       }}
     >
@@ -52,42 +58,29 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Ambiente',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="home-outline" size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons color={color} name={focused ? 'home' : 'home-outline'} size={22} />
+          ),
         }}
       />
       <Tabs.Screen
         name="books"
         options={{
-          title: 'Minha Biblioteca',
-          tabBarLabel: 'Biblioteca',
-          headerTitle: 'Minha Biblioteca',
-          headerRight: () => <HeaderAddButton />,
-          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="library-outline" size={size} />,
+          title: 'Biblioteca',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons color={color} name={focused ? 'book' : 'book-outline'} size={22} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons color={color} name="person-outline" size={size} />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons color={color} name={focused ? 'person' : 'person-outline'} size={22} />
+          ),
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  nativeHeaderBtn: {
-    marginRight: 12,
-    padding: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nativeHeaderBtnPressed: {
-    opacity: 0.5,
-  },
-  darkHeaderBtn: {
-    opacity: 0.95,
-  },
-});

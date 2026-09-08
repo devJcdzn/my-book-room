@@ -3,7 +3,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdditiveBlending, DoubleSide, type Group, type OrthographicCamera } from 'three';
 
@@ -680,7 +680,7 @@ function RoomShell({
       {[-2.5, -1.25, 0, 1.25, 2.5].map((x) => (
         <mesh key={x} position={[x, 0.015, 0]}>
           <boxGeometry args={[0.025, 0.012, 7.1]} />
-          <meshBasicMaterial color="#97724C" />
+          <meshStandardMaterial color="#6B4B2F" roughness={0.95} />
         </mesh>
       ))}
 
@@ -711,7 +711,7 @@ function RoomShell({
       </mesh>
       <mesh position={[-0.15, 0.048, 0.92]}>
         <cylinderGeometry args={[1.24, 1.24, 0.012, 28]} />
-        <meshBasicMaterial color="#C77C61" />
+        <meshStandardMaterial color="#8A4637" roughness={1} />
       </mesh>
 
       {/* Mesa de estudo e leitura */}
@@ -745,7 +745,7 @@ function RoomShell({
       <group position={[-1.85, 1.9, -3.22]}>
         <mesh><boxGeometry args={[1.08, 0.76, 0.07]} /><meshStandardMaterial color="#956448" roughness={1} /></mesh>
         <mesh position={[0, 0, 0.05]}><boxGeometry args={[0.8, 0.49, 0.035]} /><meshStandardMaterial color="#F0DFBF" roughness={1} /></mesh>
-        <mesh position={[-0.12, -0.04, 0.075]} rotation={[0, 0, -0.5]}><boxGeometry args={[0.1, 0.43, 0.02]} /><meshBasicMaterial color="#78866B" /></mesh>
+        <mesh position={[-0.12, -0.04, 0.075]} rotation={[0, 0, -0.5]}><boxGeometry args={[0.1, 0.43, 0.02]} /><meshStandardMaterial color="#55664B" roughness={0.9} /></mesh>
       </group>
     </>
   );
@@ -951,8 +951,7 @@ export function IsometricScene(props: SceneProps) {
     far: 100,
   }), [baseZoom]);
 
-  const resolvedName = resolvedAmbience === 'night' ? 'Noite' : resolvedAmbience === 'sunset' ? 'Ocaso' : 'Dia';
-  const ambienceButtonLabel = ambienceMode === 'auto' ? `Auto (${resolvedName})` : AMBIENCE_META[ambienceMode].label;
+  const ambienceLabel = ambienceMode === 'auto' ? 'Automático' : AMBIENCE_META[ambienceMode].label;
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.bgColor }]} {...(panResponder?.panHandlers ?? {})}>
@@ -974,69 +973,86 @@ export function IsometricScene(props: SceneProps) {
         />
       </Canvas>
 
-      {/* Controles Flutuantes: Zoom, Ambiência (Dia / Pôr do Sol / Noite / Auto) e Restaurar */}
-      <View style={[styles.cameraControlsWrap, { top: insets.top + 10 }]}>
-        <View style={[styles.controlPill, isNight && styles.darkPill]}>
+      {/* Controles Flutuantes Superiores: Zoom, Ambiência, Restaurar e Adicionar Livro */}
+      <View style={[styles.cameraControlsWrap, { top: insets.top + (process.env.EXPO_OS === 'android' ? 12 : 8) }]}>
+        <View style={styles.controlsLeft}>
+          <View style={[styles.controlPill, isNight && styles.darkPill]}>
+            <Pressable
+              accessibilityLabel="Aumentar zoom"
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={handleZoomIn}
+              style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
+            >
+              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="add" size={18} />
+            </Pressable>
+
+            <View style={[styles.divider, isNight && styles.dividerDark]} />
+
+            <Pressable
+              accessibilityLabel="Diminuir zoom"
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={handleZoomOut}
+              style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
+            >
+              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="remove" size={18} />
+            </Pressable>
+          </View>
+
+          {/* Botão de Ambiência (ícone) */}
           <Pressable
-            accessibilityLabel="Aumentar zoom"
+            accessibilityHint="Altera a iluminação do quarto entre Dia, Pôr do Sol, Noite ou Automático"
+            accessibilityLabel={`Iluminação: ${ambienceLabel}`}
             accessibilityRole="button"
             hitSlop={6}
-            onPress={handleZoomIn}
-            style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-          >
-            <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="add" size={18} />
-          </Pressable>
-
-          <View style={[styles.divider, isNight && styles.dividerDark]} />
-
-          <Pressable
-            accessibilityLabel="Diminuir zoom"
-            accessibilityRole="button"
-            hitSlop={6}
-            onPress={handleZoomOut}
-            style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-          >
-            <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="remove" size={18} />
-          </Pressable>
-        </View>
-
-        {/* Botão de Ambiência com indicador do período ativo */}
-        <Pressable
-          accessibilityHint="Altera a iluminação do quarto entre Dia, Pôr do Sol, Noite ou Automático"
-          accessibilityLabel={`Iluminação: ${ambienceButtonLabel}`}
-          accessibilityRole="button"
-          hitSlop={6}
-          onPress={handleCycleAmbience}
-          style={({ pressed }) => [
-            styles.ambienceBtn,
-            isNight && styles.darkPill,
-            pressed && styles.btnPressed,
-          ]}
-        >
-          <Ionicons
-            color={isNight && ambienceMode === 'night' ? '#FFAE70' : AMBIENCE_META[ambienceMode].color}
-            name={ambienceMode === 'auto' ? (resolvedAmbience === 'night' ? 'moon' : resolvedAmbience === 'sunset' ? 'partly-sunny' : 'sunny') : AMBIENCE_META[ambienceMode].icon}
-            size={16}
-          />
-          <Text style={[styles.ambienceText, isNight && styles.darkText]}>
-            {ambienceButtonLabel}
-          </Text>
-        </Pressable>
-
-        {hasModified ? (
-          <Pressable
-            accessibilityLabel="Recentralizar câmera e rotação"
-            accessibilityRole="button"
-            hitSlop={6}
-            onPress={resetCamera}
+            onPress={handleCycleAmbience}
             style={({ pressed }) => [
-              styles.resetBtn,
+              styles.iconPillBtn,
               isNight && styles.darkPill,
               pressed && styles.btnPressed,
             ]}
           >
-            <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="refresh" size={14} />
-            <Text style={[styles.resetText, isNight && styles.darkText]}>Restaurar</Text>
+            <Ionicons
+              color={isNight && ambienceMode === 'night' ? '#FFAE70' : AMBIENCE_META[ambienceMode].color}
+              name={ambienceMode === 'auto' ? (resolvedAmbience === 'night' ? 'moon' : resolvedAmbience === 'sunset' ? 'partly-sunny' : 'sunny') : AMBIENCE_META[ambienceMode].icon}
+              size={18}
+            />
+          </Pressable>
+
+          {/* Botão Restaurar */}
+          {hasModified ? (
+            <Pressable
+              accessibilityLabel="Recentralizar câmera e rotação"
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={resetCamera}
+              style={({ pressed }) => [
+                styles.iconPillBtn,
+                isNight && styles.darkPill,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="refresh" size={17} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Botão Adicionar Livro no Topo Direito */}
+        {props.onAddBook ? (
+          <Pressable
+            accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
+            accessibilityLabel="Adicionar livro"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={props.onAddBook}
+            style={({ pressed }) => [
+              styles.iconPillBtn,
+              isNight && styles.darkPill,
+              pressed && styles.btnPressed,
+            ]}
+          >
+            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
           </Pressable>
         ) : null}
       </View>
@@ -1055,6 +1071,13 @@ const styles = StyleSheet.create({
   cameraControlsWrap: {
     position: 'absolute',
     left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    pointerEvents: 'box-none',
+  },
+  controlsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -1081,49 +1104,22 @@ const styles = StyleSheet.create({
     height: 18,
     backgroundColor: colors.line,
   },
-  ambienceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
+  iconPillBtn: {
+    width: 36,
     height: 36,
     borderRadius: 18,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(255, 249, 240, 0.94)',
     borderWidth: 1,
     borderColor: colors.line,
-    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
-  },
-  ambienceText: {
-    color: colors.ink,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  resetBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    height: 36,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
-    borderWidth: 1,
-    borderColor: colors.line,
+    justifyContent: 'center',
     boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
-  },
-  resetText: {
-    color: colors.ink,
-    fontSize: 12,
-    fontWeight: '700',
   },
   darkPill: {
     backgroundColor: 'rgba(26, 28, 40, 0.94)',
     borderColor: 'rgba(255, 255, 255, 0.12)',
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.45)',
-  },
-  darkText: {
-    color: '#F5E8D3',
   },
   dividerDark: {
     backgroundColor: 'rgba(255, 255, 255, 0.14)',

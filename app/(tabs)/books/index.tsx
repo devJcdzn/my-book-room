@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -35,13 +35,14 @@ export default function BooksScreen() {
   };
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator
-      style={[styles.screen, isNight && styles.darkScreen]}
-    >
+    <>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+        style={[styles.screen, isNight && styles.darkScreen]}
+      >
       {books.length === 0 ? (
         <View style={[styles.emptyState, isNight && styles.darkEmptyState]}>
           <View style={[styles.emptyIcon, isNight && styles.darkEmptyIcon]}>
@@ -158,6 +159,21 @@ export default function BooksScreen() {
         </>
       )}
     </ScrollView>
+    {process.env.EXPO_OS === 'ios' && (
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
+          accessibilityLabel="Adicionar livro"
+          icon="plus"
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/add-book');
+          }}
+          tintColor={isNight ? '#FFAE70' : colors.terracotta}
+        />
+      </Stack.Toolbar>
+    )}
+  </>
   );
 }
 

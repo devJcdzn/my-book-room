@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { BookCover } from '@/src/components/book-cover';
 import { PrimaryButton } from '@/src/components/primary-button';
 import { ProgressEditor } from '@/src/components/progress-editor';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
@@ -69,9 +70,9 @@ export default function BookProgressSheet() {
     >
       {/* Cabeçalho do livro */}
       <View style={styles.bookHeading}>
-        <View style={[styles.bookColor, { backgroundColor: book.coverColor }]}>
+        <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.bookColor}>
           <View style={styles.bookSpineLine} />
-        </View>
+        </BookCover>
         <View style={styles.bookInfo}>
           <Text selectable numberOfLines={2} style={[styles.title, isNight && styles.darkTitle]}>{book.title}</Text>
           <Text selectable style={[styles.author, isNight && styles.darkMutedText]}>{book.author}</Text>
@@ -141,7 +142,7 @@ export default function BookProgressSheet() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.paper },
+  screen: { flex: 1, width: '100%', minHeight: '100%', backgroundColor: colors.paper },
   darkScreen: { backgroundColor: darkTheme.bg },
   content: { gap: 20, padding: 20, paddingBottom: 48 },
   bookHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },

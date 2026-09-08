@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 
-import { mockBooks } from '@/src/data/mock-books';
-import type { Book } from '@/src/types/book';
+import type { Book, BookSearchResult } from '@/src/types/book';
 
 export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
 
@@ -14,8 +13,9 @@ type LibraryState = {
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
-  addBook: (bookId: string) => void;
+  addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
+  updateBookCoverColor: (bookId: string, color: string) => void;
   removeBook: (bookId: string) => void;
   selectActiveBook: (bookId: string) => void;
   updateProgress: (bookId: string, currentPage: number) => void;
@@ -26,6 +26,16 @@ type LibraryState = {
 
 const clampPage = (page: number, total: number) =>
   Math.min(total, Math.max(0, Math.round(page)));
+
+const BOOK_COLORS = ['#B95F3B', '#4F7480', '#6D7657', '#6A4D61', '#C58A3C', '#2E4057'];
+
+export const deriveBookColor = (workKey: string) => {
+  let hash = 0;
+  for (let index = 0; index < workKey.length; index += 1) {
+    hash = ((hash << 5) - hash + workKey.charCodeAt(index)) | 0;
+  }
+  return BOOK_COLORS[Math.abs(hash) % BOOK_COLORS.length];
+};
 
 const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
   auto: 'day',
@@ -43,29 +53,53 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   setAmbienceMode: (mode) => set({ ambienceMode: mode }),
   cycleAmbienceMode: () => set((state) => ({ ambienceMode: NEXT_AMBIENCE[state.ambienceMode] })),
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
-  addBook: (bookId) => set((state) => {
-    if (state.books.some((book) => book.id === bookId)) return state;
-    const catalogBook = mockBooks.find((book) => book.id === bookId);
-    if (!catalogBook) return state;
+  addOpenLibraryBook: (result) => set((state) => {
+    if (state.books.some((book) => book.id === result.workKey)) return state;
+    if (!result.title.trim() || !Number.isInteger(result.totalPages) || result.totalPages < 1 || result.totalPages > 99_999) return state;
+    const newBook: Book = {
+      id: result.workKey,
+      source: 'open-library',
+      openLibraryWorkKey: result.workKey,
+      openLibraryEditionKey: result.editionKey,
+      coverId: result.coverId,
+      coverUrl: result.coverUrl,
+      isbn: result.isbn,
+      firstPublishYear: result.firstPublishYear,
+      title: result.title.trim(),
+      author: result.author.trim() || 'Autor desconhecido',
+      coverColor: deriveBookColor(result.workKey),
+      totalPages: result.totalPages,
+      currentPage: 0,
+      status: 'reading',
+    };
     return {
-      activeBookId: bookId,
-      books: [...state.books, { ...catalogBook, currentPage: 0, status: 'reading' }],
+      activeBookId: result.workKey,
+      books: [...state.books, newBook],
     };
   }),
   addCustomBook: (bookData) => set((state) => {
+    if (!bookData.title.trim() || !Number.isInteger(bookData.totalPages)
+      || bookData.totalPages < 1 || bookData.totalPages > 99_999) return state;
     const id = `custom-${Date.now()}`;
     const newBook: Book = {
       id,
+      source: 'manual',
       title: bookData.title.trim(),
       author: bookData.author.trim() || 'Autor desconhecido',
       coverColor: bookData.coverColor || '#B95F3B',
-      totalPages: Math.max(1, Math.round(bookData.totalPages)),
+      totalPages: bookData.totalPages,
       currentPage: 0,
       status: 'reading',
     };
     return {
       activeBookId: id,
       books: [...state.books, newBook],
+    };
+  }),
+  updateBookCoverColor: (bookId, color) => set((state) => {
+    if (!/^#[0-9A-F]{6}$/i.test(color)) return state;
+    return {
+      books: state.books.map((book) => book.id === bookId ? { ...book, coverColor: color } : book),
     };
   }),
   removeBook: (bookId) => set((state) => {

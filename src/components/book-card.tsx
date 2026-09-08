@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 
+import { BookCover } from '@/src/components/book-cover';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii } from '@/src/theme';
@@ -87,12 +88,11 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
         onPress={handleOpenDetails}
         style={({ pressed }) => [styles.card, isNight && styles.darkCard, pressed && styles.cardPressed]}
       >
-        {/* Capa 3D estilizada */}
-        <View style={[styles.coverContainer, { backgroundColor: book.coverColor }]}>
+        <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.coverContainer}>
           <View style={styles.coverSpineShade} />
           <View style={styles.coverPageEdge} />
           <View style={styles.coverBookmark} />
-        </View>
+        </BookCover>
 
         {/* Informações centrais */}
         <View style={styles.content}>

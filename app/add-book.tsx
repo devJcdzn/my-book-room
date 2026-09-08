@@ -2,13 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { BookCover } from '@/src/components/book-cover';
 import { PrimaryButton } from '@/src/components/primary-button';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
-import { mockBooks } from '@/src/data/mock-books';
-import { useLibraryStore } from '@/src/store/library-store';
+import { useBookSearch } from '@/src/hooks/use-book-search';
+import { extractCoverColor } from '@/src/services/cover-color';
+import { deriveBookColor, useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii } from '@/src/theme';
+import type { BookSearchResult } from '@/src/types/book';
 
 const PALETTE = [
   '#B95F3B', // Terracotta
@@ -19,81 +22,166 @@ const PALETTE = [
   '#2E4057', // Azul petróleo profundo
 ];
 
-const normalize = (value: string) =>
-  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
-
 export default function AddBookScreen() {
   const [query, setQuery] = useState('');
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [pendingResult, setPendingResult] = useState<BookSearchResult>();
 
-  // Campos do livro personalizado
+  // Campos do formulário manual
   const [customTitle, setCustomTitle] = useState('');
   const [customAuthor, setCustomAuthor] = useState('');
-  const [customPages, setCustomPages] = useState('200');
+  const [customPages, setCustomPages] = useState('');
   const [customColor, setCustomColor] = useState(PALETTE[0]);
 
   const books = useLibraryStore((state) => state.books);
-  const addBook = useLibraryStore((state) => state.addBook);
+  const addOpenLibraryBook = useLibraryStore((state) => state.addOpenLibraryBook);
   const addCustomBook = useLibraryStore((state) => state.addCustomBook);
+  const updateBookCoverColor = useLibraryStore((state) => state.updateBookCoverColor);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
 
+  const { error, hasMore, loadMore, loadMoreError, results, retry, status } = useBookSearch(query);
+
   const addedIds = useMemo(() => new Set(books.map((book) => book.id)), [books]);
+  const parsedPages = Number(customPages);
+  const validPages = Number.isInteger(parsedPages) && parsedPages >= 1 && parsedPages <= 99_999;
 
-  const filtered = useMemo(() => {
-    const value = normalize(query.trim());
-    return value ? mockBooks.filter((book) => normalize(`${book.title} ${book.author}`).includes(value)) : mockBooks;
-  }, [query]);
+  const updateCoverColor = (book: BookSearchResult) => {
+    if (!book.coverUrl) return;
+    void extractCoverColor(book.coverUrl).then((color) => {
+      if (color) updateBookCoverColor(book.workKey, color);
+    });
+  };
 
-  const selectCatalogBook = (bookId: string) => {
-    if (addedIds.has(bookId)) return;
-    addBook(bookId);
+  const selectCatalogBook = (book: BookSearchResult) => {
+    if (addedIds.has(book.workKey)) return;
+    if (!book.totalPages) {
+      setPendingResult(book);
+      setCustomTitle(book.title);
+      setCustomAuthor(book.author === 'Autor desconhecido' ? '' : book.author);
+      setCustomPages('');
+      setCustomColor(deriveBookColor(book.workKey));
+      setShowCustomForm(true);
+      return;
+    }
+    addOpenLibraryBook({ ...book, totalPages: book.totalPages });
+    updateCoverColor(book);
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
 
   const handleCreateCustom = () => {
-    if (!customTitle.trim()) return;
-    const pages = Number(customPages.replace(/\D/g, '')) || 150;
-    addCustomBook({
-      title: customTitle.trim(),
-      author: customAuthor.trim() || 'Autor desconhecido',
-      coverColor: customColor,
-      totalPages: pages,
-    });
+    if (!customTitle.trim() || !validPages) return;
+    if (pendingResult) {
+      addOpenLibraryBook({
+        ...pendingResult,
+        title: customTitle.trim(),
+        author: customAuthor.trim() || 'Autor desconhecido',
+        totalPages: parsedPages,
+      });
+      updateCoverColor(pendingResult);
+    } else {
+      addCustomBook({
+        title: customTitle.trim(),
+        author: customAuthor.trim() || 'Autor desconhecido',
+        coverColor: customColor,
+        totalPages: parsedPages,
+      });
+    }
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
 
   const startCustomWithQuery = () => {
+    setPendingResult(undefined);
     setCustomTitle(query.trim());
+    setCustomAuthor('');
+    setCustomPages('');
     setShowCustomForm(true);
   };
+
+  const isSearching = Boolean(query.trim());
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
       style={[styles.screen, isNight && styles.darkScreen]}
     >
-      {/* Alternador entre Catálogo e Criar */}
+      {/* Header do Sheet com contraste alto garantido */}
+      <View style={styles.sheetHeader}>
+        <View style={styles.sheetHeaderTitles}>
+          <Text selectable style={[styles.sheetTitle, isNight && styles.darkSheetTitle]}>
+            Adicionar livro
+          </Text>
+          <Text selectable style={[styles.sheetSubtitle, isNight && styles.darkSheetSubtitle]}>
+            {showCustomForm
+              ? 'Preencha os dados da obra para sua mesa'
+              : 'Selecione uma obra ou busque no acervo'}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityHint="Fecha o formulário"
+          accessibilityLabel="Fechar"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.closeBtn,
+            isNight && styles.darkCloseBtn,
+            pressed && styles.closeBtnPressed,
+          ]}
+        >
+          <Ionicons color={isNight ? '#FAF4EB' : colors.ink} name="close" size={20} />
+        </Pressable>
+      </View>
+
+      {/* Alternador entre Catálogo e Manual */}
       <View style={[styles.tabToggleRow, isNight && styles.darkTabToggleRow]}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => setShowCustomForm(false)}
-          style={[styles.toggleBtn, !showCustomForm && styles.toggleBtnActive]}
+          onPress={() => {
+            if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCustomForm(false);
+          }}
+          style={[
+            styles.toggleBtn,
+            !showCustomForm && (isNight ? styles.toggleBtnActiveNight : styles.toggleBtnActive),
+          ]}
         >
-          <Text style={[styles.toggleBtnText, !showCustomForm ? styles.toggleBtnTextActive : (isNight && styles.darkMutedText)]}>
-            Catálogo sugerido
+          <Text
+            style={[
+              styles.toggleBtnText,
+              !showCustomForm
+                ? (isNight ? styles.toggleBtnTextActiveNight : styles.toggleBtnTextActive)
+                : (isNight ? styles.darkMutedText : null),
+            ]}
+          >
+            Catálogo e busca
           </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          onPress={() => setShowCustomForm(true)}
-          style={[styles.toggleBtn, showCustomForm && styles.toggleBtnActive]}
+          onPress={() => {
+            if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setPendingResult(undefined);
+            setShowCustomForm(true);
+          }}
+          style={[
+            styles.toggleBtn,
+            showCustomForm && (isNight ? styles.toggleBtnActiveNight : styles.toggleBtnActive),
+          ]}
         >
-          <Text style={[styles.toggleBtnText, showCustomForm ? styles.toggleBtnTextActive : (isNight && styles.darkMutedText)]}>
+          <Text
+            style={[
+              styles.toggleBtnText,
+              showCustomForm
+                ? (isNight ? styles.toggleBtnTextActiveNight : styles.toggleBtnTextActive)
+                : (isNight ? styles.darkMutedText : null),
+            ]}
+          >
             Criar manualmente
           </Text>
         </Pressable>
@@ -103,11 +191,13 @@ export default function AddBookScreen() {
         /* Formulário de criação personalizada */
         <View style={[styles.formContainer, isNight && styles.darkCard]}>
           <Text selectable style={[styles.formSectionTitle, isNight && styles.darkTitle]}>
-            Novo livro para sua mesa
+            Personalizar livro na mesa
           </Text>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Título da obra *</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>
+              Título da obra *
+            </Text>
             <TextInput
               autoCapitalize="sentences"
               onChangeText={setCustomTitle}
@@ -119,7 +209,9 @@ export default function AddBookScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Autor(a)</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>
+              Autor(a)
+            </Text>
             <TextInput
               autoCapitalize="words"
               onChangeText={setCustomAuthor}
@@ -131,7 +223,9 @@ export default function AddBookScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Número total de páginas</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>
+              Número total de páginas *
+            </Text>
             <TextInput
               keyboardType="number-pad"
               maxLength={5}
@@ -144,7 +238,9 @@ export default function AddBookScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>Cor da capa 3D</Text>
+            <Text selectable style={[styles.label, isNight && styles.darkLabel]}>
+              Cor da capa 3D
+            </Text>
             <View style={styles.paletteRow}>
               {PALETTE.map((color) => {
                 const selected = customColor === color;
@@ -170,16 +266,17 @@ export default function AddBookScreen() {
             </View>
           </View>
 
+          {/* Pré-visualização do livro 3D */}
           <View style={[styles.previewBox, isNight && styles.darkPreviewBox]}>
             <View style={[styles.coverPreview, { backgroundColor: customColor }]}>
               <View style={styles.coverPreviewSpine} />
             </View>
             <View style={styles.previewInfo}>
               <Text numberOfLines={1} style={[styles.previewTitle, isNight && styles.darkTitle]}>
-                {customTitle.trim() || 'Título do livro'}
+                {customTitle.trim() || 'Título da obra'}
               </Text>
               <Text numberOfLines={1} style={[styles.previewAuthor, isNight && styles.darkMutedText]}>
-                {customAuthor.trim() || 'Nome do autor'}
+                {customAuthor.trim() || 'Autor(a)'}
               </Text>
               <Text style={[styles.previewPages, isNight && styles.darkPageCount]}>
                 {customPages ? `${customPages} páginas` : '0 páginas'}
@@ -188,18 +285,18 @@ export default function AddBookScreen() {
           </View>
 
           <PrimaryButton
-            disabled={!customTitle.trim()}
+            disabled={!customTitle.trim() || !validPages}
             label="Adicionar à Biblioteca"
             onPress={handleCreateCustom}
           />
         </View>
       ) : (
-        /* Busca no Catálogo */
+        /* Busca e Catálogo */
         <>
           <View style={[styles.searchWrap, isNight && styles.darkSearchWrap]}>
-            <Ionicons color={isNight ? darkTheme.textSubtle : colors.muted} name="search" size={20} />
+            <Ionicons color={isNight ? '#FFAE70' : colors.muted} name="search" size={20} />
             <TextInput
-              accessibilityLabel="Buscar por título ou autor"
+              accessibilityLabel="Buscar por título, autor ou ISBN"
               autoCapitalize="none"
               autoCorrect={false}
               clearButtonMode="while-editing"
@@ -210,31 +307,77 @@ export default function AddBookScreen() {
               style={[styles.searchInput, isNight && styles.darkSearchInput]}
               value={query}
             />
+            {status === 'loading' && query.trim().length >= 2 ? (
+              <ActivityIndicator color={isNight ? '#FFAE70' : colors.terracotta} size="small" />
+            ) : null}
           </View>
 
-          {filtered.length === 0 ? (
+          {/* Título da seção */}
+          <View style={styles.sectionHeaderRow}>
+            <Text selectable style={[styles.sectionTitle, isNight && styles.darkSectionTitle]}>
+              {isSearching ? `Resultados para "${query.trim()}"` : 'Tendências do dia'}
+            </Text>
+            {!isSearching ? (
+              <Text style={[styles.sectionBadge, isNight && styles.darkSectionBadge]}>
+                Catálogo online
+              </Text>
+            ) : null}
+          </View>
+
+          {status === 'loading' && results.length === 0 ? (
+            <View style={[styles.emptyState, isNight && styles.darkCard]}>
+              <ActivityIndicator color={isNight ? '#FFAE70' : colors.terracotta} />
+              <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
+                Carregando catálogo…
+              </Text>
+            </View>
+          ) : status === 'error' && results.length === 0 ? (
+            <View style={[styles.emptyState, isNight && styles.darkCard]}>
+              <Ionicons color={colors.sage} name="cloud-offline-outline" size={38} />
+              <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>
+                Catálogo online indisponível
+              </Text>
+              <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
+                {error}
+              </Text>
+              <PrimaryButton label="Tentar novamente" onPress={retry} />
+              <PrimaryButton label="Cadastrar manualmente" onPress={startCustomWithQuery} tone="secondary" />
+            </View>
+          ) : results.length === 0 && !isSearching ? (
             <View style={[styles.emptyState, isNight && styles.darkCard]}>
               <Ionicons color={colors.sage} name="book-outline" size={38} />
-              <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>Livro não encontrado no catálogo</Text>
               <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
-                Quer cadastrar &quot;{query}&quot; manualmente para sua mesa?
+                Nenhum livro disponível no momento.
+              </Text>
+            </View>
+          ) : results.length === 0 && isSearching && status !== 'loading' ? (
+            <View style={[styles.emptyState, isNight && styles.darkCard]}>
+              <Ionicons color={colors.sage} name="book-outline" size={38} />
+              <Text selectable style={[styles.emptyTitle, isNight && styles.darkTitle]}>
+                Nenhum resultado encontrado
+              </Text>
+              <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
+                Deseja cadastrar &quot;{query}&quot; manualmente para sua mesa?
               </Text>
               <PrimaryButton
-                label={`Criar "${query.slice(0, 20)}..."`}
+                label={`Criar "${query.slice(0, 22)}..."`}
                 onPress={startCustomWithQuery}
               />
             </View>
           ) : (
             <View style={styles.list}>
-              {filtered.map((book) => {
-                const added = addedIds.has(book.id);
+              {results.map((book) => {
+                const added = addedIds.has(book.workKey);
+                const bookColor = deriveBookColor(book.workKey);
+
                 return (
                   <Pressable
-                    key={book.id}
+                    key={book.workKey}
+                    accessibilityHint={added ? 'Livro já está na sua biblioteca' : 'Toque para adicionar à biblioteca'}
                     accessibilityRole="button"
                     accessibilityState={{ disabled: added }}
                     disabled={added}
-                    onPress={() => selectCatalogBook(book.id)}
+                    onPress={() => selectCatalogBook(book)}
                     style={({ pressed }) => [
                       styles.bookRow,
                       isNight && styles.darkCard,
@@ -242,26 +385,72 @@ export default function AddBookScreen() {
                       pressed && styles.pressed,
                     ]}
                   >
-                    <View style={[styles.cover, { backgroundColor: book.coverColor }]}>
-                      <View style={styles.coverPage} />
-                    </View>
+                    <BookCover color={bookColor} coverUrl={book.coverUrl} style={styles.cover}>
+                      <View style={styles.coverSpine} />
+                    </BookCover>
+
+                    {/* Informações da obra */}
                     <View style={styles.bookInfo}>
-                      <Text selectable numberOfLines={2} style={[styles.bookTitle, isNight && styles.darkTitle]}>
+                      <Text
+                        numberOfLines={2}
+                        selectable
+                        style={[styles.bookTitle, isNight && styles.darkTitle]}
+                      >
                         {book.title}
                       </Text>
-                      <Text selectable style={[styles.bookAuthor, isNight && styles.darkMutedText]}>{book.author}</Text>
-                      <Text selectable style={[styles.pageCount, isNight && styles.darkPageCount]}>{book.totalPages} páginas</Text>
+                      <Text
+                        numberOfLines={1}
+                        selectable
+                        style={[styles.bookAuthor, isNight && styles.darkMutedText]}
+                      >
+                        {book.author}
+                      </Text>
+                      <View style={styles.bookMetaRow}>
+                        <View style={[styles.pageBadge, isNight && styles.darkPageBadge]}>
+                          <Text
+                            selectable
+                            style={[styles.pageCount, isNight && styles.darkPageCount]}
+                          >
+                            {book.totalPages ? `${book.totalPages} páginas` : 'Páginas a definir'}
+                          </Text>
+                        </View>
+                        {book.firstPublishYear ? (
+                          <Text style={[styles.yearText, isNight && styles.darkMutedText]}>
+                            {book.firstPublishYear}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
+
+                    {/* Ação / Status */}
                     {added ? (
                       <View style={[styles.addedMark, isNight && styles.darkAddedMark]}>
-                        <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark" size={18} />
+                        <Ionicons color={isNight ? '#78C296' : colors.sage} name="checkmark" size={16} />
+                        <Text style={[styles.addedText, isNight && styles.darkAddedText]}>Na mesa</Text>
                       </View>
                     ) : (
-                      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add-circle-outline" size={26} />
+                      <View style={[styles.addBtn, isNight && styles.darkAddBtn]}>
+                        <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={18} />
+                      </View>
                     )}
                   </Pressable>
                 );
               })}
+
+              {loadMoreError ? (
+                <Text selectable style={[styles.emptyText, isNight && styles.darkMutedText]}>
+                  {loadMoreError}
+                </Text>
+              ) : null}
+
+              {hasMore ? (
+                <PrimaryButton
+                  label="Carregar mais resultados"
+                  loading={status === 'loadingMore'}
+                  onPress={loadMore}
+                  tone="secondary"
+                />
+              ) : null}
             </View>
           )}
         </>
@@ -271,9 +460,62 @@ export default function AddBookScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream },
-  darkScreen: { backgroundColor: darkTheme.bg },
-  content: { gap: 16, padding: 16, paddingBottom: 48 },
+  screen: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    backgroundColor: colors.cream,
+  },
+  darkScreen: {
+    backgroundColor: darkTheme.bg,
+  },
+  content: {
+    gap: 16,
+    padding: 18,
+    paddingBottom: 48,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    marginTop: 4,
+  },
+  sheetHeaderTitles: {
+    flex: 1,
+    gap: 2,
+  },
+  sheetTitle: {
+    fontFamily: 'Georgia',
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  darkSheetTitle: {
+    color: '#FAF4EB',
+  },
+  sheetSubtitle: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  darkSheetSubtitle: {
+    color: '#9EA3B0',
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkCloseBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  closeBtnPressed: {
+    opacity: 0.6,
+    transform: [{ scale: 0.94 }],
+  },
   tabToggleRow: {
     flexDirection: 'row',
     backgroundColor: colors.paper,
@@ -297,6 +539,9 @@ const styles = StyleSheet.create({
   toggleBtnActive: {
     backgroundColor: colors.terracotta,
   },
+  toggleBtnActiveNight: {
+    backgroundColor: '#FFAE70',
+  },
   toggleBtnText: {
     color: colors.muted,
     fontSize: 14,
@@ -304,6 +549,10 @@ const styles = StyleSheet.create({
   },
   toggleBtnTextActive: {
     color: colors.white,
+    fontWeight: '700',
+  },
+  toggleBtnTextActiveNight: {
+    color: '#131520',
     fontWeight: '700',
   },
   searchWrap: {
@@ -322,11 +571,49 @@ const styles = StyleSheet.create({
     backgroundColor: darkTheme.surface,
     borderColor: darkTheme.border,
   },
-  searchInput: { flex: 1, minHeight: 48, color: colors.ink, fontSize: 16 },
-  darkSearchInput: { color: darkTheme.text },
-  list: { gap: 10 },
+  searchInput: {
+    flex: 1,
+    minHeight: 48,
+    color: colors.ink,
+    fontSize: 15,
+  },
+  darkSearchInput: {
+    color: darkTheme.text,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    marginTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  darkSectionTitle: {
+    color: '#FAF4EB',
+  },
+  sectionBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.terracotta,
+    backgroundColor: 'rgba(185, 95, 59, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  darkSectionBadge: {
+    color: '#FFAE70',
+    backgroundColor: 'rgba(255, 174, 112, 0.12)',
+  },
+  list: {
+    gap: 10,
+  },
   bookRow: {
-    minHeight: 90,
+    minHeight: 88,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -338,37 +625,108 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     boxShadow: '0 2px 6px rgba(53, 42, 36, 0.04)',
   },
-  bookRowDisabled: { opacity: 0.55 },
-  pressed: { opacity: 0.72 },
+  bookRowDisabled: {
+    opacity: 0.62,
+  },
+  pressed: {
+    opacity: 0.75,
+  },
   cover: {
     width: 44,
     height: 64,
-    justifyContent: 'center',
     borderRadius: 4,
     borderCurve: 'continuous',
-    boxShadow: '0 3px 6px rgba(53, 42, 36, 0.14)',
-  },
-  coverPage: { width: 3, height: 50, marginLeft: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)' },
-  bookInfo: { flex: 1, gap: 2 },
-  bookTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 16, lineHeight: 20, fontWeight: '700' },
-  bookAuthor: { color: colors.muted, fontSize: 13 },
-  pageCount: { color: colors.sage, fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  addedMark: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    boxShadow: '0 3px 6px rgba(0, 0, 0, 0.14)',
+  },
+  coverSpine: {
+    width: 3,
+    height: 52,
+    marginLeft: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  bookInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  bookTitle: {
+    color: colors.ink,
+    fontFamily: 'Georgia',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  bookAuthor: {
+    color: colors.muted,
+    fontSize: 13,
+  },
+  bookMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  pageBadge: {
+    backgroundColor: colors.sageSoft,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  darkPageBadge: {
+    backgroundColor: 'rgba(255, 174, 112, 0.12)',
+  },
+  pageCount: {
+    color: colors.sage,
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  darkPageCount: {
+    color: '#FFAE70',
+  },
+  yearText: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  addedMark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
     borderCurve: 'continuous',
     backgroundColor: colors.sageSoft,
   },
   darkAddedMark: {
-    backgroundColor: 'rgba(120, 194, 150, 0.18)',
+    backgroundColor: 'rgba(120, 194, 150, 0.16)',
+  },
+  addedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.sage,
+  },
+  darkAddedText: {
+    color: '#78C296',
+  },
+  addBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(185, 95, 59, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkAddBtn: {
+    backgroundColor: 'rgba(255, 174, 112, 0.15)',
   },
   emptyState: {
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 44,
+    paddingVertical: 36,
     paddingHorizontal: 20,
     backgroundColor: colors.paper,
     borderRadius: radii.large,
@@ -376,8 +734,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  emptyTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 20, textAlign: 'center' },
-  emptyText: { color: colors.muted, fontSize: 14, textAlign: 'center', marginBottom: 6 },
+  emptyTitle: {
+    color: colors.ink,
+    fontFamily: 'Georgia',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  emptyText: {
+    color: colors.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
   formContainer: {
     gap: 16,
     padding: 18,
@@ -403,7 +771,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   darkLabel: {
-    color: darkTheme.textMuted,
+    color: '#FAF4EB',
   },
   textInput: {
     minHeight: 46,
@@ -491,12 +859,9 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
   },
   darkTitle: {
-    color: darkTheme.text,
+    color: '#FAF4EB',
   },
   darkMutedText: {
     color: darkTheme.textMuted,
-  },
-  darkPageCount: {
-    color: '#818CF8',
   },
 });
