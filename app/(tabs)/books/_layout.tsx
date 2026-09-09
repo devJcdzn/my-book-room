@@ -5,7 +5,7 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors } from '@/src/theme';
+import { colors, typography } from '@/src/theme';
 
 export default function BooksLayout() {
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
@@ -21,8 +21,8 @@ export default function BooksLayout() {
         headerTintColor: isNight ? '#FFAE70' : colors.terracotta,
         headerTitleStyle: {
           color: isNight ? '#FAF4EB' : colors.ink,
-          fontFamily: 'Georgia',
-          fontWeight: '700',
+          fontFamily: typography.editorial,
+          fontWeight: '600',
         },
         contentStyle: {
           backgroundColor: isNight ? '#131520' : colors.cream,
@@ -36,9 +36,9 @@ export default function BooksLayout() {
           headerLargeTitle: false,
           headerTitleStyle: {
             color: isNight ? '#FAF4EB' : colors.ink,
-            fontFamily: 'Georgia',
-            fontWeight: '700',
-            fontSize: 18,
+            fontFamily: typography.editorial,
+            fontWeight: '600',
+            fontSize: 19,
           },
           headerRight: process.env.EXPO_OS !== 'ios' ? () => (
             <Pressable

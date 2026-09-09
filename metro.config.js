@@ -3,6 +3,8 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+config.resolver.assetExts.push('glb');
+
 const originalResolveRequest = config.resolver.resolveRequest;
 
 // Deduplicate Three.js to prevent "Multiple instances of Three.js being imported"

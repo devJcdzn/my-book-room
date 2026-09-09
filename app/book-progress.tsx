@@ -8,12 +8,18 @@ import { PrimaryButton } from '@/src/components/primary-button';
 import { ProgressEditor } from '@/src/components/progress-editor';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii } from '@/src/theme';
+import { colors, darkTheme, radii, typography } from '@/src/theme';
 
 export default function BookProgressSheet() {
   const params = useLocalSearchParams<{ bookId?: string | string[] }>();
   const bookId = Array.isArray(params.bookId) ? params.bookId[0] : params.bookId;
-  const book = useLibraryStore((state) => state.books.find((item) => item.id === bookId));
+  const books = useLibraryStore((state) => state.books);
+  const activeBookId = useLibraryStore((state) => state.activeBookId);
+  const targetId = bookId ?? activeBookId;
+  const book = books.find((item) => item.id === targetId)
+    ?? books.find((item) => item.status === 'reading')
+    ?? books[0];
+
   const completingBookId = useLibraryStore((state) => state.completingBookId);
   const updateProgress = useLibraryStore((state) => state.updateProgress);
   const updateOpinion = useLibraryStore((state) => state.updateOpinion);
@@ -25,7 +31,7 @@ export default function BookProgressSheet() {
   if (!book) {
     return (
       <View style={[styles.unavailable, isNight && styles.darkScreen]}>
-        <Text selectable style={[styles.unavailableTitle, isNight && styles.darkTitle]}>Livro indisponível</Text>
+        <Text selectable style={[styles.unavailableTitle, isNight && styles.darkTitle]}>Nenhum livro selecionado</Text>
         <PrimaryButton label="Voltar ao ambiente" onPress={() => router.back()} />
       </View>
     );
@@ -65,95 +71,122 @@ export default function BookProgressSheet() {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
       style={[styles.screen, isNight && styles.darkScreen]}
     >
-      {/* Cabeçalho do livro */}
-      <View style={styles.bookHeading}>
-        <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.bookCover}>
-          <View style={styles.bookSpineLine} />
-        </BookCover>
-        <View style={styles.bookInfo}>
-          <Text selectable numberOfLines={2} style={[styles.title, isNight && styles.darkTitle]}>{book.title}</Text>
-          <Text selectable style={[styles.author, isNight && styles.darkMutedText]}>{book.author}</Text>
+        {/* Cabeçalho do livro com estética editorial */}
+        <View style={styles.bookHeading}>
+          <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.bookCover}>
+            <View style={styles.bookSpineLine} />
+          </BookCover>
+          <View style={styles.bookInfo}>
+            <Text selectable numberOfLines={2} style={[styles.title, isNight && styles.darkTitle]}>
+              {book.title}
+            </Text>
+            <Text selectable numberOfLines={1} style={[styles.author, isNight && styles.darkMutedText]}>
+              {book.author}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Fechar"
+            hitSlop={10}
+            onPress={() => router.back()}
+            style={[styles.closeBtn, isNight && styles.darkCloseBtn]}
+          >
+            <Ionicons color={isNight ? '#FAF4EB' : colors.ink} name="close" size={18} />
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityLabel="Fechar"
-          hitSlop={8}
-          onPress={() => router.back()}
-          style={[styles.closeBtn, isNight && styles.darkCloseBtn]}
-        >
-          <Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="close" size={20} />
+
+        {/* Editor de progresso */}
+        <View style={styles.section}>
+          <Text selectable style={[styles.sectionTitle, isNight && styles.darkSectionTitle]}>
+            Progresso de leitura
+          </Text>
+          <ProgressEditor
+            book={book}
+            completionLocked={Boolean(completingBookId)}
+            showIdentity={false}
+            onChangePage={(page) => updateProgress(book.id, page)}
+            onComplete={completeBook}
+          />
+        </View>
+
+        {/* Diário de Leitura & Anotações (Estilo Caderno Moleskine) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text selectable style={[styles.sectionTitle, isNight && styles.darkSectionTitle]}>
+              Diário & impressões
+            </Text>
+            {/* Avaliação em estrelas minimalista */}
+            <View accessibilityLabel="Avaliação por estrelas" style={styles.ratingRow}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <Pressable
+                  key={value}
+                  accessibilityLabel={`${value} ${value === 1 ? 'estrela' : 'estrelas'}`}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => handleRating(value)}
+                  style={styles.starTouch}
+                >
+                  <Ionicons
+                    color={
+                      value <= (book.rating ?? 0)
+                        ? (isNight ? '#FFAE70' : colors.terracotta)
+                        : (isNight ? '#353A4E' : '#D6CCC0')
+                    }
+                    name={value <= (book.rating ?? 0) ? 'star' : 'star-outline'}
+                    size={20}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Bloco de notas aconchegante */}
+          <View style={[styles.notesWrapper, isNight && styles.darkNotesWrapper]}>
+            <TextInput
+              accessibilityLabel={`Anotações sobre ${book.title}`}
+              multiline
+              onChangeText={(notes) => updateOpinion(book.id, { notes })}
+              placeholder="Trechos marcantes, impressões deste capítulo ou pensamentos para recordar…"
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
+              scrollEnabled={false}
+              style={[styles.notes, isNight && styles.darkNotes]}
+              textAlignVertical="top"
+              value={book.notes ?? ''}
+            />
+          </View>
+        </View>
+
+        {/* Ação de remover discreta */}
+        <Pressable hitSlop={8} onPress={handleDelete} style={styles.deleteLink}>
+          <Ionicons color="#C04D40" name="trash-outline" size={14} />
+          <Text style={styles.deleteLinkText}>Remover da estante</Text>
         </Pressable>
-      </View>
-
-      {/* Editor de progresso */}
-      <View style={[styles.section, isNight && styles.darkSection]}>
-        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Progresso de leitura</Text>
-        <ProgressEditor
-          book={book}
-          completionLocked={Boolean(completingBookId)}
-          showIdentity={false}
-          onChangePage={(page) => updateProgress(book.id, page)}
-          onComplete={completeBook}
-        />
-      </View>
-
-      {/* Avaliação e Notas */}
-      <View style={[styles.section, isNight && styles.darkSection]}>
-        <Text selectable style={[styles.sectionTitle, isNight && styles.darkTitle]}>Diário & impressões</Text>
-        <View accessibilityLabel="Avaliação por estrelas" style={styles.ratingRow}>
-          {[1, 2, 3, 4, 5].map((value) => (
-            <Pressable
-              key={value}
-              accessibilityLabel={`${value} ${value === 1 ? 'estrela' : 'estrelas'}`}
-              accessibilityRole="button"
-              hitSlop={6}
-              onPress={() => handleRating(value)}
-              style={[styles.starButton, isNight && styles.darkStarButton]}
-            >
-              <Ionicons
-                color={value <= (book.rating ?? 0) ? (isNight ? '#FFAE70' : colors.terracotta) : (isNight ? '#383D54' : colors.line)}
-                name={value <= (book.rating ?? 0) ? 'star' : 'star-outline'}
-                size={24}
-              />
-            </Pressable>
-          ))}
-        </View>
-        <TextInput
-          accessibilityLabel={`Anotações sobre ${book.title}`}
-          multiline
-          onChangeText={(notes) => updateOpinion(book.id, { notes })}
-          placeholder="Uma frase marcante, uma memória ou o que ficou deste capítulo…"
-          placeholderTextColor={isNight ? darkTheme.textSubtle : colors.muted}
-          style={[styles.notes, isNight && styles.darkNotes]}
-          textAlignVertical="top"
-          value={book.notes ?? ''}
-        />
-      </View>
-
-      {/* Ação de remover */}
-      <Pressable onPress={handleDelete} style={styles.deleteLink}>
-        <Ionicons color="#C04D40" name="trash-outline" size={15} />
-        <Text style={styles.deleteLinkText}>Remover da estante</Text>
-      </Pressable>
-    </ScrollView>
+      </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, width: '100%', minHeight: '100%', backgroundColor: colors.paper },
+  screen: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    backgroundColor: colors.paper,
+  },
   darkScreen: { backgroundColor: darkTheme.bg },
-  content: { gap: 20, padding: 20, paddingBottom: 48 },
+  content: { gap: 24, padding: 20, paddingBottom: 72 },
   bookHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   bookCover: {
-    width: 46,
-    height: 68,
-    borderRadius: 4,
+    width: 48,
+    height: 72,
+    borderRadius: 5,
     borderCurve: 'continuous',
     justifyContent: 'center',
     overflow: 'hidden',
-    boxShadow: '0 4px 12px rgba(53, 42, 36, 0.16)',
+    boxShadow: '0 4px 12px rgba(50, 37, 31, 0.14)',
   },
   bookSpineLine: {
     width: 3,
@@ -161,61 +194,68 @@ const styles = StyleSheet.create({
     marginLeft: 3,
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  bookInfo: { flex: 1, gap: 2 },
-  title: { color: colors.ink, fontFamily: 'Georgia', fontSize: 20, lineHeight: 24, fontWeight: '700' },
-  author: { color: colors.muted, fontSize: 14 },
+  bookInfo: { flex: 1, gap: 3 },
+  title: {
+    color: colors.ink,
+    fontFamily: typography.editorial,
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '600',
+  },
+  author: { color: colors.muted, fontSize: 13 },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cream,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   darkCloseBtn: {
-    backgroundColor: darkTheme.surfaceElevated,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   section: {
     gap: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
   },
-  darkSection: {
-    borderTopColor: darkTheme.border,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionTitle: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: '700',
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  ratingRow: { flexDirection: 'row', gap: 8 },
-  starButton: {
-    width: 40,
-    height: 40,
+  darkSectionTitle: {
+    color: darkTheme.textMuted,
+  },
+  ratingRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  starTouch: {
+    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: colors.cream,
   },
-  darkStarButton: {
+  notesWrapper: {
+    backgroundColor: colors.softFill,
+    borderRadius: radii.medium,
+    borderCurve: 'continuous',
+    padding: 4,
+  },
+  darkNotesWrapper: {
     backgroundColor: darkTheme.surfaceElevated,
   },
   notes: {
-    minHeight: 100,
-    padding: 12,
+    minHeight: 130,
+    padding: 14,
     color: colors.ink,
     fontSize: 15,
-    lineHeight: 22,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radii.small,
-    borderCurve: 'continuous',
-    backgroundColor: colors.white,
+    lineHeight: 23,
+    fontFamily: typography.ui,
   },
   darkNotes: {
-    backgroundColor: darkTheme.surface,
-    borderColor: darkTheme.border,
     color: darkTheme.text,
   },
   deleteLink: {
@@ -223,16 +263,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 14,
-    marginTop: 8,
+    paddingVertical: 12,
+    marginTop: 4,
+    opacity: 0.75,
   },
   deleteLinkText: {
-    color: '#E05243',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#C04D40',
+    fontSize: 13,
+    fontWeight: '500',
   },
-  unavailable: { flex: 1, justifyContent: 'center', gap: 20, padding: 24, backgroundColor: colors.paper },
-  unavailableTitle: { color: colors.ink, fontFamily: 'Georgia', fontSize: 24, textAlign: 'center' },
+  unavailable: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    justifyContent: 'center',
+    gap: 20,
+    padding: 24,
+    backgroundColor: colors.paper,
+  },
+  unavailableTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 22, textAlign: 'center' },
   darkTitle: { color: darkTheme.text },
   darkMutedText: { color: darkTheme.textMuted },
 });

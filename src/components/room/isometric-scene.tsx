@@ -2,14 +2,21 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AdditiveBlending, DoubleSide, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
+import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
 
+import { RoomFurniture } from '@/src/components/room/room-furniture';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
+import {
+  getFloorPalette,
+  getWallPalette,
+  type FloorPalette,
+  type WallPalette,
+} from '@/src/types/room-customization';
 
 setConsoleFunction?.((type, message, ...params) => {
   if (
@@ -30,6 +37,7 @@ setConsoleFunction?.((type, message, ...params) => {
 type Vector = [number, number, number];
 type SceneProps = {
   onAddBook: () => void;
+  onCustomize?: () => void;
   onOpenBook: (bookId: string) => void;
   onSelectBook: (bookId: string) => void;
 };
@@ -125,14 +133,14 @@ const AMBIENCE_META: Record<AmbienceMode, { label: string; icon: keyof typeof Io
 const ROTATION_LIMIT = 0.58; // ~33 graus cada lado
 const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2.4;
-const OPEN_BOOK_POSITION: Vector = [-0.08, 1.3, 0.72];
+const OPEN_BOOK_POSITION: Vector = [0.10, 1.20, 0.74];
 
 const bookShape = (id: string) => {
   const score = [...id].reduce((sum, character) => sum + character.charCodeAt(0), 0);
   return {
-    width: 0.92 + (score % 4) * 0.08,
-    thickness: 0.12 + (score % 3) * 0.025,
-    depth: 0.58 + (score % 5) * 0.025,
+    width: 0.70 + (score % 4) * 0.05,
+    thickness: 0.09 + (score % 3) * 0.018,
+    depth: 0.46 + (score % 5) * 0.02,
     rotation: ((score % 7) - 3) * 0.018,
   };
 };
@@ -140,16 +148,16 @@ const bookShape = (id: string) => {
 const deskPosition = (book: Book, index: number): Vector => {
   const shape = bookShape(book.id);
   return [
-    0.96 + ((index % 3) - 1) * 0.025,
-    1.27 + index * 0.155 + shape.thickness / 2,
-    0.42 + ((index % 2) * 2 - 1) * 0.018,
+    1.12 + ((index % 3) - 1) * 0.025,
+    1.20 + index * 0.11 + shape.thickness / 2,
+    0.68 + ((index % 2) * 2 - 1) * 0.018,
   ];
 };
 
 const shelfPosition = (index: number): Vector => {
   const column = index % 4;
   const row = Math.floor(index / 4);
-  return [0.95 + column * 0.4, 0.48 + row * 0.82, -2.34];
+  return [0.88 + column * 0.38, 0.48 + row * 0.82, -2.61];
 };
 
 function CameraRig() {
@@ -195,33 +203,33 @@ function OpenBook({ color, onPress }: { color: string; onPress: () => void }) {
   });
 
   return (
-    <group ref={group} position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.12, OPEN_BOOK_POSITION[2]]} rotation={[0, -0.12, 0]} scale={[0.86, 0.86, 0.86]}>
-      <mesh position={[-0.37, 0, 0]} rotation={[0, 0, -0.035]}>
-        <boxGeometry args={[0.75, 0.045, 0.9]} />
+    <group ref={group} position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.12, OPEN_BOOK_POSITION[2]]} rotation={[0, -0.08, 0]} scale={[0.86, 0.86, 0.86]}>
+      <mesh position={[-0.25, 0, 0]} rotation={[0, 0, -0.035]}>
+        <boxGeometry args={[0.50, 0.032, 0.64]} />
         <meshStandardMaterial color={color} roughness={0.92} />
       </mesh>
-      <mesh position={[0.37, 0, 0]} rotation={[0, 0, 0.035]}>
-        <boxGeometry args={[0.75, 0.045, 0.9]} />
+      <mesh position={[0.25, 0, 0]} rotation={[0, 0, 0.035]}>
+        <boxGeometry args={[0.50, 0.032, 0.64]} />
         <meshStandardMaterial color={color} roughness={0.92} />
       </mesh>
-      <mesh position={[-0.35, 0.055, 0]} rotation={[0, 0, -0.055]}>
-        <boxGeometry args={[0.69, 0.035, 0.84]} />
+      <mesh position={[-0.24, 0.038, 0]} rotation={[0, 0, -0.055]}>
+        <boxGeometry args={[0.46, 0.024, 0.60]} />
         <meshStandardMaterial color="#FFF5E5" roughness={1} />
       </mesh>
-      <mesh position={[0.35, 0.055, 0]} rotation={[0, 0, 0.055]}>
-        <boxGeometry args={[0.69, 0.035, 0.84]} />
+      <mesh position={[0.24, 0.038, 0]} rotation={[0, 0, 0.055]}>
+        <boxGeometry args={[0.46, 0.024, 0.60]} />
         <meshStandardMaterial color="#FFF5E5" roughness={1} />
       </mesh>
-      <mesh position={[0, 0.075, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.025, 0.025, 0.84, 8]} />
+      <mesh position={[0, 0.052, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.60, 8]} />
         <meshStandardMaterial color="#D9C7AB" roughness={1} />
       </mesh>
-      <mesh position={[0.08, 0.08, 0.44]} rotation={[0.2, 0, 0]}>
-        <boxGeometry args={[0.04, 0.01, 0.22]} />
+      <mesh position={[0.05, 0.056, 0.30]} rotation={[0.2, 0, 0]}>
+        <boxGeometry args={[0.028, 0.008, 0.16]} />
         <meshStandardMaterial color="#B85F42" roughness={0.9} />
       </mesh>
-      <mesh onClick={(event) => { event.stopPropagation(); onPress(); }} position={[0, 0.16, 0]}>
-        <boxGeometry args={[1.72, 0.3, 1.12]} />
+      <mesh onClick={(event) => { event.stopPropagation(); onPress(); }} position={[0, 0.12, 0]}>
+        <boxGeometry args={[1.15, 0.22, 0.78]} />
         <meshBasicMaterial depthWrite={false} opacity={0} transparent />
       </mesh>
     </group>
@@ -289,137 +297,6 @@ function MovingBook({ book, end, onComplete }: { book: Book; end: Vector; onComp
   return <group ref={group} position={OPEN_BOOK_POSITION}><ClosedBook book={book} /></group>;
 }
 
-function FloorLamp({
-  isOn,
-  onToggle,
-  theme,
-  isNight,
-}: {
-  isOn: boolean;
-  onToggle: () => void;
-  theme: (typeof AMBIENCE_THEMES)[ResolvedAmbience];
-  isNight: boolean;
-}) {
-  return (
-    <group position={[-2.28, 0, -1.08]}>
-      {/* Base sólida de metal escovado */}
-      <mesh position={[0, 0.07, 0]}>
-        <cylinderGeometry args={[0.38, 0.44, 0.12, 16]} />
-        <meshStandardMaterial color="#453830" roughness={0.9} />
-      </mesh>
-      {/* Haste metálica */}
-      <mesh position={[0, 1.28, 0]}>
-        <cylinderGeometry args={[0.045, 0.055, 2.45, 10]} />
-        <meshStandardMaterial color="#58483E" roughness={0.85} />
-      </mesh>
-      {/* Cúpula do abajur com brilho acolhedor à noite */}
-      <mesh position={[0, 2.45, 0]}>
-        <coneGeometry args={[0.48, 0.65, 18, 1, true]} />
-        <meshStandardMaterial
-          color={isOn ? '#E69C72' : '#8A7060'}
-          emissive={isOn ? (isNight ? '#FF9A4D' : '#FFAE70') : '#000000'}
-          emissiveIntensity={isOn ? (isNight ? 0.95 : 0.4) : 0}
-          roughness={0.9}
-          side={DoubleSide}
-        />
-      </mesh>
-      {/* Bulbo da lâmpada */}
-      <mesh position={[0, 2.35, 0]}>
-        <sphereGeometry args={[0.09, 10, 10]} />
-        <meshBasicMaterial color={isOn ? '#FFF7DE' : '#5E4E42'} />
-      </mesh>
-
-      {isOn ? (
-        <>
-          {/* Luz focal quente emanada do abajur, posicionada levemente para o interior da sala */}
-          <pointLight
-            color={theme.lampColor}
-            distance={theme.lampDistance}
-            intensity={theme.lampIntensity}
-            position={[0.35, 2.15, 0.35]}
-          />
-          {/* Luz suave de preenchimento quente direcionada para a escrivaninha e estante */}
-          <pointLight
-            color="#FF9E48"
-            distance={8.2}
-            intensity={theme.lampIntensity * 0.42}
-            position={[0.9, 1.7, 0.8]}
-          />
-
-          {/* Feixe volumétrico acolhedor com AdditiveBlending (elimina aspecto cinza fosco) */}
-          <mesh position={[0, 1.15, 0]}>
-            <cylinderGeometry args={[0.16, 1.48, 2.15, 24, 1, true]} />
-            <meshBasicMaterial
-              blending={AdditiveBlending}
-              color="#FF9636"
-              depthWrite={false}
-              opacity={theme.coneOpacity}
-              side={DoubleSide}
-              transparent
-            />
-          </mesh>
-
-          {/* Poça de luz quente acolhedora projetada no chão e tapete sob o abajur */}
-          <mesh position={[0.2, 0.02, 0.15]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[1.55, 24]} />
-            <meshBasicMaterial
-              blending={AdditiveBlending}
-              color="#FFA245"
-              depthWrite={false}
-              opacity={isNight ? 0.32 : 0.14}
-              transparent
-            />
-          </mesh>
-        </>
-      ) : null}
-
-      {/* Hitbox ampliada para alternar o abajur */}
-      <mesh
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        position={[0, 1.3, 0]}
-      >
-        <cylinderGeometry args={[0.55, 0.55, 2.7, 8]} />
-        <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-      </mesh>
-    </group>
-  );
-}
-
-function DeskPlant() {
-  return (
-    <group position={[-0.78, 1.14, -0.42]}>
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[0.15, 0.11, 0.2, 12]} />
-        <meshStandardMaterial color="#B85F42" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.2, 0]}>
-        <cylinderGeometry args={[0.165, 0.165, 0.035, 12]} />
-        <meshStandardMaterial color="#A45136" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.19, 0]}>
-        <cylinderGeometry args={[0.14, 0.14, 0.02, 12]} />
-        <meshStandardMaterial color="#3E2B20" roughness={1} />
-      </mesh>
-      {[0, 1, 2, 3, 4].map((i) => {
-        const angle = (i * Math.PI * 2) / 5;
-        return (
-          <mesh
-            key={i}
-            position={[Math.cos(angle) * 0.07, 0.23, Math.sin(angle) * 0.07]}
-            rotation={[Math.sin(angle) * 0.35, -angle, Math.cos(angle) * 0.35]}
-          >
-            <sphereGeometry args={[0.065, 8, 8]} />
-            <meshStandardMaterial color="#5E7D5A" roughness={0.8} />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
 function CoffeeMug() {
   const steamRef = useRef<Group>(null);
 
@@ -428,29 +305,29 @@ function CoffeeMug() {
     const t = clock.elapsedTime;
     steamRef.current.children.forEach((child, i) => {
       const cycle = ((t * 0.7 + i * 0.45) % 1.5) / 1.5;
-      child.position.y = 0.15 + cycle * 0.35;
-      child.scale.setScalar(0.4 + cycle * 0.7);
+      child.position.y = 0.14 + cycle * 0.30;
+      child.scale.setScalar(0.4 + cycle * 0.65);
     });
   });
 
   return (
-    <group position={[-0.45, 1.14, -0.42]}>
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[0.09, 0.08, 0.2, 14]} />
+    <group position={[0.43, 1.14, -0.40]}>
+      <mesh position={[0, 0.08, 0]}>
+        <cylinderGeometry args={[0.075, 0.065, 0.16, 14]} />
         <meshStandardMaterial color="#FAF5EE" roughness={0.8} />
       </mesh>
-      <mesh position={[0, 0.18, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 0.02, 12]} />
+      <mesh position={[0, 0.145, 0]}>
+        <cylinderGeometry args={[0.065, 0.065, 0.018, 12]} />
         <meshStandardMaterial color="#2B1D16" roughness={0.5} />
       </mesh>
-      <mesh position={[-0.1, 0.1, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <torusGeometry args={[0.05, 0.016, 8, 12, Math.PI * 1.3]} />
+      <mesh position={[-0.08, 0.08, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <torusGeometry args={[0.04, 0.013, 8, 12, Math.PI * 1.3]} />
         <meshStandardMaterial color="#FAF5EE" roughness={0.8} />
       </mesh>
       <group ref={steamRef}>
         {[0, 1].map((i) => (
-          <mesh key={i} position={[(i - 0.5) * 0.03, 0.15, 0]}>
-            <sphereGeometry args={[0.038, 8, 8]} />
+          <mesh key={i} position={[(i - 0.5) * 0.025, 0.12, 0]}>
+            <sphereGeometry args={[0.03, 8, 8]} />
             <meshBasicMaterial color="#FFFFFF" depthWrite={false} opacity={0.2} transparent />
           </mesh>
         ))}
@@ -509,49 +386,68 @@ function AmbientDust({ isLampOn, opacity }: { isLampOn: boolean; opacity: number
   );
 }
 
-// Sombras de contato no piso (low-poly contact shadows)
+// Sombras projetadas e de contato no piso e tapete (stylized directional shadows)
 function FloorContactShadows({ isNight }: { isNight: boolean }) {
-  const baseOpacity = isNight ? 0.45 : 0.28;
+  const baseOpacity = isNight ? 0.36 : 0.24;
+
   return (
-    <group position={[0, 0.015, 0]}>
-      {/* Sombra de projeção suave sob o tapete circular */}
-      <mesh position={[-0.15, 0, 0.92]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.72, 28]} />
-        <meshBasicMaterial color="#2B160C" depthWrite={false} opacity={baseOpacity * 0.9} transparent />
+    <group>
+      {/* --- SOMBRAS AO NÍVEL DO PISO DE MADEIRA (Y ≈ 0.018) --- */}
+
+      {/* Sombra de oclusão da base da estante de livros (encostada na parede traseira X=1.45, Z=-3.00) */}
+      <mesh position={[1.45, 0.016, -3.00]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.30, 0.60]} />
+        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
       </mesh>
 
-      {/* Sombra principal alongada projetada pela mesa no chão e tapete */}
-      <mesh position={[0.48, 0.002, 0.68]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[2.76, 1.66]} />
-        <meshBasicMaterial color="#24130A" depthWrite={false} opacity={baseOpacity * 1.1} transparent />
+      {/* Sombra suave e limpa da base da luminária de chão (restaurada para formato circular único) */}
+      <mesh position={[-2.28, 0.016, -1.08]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.54, 24]} />
+        <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
       </mesh>
 
-      {/* Almofadas de contato escurecidas sob os 4 pés da mesa */}
-      {[-1.08, 1.08].flatMap((x) =>
-        [-0.54, 0.54].map((z) => (
-          <mesh key={`leg-shadow-${x}-${z}`} position={[0.42 + x, 0.004, 0.62 + z]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[0.22, 0.22]} />
-            <meshBasicMaterial color="#160A05" depthWrite={false} opacity={baseOpacity * 1.4} transparent />
-          </mesh>
-        ))
-      )}
+      {/* Sombra harmoniosa da planta de chão encostada na parede abaixo do quadro */}
+      <group position={[-1.85, 0.018, -2.80]}>
+        {/* Contato sob o vaso */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.34, 28]} />
+          <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
+        </mesh>
+        {/* Projeção suave e sutil da copa para trás */}
+        <mesh position={[-0.10, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, 0.4]}>
+          <circleGeometry args={[0.42, 24]} />
+          <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.65} transparent />
+        </mesh>
+      </group>
 
-      {/* Sombra de contato sob a base da luminária de chão */}
-      <mesh position={[-2.28, 0.002, -1.08]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.54, 20]} />
-        <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.25} transparent />
+      {/* --- SOMBRAS AO NÍVEL DO TAPETE (Y ≈ 0.056) --- */}
+
+      {/* Sombra principal projetada pelo tampo da mesa sobre o tapete */}
+      <mesh position={[0.22, 0.056, 0.38]} rotation={[-Math.PI / 2, 0, -0.06]}>
+        <planeGeometry args={[2.50, 1.40]} />
+        <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.70} transparent />
       </mesh>
 
-      {/* Sombra de contato e oclusão na base da estante de livros */}
-      <mesh position={[1.7, 0.002, -2.73]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[2.32, 0.64]} />
-        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.35} transparent />
+      {/* Sombras de contato suaves dos pés de apoio da mesa */}
+      <mesh position={[-0.18, 0.056, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.20, 1.05]} />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} transparent />
+      </mesh>
+      <mesh position={[1.02, 0.056, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.20, 1.05]} />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} transparent />
+      </mesh>
+
+      {/* Sombra unificada de contato da banqueta sobre o tapete (sem efeito fantasma duplo) */}
+      <mesh position={[0.42, 0.056, 1.70]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.38, 24]} />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.85} transparent />
       </mesh>
     </group>
   );
 }
 
-// Sombras de contato sobre o tampo de madeira da mesa
+// Sombras de contato e projeção sobre o tampo de madeira da mesa
 function DeskContactShadows({
   hasActiveBook,
   hasStackedBooks,
@@ -561,36 +457,67 @@ function DeskContactShadows({
 }) {
   return (
     <group position={[0.42, 1.142, 0.62]}>
-      {/* Sombra sob o vasinho da planta suculenta */}
-      <mesh position={[-0.78, 0.001, -0.42]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.16, 16]} />
-        <meshBasicMaterial color="#221107" depthWrite={false} opacity={0.38} transparent />
-      </mesh>
+      {/* Sombra botânica projetada da plantinha com florzinhas */}
+      <group position={[-0.98, 0.001, -0.50]}>
+        {/* Contato sob o vasinho */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.11, 16]} />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.46} transparent />
+        </mesh>
 
-      {/* Sombra sob a xícara de café */}
-      <mesh position={[-0.45, 0.001, -0.42]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.13, 16]} />
-        <meshBasicMaterial color="#221107" depthWrite={false} opacity={0.36} transparent />
-      </mesh>
+        {/* Projeção do corpo do vasinho para trás-esquerda */}
+        <mesh position={[-0.06, 0, -0.06]} rotation={[-Math.PI / 2, 0, 0.78]}>
+          <planeGeometry args={[0.14, 0.18]} />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.38} transparent />
+        </mesh>
 
-      {/* Sombra sob o porta-canetas */}
-      <mesh position={[-1.02, 0.001, 0.45]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.19, 16]} />
-        <meshBasicMaterial color="#221107" depthWrite={false} opacity={0.34} transparent />
-      </mesh>
+        {/* Projeção da haste da flor e botões florais */}
+        <mesh position={[-0.12, 0, -0.12]} rotation={[-Math.PI / 2, 0, 0.78]}>
+          <planeGeometry args={[0.03, 0.16]} />
+          <meshBasicMaterial color="#221008" depthWrite={false} opacity={0.34} transparent />
+        </mesh>
+        <mesh position={[-0.16, 0, -0.16]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.055, 12]} />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.32} transparent />
+        </mesh>
+      </group>
+
+      {/* Sombra sob o porta-canetas (contato e leve projeção) */}
+      <group position={[-0.78, 0.001, -0.50]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.10, 16]} />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.44} transparent />
+        </mesh>
+        <mesh position={[-0.04, 0, -0.04]} rotation={[-Math.PI / 2, 0, 0.78]}>
+          <planeGeometry args={[0.10, 0.14]} />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.30} transparent />
+        </mesh>
+      </group>
+
+      {/* Sombra sob a xícara de café (contato e leve projeção) */}
+      <group position={[0.43, 0.001, -0.40]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.10, 16]} />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.42} transparent />
+        </mesh>
+        <mesh position={[-0.04, 0, -0.04]} rotation={[-Math.PI / 2, 0, 0.78]}>
+          <circleGeometry args={[0.10, 14]} />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.28} transparent />
+        </mesh>
+      </group>
 
       {/* Sombra sob o livro ativo aberto na mesa */}
       {hasActiveBook ? (
-        <mesh position={[-0.5, 0.001, 0.1]} rotation={[-Math.PI / 2, 0, -0.12]}>
-          <planeGeometry args={[1.6, 0.98]} />
-          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.42} transparent />
+        <mesh position={[-0.34, 0.001, 0.09]} rotation={[-Math.PI / 2, 0, -0.08]}>
+          <planeGeometry args={[1.08, 0.70]} />
+          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.40} transparent />
         </mesh>
       ) : null}
 
       {/* Sombra sob a pilha de livros na mesa */}
       {hasStackedBooks ? (
-        <mesh position={[0.54, 0.001, -0.2]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[1.15, 0.8]} />
+        <mesh position={[0.68, 0.001, 0.04]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.85, 0.60]} />
           <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.38} transparent />
         </mesh>
       ) : null}
@@ -598,8 +525,8 @@ function DeskContactShadows({
   );
 }
 
-// Mesa de estudo com suporte a tampo limpo (zero livros) e clique para adicionar livro
-function Desk({
+// Acessórios e interação preservados sobre a mesa importada
+function DeskDetails({
   isEmpty,
   onAddBook,
 }: {
@@ -608,33 +535,22 @@ function Desk({
 }) {
   return (
     <group position={[0.42, 0, 0.62]}>
-      {/* Tampo da mesa em madeira */}
-      <mesh position={[0, 1.04, 0]}>
-        <boxGeometry args={[2.62, 0.2, 1.52]} />
-        <meshStandardMaterial color="#754A33" roughness={0.92} />
-      </mesh>
+      {/* Porta-canetas elegante com caneta e lápis estilizados no fundo à esquerda */}
+      <group position={[-0.78, 1.17, -0.50]}>
+        <mesh position={[0, 0.08, 0]}>
+          <cylinderGeometry args={[0.085, 0.07, 0.16, 14]} />
+          <meshStandardMaterial color="#5E705A" roughness={0.85} />
+        </mesh>
+        <mesh position={[-0.025, 0.17, 0.01]} rotation={[0.15, 0, -0.2]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.20, 8]} />
+          <meshStandardMaterial color="#B95F3B" roughness={0.5} />
+        </mesh>
+        <mesh position={[0.025, 0.15, -0.02]} rotation={[-0.1, 0, 0.22]}>
+          <cylinderGeometry args={[0.011, 0.011, 0.18, 8]} />
+          <meshStandardMaterial color="#D4A359" roughness={0.9} />
+        </mesh>
+      </group>
 
-      {/* 4 Pernas da mesa */}
-      {[-1.08, 1.08].flatMap((x) =>
-        [-0.54, 0.54].map((z) => (
-          <mesh key={`${x}-${z}`} position={[x, 0.48, z]}>
-            <boxGeometry args={[0.14, 0.98, 0.14]} />
-            <meshStandardMaterial color="#513126" roughness={1} />
-          </mesh>
-        ))
-      )}
-
-      {/* Porta canetas e régua */}
-      <mesh position={[-1.02, 1.17, 0.45]}>
-        <cylinderGeometry args={[0.18, 0.15, 0.22, 12]} />
-        <meshStandardMaterial color="#6F8066" roughness={0.9} />
-      </mesh>
-      <mesh position={[-1.02, 1.27, 0.45]} rotation={[0, 0, -0.18]}>
-        <torusGeometry args={[0.19, 0.045, 8, 14, Math.PI * 1.4]} />
-        <meshStandardMaterial color="#6F8066" roughness={0.9} />
-      </mesh>
-
-      <DeskPlant />
       <CoffeeMug />
 
       {/* Quando a mesa estiver limpa/vazia, toque nela abre para adicionar livro */}
@@ -661,6 +577,8 @@ function RoomShell({
   isNight,
   isEmptyDesk,
   onAddBook,
+  wallPalette,
+  floorPalette,
 }: {
   isLampOn: boolean;
   onToggleLamp: () => void;
@@ -668,6 +586,8 @@ function RoomShell({
   isNight: boolean;
   isEmptyDesk: boolean;
   onAddBook: () => void;
+  wallPalette: WallPalette;
+  floorPalette: FloorPalette;
 }) {
   return (
     <>
@@ -683,58 +603,67 @@ function RoomShell({
       {/* Base sólida de madeira escura */}
       <mesh position={[0, -0.15, 0]}>
         <boxGeometry args={[7.35, 0.18, 7.55]} />
-        <meshStandardMaterial color="#4A2E1F" roughness={0.95} />
+        <meshStandardMaterial color={floorPalette.baseColor} roughness={0.95} />
       </mesh>
 
       {/* Piso em madeira aconchegante */}
       <mesh position={[0, -0.04, 0]}>
         <boxGeometry args={[7.2, 0.1, 7.4]} />
-        <meshStandardMaterial color="#B99467" roughness={0.92} />
+        <meshStandardMaterial color={floorPalette.plankColor} roughness={0.92} />
       </mesh>
 
       {/* Frisos do assoalho */}
       {[-2.5, -1.25, 0, 1.25, 2.5].map((x) => (
         <mesh key={x} position={[x, 0.015, 0]}>
           <boxGeometry args={[0.025, 0.012, 7.1]} />
-          <meshStandardMaterial color="#6B4B2F" roughness={0.95} />
+          <meshStandardMaterial color={floorPalette.grooveColor} roughness={0.95} />
         </mesh>
       ))}
 
-      {/* Sombras de contato no piso */}
-      <FloorContactShadows isNight={isNight} />
-
-      {/* PAREDES COM ENCONTRO DE CANTO PERFEITO E SEM SOBRAS */}
+      {/* PAREDES COM ENCONTRO DE CANTO PERFEITO E COR PERSONALIZÁVEL */}
       {/* Parede traseira: termina exatamente em z = -3.42 e x = -3.60 */}
       <mesh position={[0, 1.65, -3.34]}>
         <boxGeometry args={[7.2, 3.5, 0.16]} />
-        <meshStandardMaterial color="#E8D6BC" roughness={1} />
+        <meshStandardMaterial color={wallPalette.backWallColor} roughness={1} />
       </mesh>
       {/* Parede esquerda: começa exatamente em z = -3.42 e vai até o piso frontal z = +3.70 */}
       <mesh position={[-3.52, 1.65, 0.14]}>
         <boxGeometry args={[0.16, 3.5, 7.12]} />
-        <meshStandardMaterial color="#D6BE9D" roughness={1} />
+        <meshStandardMaterial color={wallPalette.leftWallColor} roughness={1} />
       </mesh>
       {/* Coluna / acabamento de quina perfeita para emenda impecável */}
       <mesh position={[-3.52, 1.65, -3.34]}>
         <boxGeometry args={[0.165, 3.502, 0.165]} />
-        <meshStandardMaterial color="#D0BEA2" roughness={1} />
+        <meshStandardMaterial color={wallPalette.cornerColor} roughness={1} />
       </mesh>
 
       {/* Tapete circular aconchegante */}
-      <mesh position={[-0.15, 0.025, 0.92]}>
-        <cylinderGeometry args={[1.62, 1.62, 0.035, 28]} />
+      <mesh position={[0.42, 0.025, 1.05]}>
+        <cylinderGeometry args={[1.85, 1.85, 0.035, 32]} />
         <meshStandardMaterial color="#A65342" roughness={1} />
       </mesh>
-      <mesh position={[-0.15, 0.048, 0.92]}>
-        <cylinderGeometry args={[1.24, 1.24, 0.012, 28]} />
+      <mesh position={[0.42, 0.048, 1.05]}>
+        <cylinderGeometry args={[1.45, 1.45, 0.012, 32]} />
         <meshStandardMaterial color="#8A4637" roughness={1} />
       </mesh>
 
-      {/* Mesa de estudo e leitura */}
-      <Desk isEmpty={isEmptyDesk} onAddBook={onAddBook} />
+      {/* Sombras projetadas e de contato (piso, plantas e tapete) */}
+      <FloorContactShadows isNight={isNight} />
 
-      {/* Estante de livros */}
-      <group position={[1.7, 0, -2.73]}>
+      {/* Acessórios e interação da mesa de estudo */}
+      <DeskDetails isEmpty={isEmptyDesk} onAddBook={onAddBook} />
+
+      <Suspense fallback={null}>
+        <RoomFurniture
+          isLampOn={isLampOn}
+          isNight={isNight}
+          onToggleLamp={onToggleLamp}
+          theme={theme}
+        />
+      </Suspense>
+
+      {/* Estante de livros encostada na parede traseira Z=-3.00 com respiro arejado em X=1.45 */}
+      <group position={[1.45, 0, -3.00]}>
         <mesh position={[0, 1.42, 0]}>
           <boxGeometry args={[2.18, 2.76, 0.5]} />
           <meshStandardMaterial color="#533226" roughness={0.95} />
@@ -751,18 +680,8 @@ function RoomShell({
         ))}
       </group>
 
-      {/* Luminária de chão com iluminação focal dramática à noite */}
-      <FloorLamp isNight={isNight} isOn={isLampOn} onToggle={onToggleLamp} theme={theme} />
-
       {/* Partículas de poeira dourada */}
       <AmbientDust isLampOn={isLampOn} opacity={theme.dustOpacity} />
-
-      {/* Quadro na parede */}
-      <group position={[-1.85, 1.9, -3.22]}>
-        <mesh><boxGeometry args={[1.08, 0.76, 0.07]} /><meshStandardMaterial color="#956448" roughness={1} /></mesh>
-        <mesh position={[0, 0, 0.05]}><boxGeometry args={[0.8, 0.49, 0.035]} /><meshStandardMaterial color="#F0DFBF" roughness={1} /></mesh>
-        <mesh position={[-0.12, -0.04, 0.075]} rotation={[0, 0, -0.5]}><boxGeometry args={[0.1, 0.43, 0.02]} /><meshStandardMaterial color="#55664B" roughness={0.9} /></mesh>
-      </group>
     </>
   );
 }
@@ -787,6 +706,10 @@ function RoomGeometry({
   const finalizeCompletion = useLibraryStore((state) => state.finalizeCompletion);
   const isLampOn = useLibraryStore((state) => state.isLampOn);
   const toggleLamp = useLibraryStore((state) => state.toggleLamp);
+  const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
+  const wallPalette = getWallPalette(wallPaletteId);
+  const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
+  const floorPalette = getFloorPalette(floorPaletteId);
 
   const roomGroup = useRef<Group>(null);
 
@@ -825,12 +748,14 @@ function RoomGeometry({
   return (
     <group ref={roomGroup}>
       <RoomShell
+        floorPalette={floorPalette}
         isEmptyDesk={isEmptyDesk}
         isLampOn={isLampOn}
         isNight={isNight}
         onAddBook={onAddBook}
         onToggleLamp={handleToggleLamp}
         theme={theme}
+        wallPalette={wallPalette}
       />
 
       {/* Sombras de contato sobre o tampo da mesa */}
@@ -1054,23 +979,45 @@ export function IsometricScene(props: SceneProps) {
           ) : null}
         </View>
 
-        {/* Botão Adicionar Livro no Topo Direito */}
-        {props.onAddBook ? (
-          <Pressable
-            accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
-            accessibilityLabel="Adicionar livro"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={props.onAddBook}
-            style={({ pressed }) => [
-              styles.iconPillBtn,
-              isNight && styles.darkPill,
-              pressed && styles.btnPressed,
-            ]}
-          >
-            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
-          </Pressable>
-        ) : null}
+        {/* Controles no Topo Direito: Personalizar e Adicionar Livro */}
+        <View style={styles.controlsRight}>
+          {props.onCustomize ? (
+            <Pressable
+              accessibilityHint="Abre a tela para personalizar o ambiente, cores das paredes e detalhes do quarto"
+              accessibilityLabel="Personalizar quarto"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => {
+                if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                props.onCustomize?.();
+              }}
+              style={({ pressed }) => [
+                styles.iconPillBtn,
+                isNight && styles.darkPill,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="color-palette-outline" size={20} />
+            </Pressable>
+          ) : null}
+
+          {props.onAddBook ? (
+            <Pressable
+              accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
+              accessibilityLabel="Adicionar livro"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={props.onAddBook}
+              style={({ pressed }) => [
+                styles.iconPillBtn,
+                isNight && styles.darkPill,
+                pressed && styles.btnPressed,
+              ]}
+            >
+              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -1094,6 +1041,11 @@ const styles = StyleSheet.create({
     pointerEvents: 'box-none',
   },
   controlsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  controlsRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

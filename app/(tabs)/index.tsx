@@ -7,7 +7,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { BookCover } from '@/src/components/book-cover';
 import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors } from '@/src/theme';
+import { colors, typography } from '@/src/theme';
 
 const tapFeedback = () => {
   if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -42,6 +42,10 @@ export default function RoomScreen() {
         onAddBook={() => {
           tapFeedback();
           router.navigate('/add-book');
+        }}
+        onCustomize={() => {
+          tapFeedback();
+          router.navigate('/customize-room');
         }}
         onOpenBook={openProgress}
         onSelectBook={selectBook}
@@ -165,9 +169,9 @@ const styles = StyleSheet.create({
   },
   widgetTitle: {
     color: colors.ink,
-    fontFamily: 'Georgia',
+    fontFamily: typography.editorial,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   darkTitle: {
     color: '#FAF4EB',

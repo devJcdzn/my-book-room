@@ -7,7 +7,7 @@ import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 import { BookCover } from '@/src/components/book-cover';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii } from '@/src/theme';
+import { colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -213,10 +213,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.medium,
     borderCurve: 'continuous',
     backgroundColor: colors.paper,
-    borderWidth: 1,
-    borderColor: colors.line,
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.05)',
+    boxShadow: '0 2px 8px rgba(50, 37, 31, 0.04)',
   },
   cardPressed: {
     opacity: 0.94,
@@ -228,7 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     borderRightWidth: 1,
-    borderRightColor: 'rgba(0,0,0,0.08)',
+    borderRightColor: 'rgba(0,0,0,0.06)',
   },
   coverSpineShade: {
     position: 'absolute',
@@ -274,9 +272,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontFamily: 'Georgia',
+    fontFamily: typography.editorial,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 20,
   },
   author: {

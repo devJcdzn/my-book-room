@@ -36,7 +36,19 @@
           "backgroundColor": "#F5EBDD"
         }
       ],
-      "expo-asset",
+      [
+        "expo-asset",
+        {
+          "assets": [
+            "./assets/Separate_Assets_glb/Work_Table_06.glb",
+            "./assets/Separate_Assets_glb/Chair_17.glb",
+            "./assets/Separate_Assets_glb/Light_05.glb",
+            "./assets/Separate_Assets_glb/Plants_05.glb",
+            "./assets/Separate_Assets_glb/Plants_15.glb",
+            "./assets/Separate_Assets_glb/Picture_21.glb"
+          ]
+        }
+      ],
       "expo-image"
     ],
     "experiments": {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { Book, BookSearchResult } from '@/src/types/book';
+import { DEFAULT_FLOOR_PALETTE_ID, DEFAULT_WALL_PALETTE_ID } from '@/src/types/room-customization';
 
 export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
 
@@ -10,9 +11,13 @@ type LibraryState = {
   completingBookId?: string;
   isLampOn: boolean;
   ambienceMode: AmbienceMode;
+  wallPaletteId: string;
+  floorPaletteId: string;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
+  setWallPaletteId: (id: string) => void;
+  setFloorPaletteId: (id: string) => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
   updateBookCoverColor: (bookId: string, color: string) => void;
@@ -50,9 +55,13 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   completingBookId: undefined,
   isLampOn: true,
   ambienceMode: 'auto',
+  wallPaletteId: DEFAULT_WALL_PALETTE_ID,
+  floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
   setAmbienceMode: (mode) => set({ ambienceMode: mode }),
   cycleAmbienceMode: () => set((state) => ({ ambienceMode: NEXT_AMBIENCE[state.ambienceMode] })),
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
+  setWallPaletteId: (id) => set({ wallPaletteId: id }),
+  setFloorPaletteId: (id) => set({ floorPaletteId: id }),
   addOpenLibraryBook: (result) => set((state) => {
     if (state.books.some((book) => book.id === result.workKey)) return state;
     if (!result.title.trim() || !Number.isInteger(result.totalPages) || result.totalPages < 1 || result.totalPages > 99_999) return state;

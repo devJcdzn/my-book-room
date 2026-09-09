@@ -81,7 +81,7 @@ export default function RootLayout() {
             sheetAllowedDetents: [0.75, 1],
             sheetGrabberVisible: true,
             headerShown: false,
-            contentStyle: { flex: 1, backgroundColor: isNight ? '#131520' : colors.cream },
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.cream },
           }}
         />
         <Stack.Screen
@@ -91,7 +91,17 @@ export default function RootLayout() {
             sheetAllowedDetents: [0.65, 0.95],
             sheetGrabberVisible: true,
             headerShown: false,
-            contentStyle: { flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+          }}
+        />
+        <Stack.Screen
+          name="customize-room"
+          options={{
+            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+            sheetAllowedDetents: [0.55, 0.85],
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
           }}
         />
       </Stack>
