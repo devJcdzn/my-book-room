@@ -144,3 +144,75 @@ export const FLOOR_PALETTES: FloorPalette[] = [
 export const getFloorPalette = (id?: string): FloorPalette =>
   FLOOR_PALETTES.find((palette) => palette.id === id) ?? FLOOR_PALETTES[0];
 
+export type RugPalette = {
+  id: string;
+  name: string;
+  subtitle: string;
+  previewColor: string;
+  mainColor: string;
+  innerColor: string;
+};
+
+export const DEFAULT_RUG_PALETTE_ID = 'terracotta-classic';
+
+export const RUG_PALETTES: RugPalette[] = [
+  {
+    id: 'terracotta-classic',
+    name: 'Terracota Clássico',
+    subtitle: 'Calor artesanal e aconchego rústico',
+    previewColor: '#A65342',
+    mainColor: '#A65342',
+    innerColor: '#8A4637',
+  },
+  {
+    id: 'sage-botanic',
+    name: 'Verde Botânico',
+    subtitle: 'Harmonia natural e calma florestal',
+    previewColor: '#547059',
+    mainColor: '#547059',
+    innerColor: '#415745',
+  },
+  {
+    id: 'midnight-navy',
+    name: 'Azul Meia-Noite',
+    subtitle: 'Sobriedade serena para leituras imersivas',
+    previewColor: '#36455A',
+    mainColor: '#36455A',
+    innerColor: '#283344',
+  },
+  {
+    id: 'warm-mustard',
+    name: 'Mostarda Vintage',
+    subtitle: 'Toque dourado acolhedor e nostálgico',
+    previewColor: '#C48A3C',
+    mainColor: '#C48A3C',
+    innerColor: '#A8732E',
+  },
+  {
+    id: 'natural-linen',
+    name: 'Linho Areia',
+    subtitle: 'Neutralidade crua, suave e luminosa',
+    previewColor: '#D8C6A5',
+    mainColor: '#D8C6A5',
+    innerColor: '#BAA989',
+  },
+  {
+    id: 'velvet-burgundy',
+    name: 'Vinho Aveludado',
+    subtitle: 'Elegância clássica de biblioteca particular',
+    previewColor: '#823945',
+    mainColor: '#823945',
+    innerColor: '#672933',
+  },
+  {
+    id: 'soft-slate',
+    name: 'Ardósia Suave',
+    subtitle: 'Modernidade minimalista e foco tranquilo',
+    previewColor: '#484B58',
+    mainColor: '#484B58',
+    innerColor: '#353742',
+  },
+];
+
+export const getRugPalette = (id?: string): RugPalette =>
+  RUG_PALETTES.find((palette) => palette.id === id) ?? RUG_PALETTES[0];

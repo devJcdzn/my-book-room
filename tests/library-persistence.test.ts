@@ -8,7 +8,11 @@ import {
   normalizePersistedState,
   useLibraryStore,
 } from '../src/store/library-store';
-import { DEFAULT_FLOOR_PALETTE_ID, DEFAULT_WALL_PALETTE_ID } from '../src/types/room-customization';
+import {
+  DEFAULT_FLOOR_PALETTE_ID,
+  DEFAULT_RUG_PALETTE_ID,
+  DEFAULT_WALL_PALETTE_ID,
+} from '../src/types/room-customization';
 
 const readingBook: Book = {
   id: '/works/OL1W',
@@ -33,6 +37,7 @@ test('snapshot local inclui perfil, livros, progresso e sala sem estado transit�
     ambienceMode: 'night',
     wallPaletteId: 'sage-green',
     floorPaletteId: 'dark-walnut',
+    rugPaletteId: 'sage-botanic',
     completingBookId: readingBook.id,
   });
 
@@ -44,6 +49,7 @@ test('snapshot local inclui perfil, livros, progresso e sala sem estado transit�
   assert.equal(snapshot.ambienceMode, 'night');
   assert.equal(snapshot.wallPaletteId, 'sage-green');
   assert.equal(snapshot.floorPaletteId, 'dark-walnut');
+  assert.equal(snapshot.rugPaletteId, 'sage-botanic');
   assert.equal('completingBookId' in snapshot, false);
 });
 
@@ -59,6 +65,7 @@ test('normaliza snapshot corrompido com defaults e corrige ids e estados inváli
     ambienceMode: 'unknown',
     wallPaletteId: 'unknown',
     floorPaletteId: 'unknown',
+    rugPaletteId: 'unknown',
   });
 
   assert.equal(normalized.profile.name, 'Leitor(a)');
@@ -72,6 +79,7 @@ test('normaliza snapshot corrompido com defaults e corrige ids e estados inváli
   assert.equal(normalized.ambienceMode, 'auto');
   assert.equal(normalized.wallPaletteId, DEFAULT_WALL_PALETTE_ID);
   assert.equal(normalized.floorPaletteId, DEFAULT_FLOOR_PALETTE_ID);
+  assert.equal(normalized.rugPaletteId, DEFAULT_RUG_PALETTE_ID);
 });
 
 test('rehidrata do storage assíncrono e restaura perfil, progresso e personalização', async () => {
@@ -84,6 +92,7 @@ test('rehidrata do storage assíncrono e restaura perfil, progresso e personaliz
       ambienceMode: 'sunset',
       wallPaletteId: 'warm-terracotta',
       floorPaletteId: 'warm-cherry',
+      rugPaletteId: 'velvet-burgundy',
     },
     version: 1,
   });
@@ -105,6 +114,7 @@ test('rehidrata do storage assíncrono e restaura perfil, progresso e personaliz
   assert.equal(state.ambienceMode, 'sunset');
   assert.equal(state.wallPaletteId, 'warm-terracotta');
   assert.equal(state.floorPaletteId, 'warm-cherry');
+  assert.equal(state.rugPaletteId, 'velvet-burgundy');
   assert.equal(state._hasHydrated, true);
 
   useLibraryStore.persist.setOptions({ storage: originalStorage });

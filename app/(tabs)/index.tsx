@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
@@ -14,6 +15,7 @@ const tapFeedback = () => {
 };
 
 export default function RoomScreen() {
+  const [isCustomizing, setIsCustomizing] = useState(false);
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
@@ -39,20 +41,18 @@ export default function RoomScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.bgColor }]}>
       <IsometricScene
+        isCustomizing={isCustomizing}
         onAddBook={() => {
           tapFeedback();
           router.navigate('/add-book');
         }}
-        onCustomize={() => {
-          tapFeedback();
-          router.navigate('/customize-room');
-        }}
+        onCustomizingChange={setIsCustomizing}
         onOpenBook={openProgress}
         onSelectBook={selectBook}
       />
 
       {/* Dica inicial se não houver livros */}
-      {books.length === 0 ? (
+      {!isCustomizing && books.length === 0 ? (
         <Animated.View
           entering={FadeIn.delay(350).duration(300)}
           exiting={FadeOut.duration(180)}
@@ -63,7 +63,7 @@ export default function RoomScreen() {
             Toque na mesa ou no + para começar uma leitura
           </Text>
         </Animated.View>
-      ) : activeBook ? (
+      ) : !isCustomizing && activeBook ? (
         /* Card flutuante compacto com o livro aberto na mesa */
         <Animated.View
           entering={FadeIn.duration(260)}

@@ -9,9 +9,11 @@ import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
 import {
   FLOOR_PALETTES,
+  FloorPalette,
+  RUG_PALETTES,
+  RugPalette,
   WALL_PALETTES,
-  type FloorPalette,
-  type WallPalette,
+  WallPalette,
 } from '@/src/types/room-customization';
 
 type CustomizationTab = 'walls' | 'flooring' | 'rug';
@@ -22,6 +24,8 @@ export default function CustomizeRoomScreen() {
   const setWallPaletteId = useLibraryStore((state) => state.setWallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
   const setFloorPaletteId = useLibraryStore((state) => state.setFloorPaletteId);
+  const rugPaletteId = useLibraryStore((state) => state.rugPaletteId);
+  const setRugPaletteId = useLibraryStore((state) => state.setRugPaletteId);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
 
@@ -33,6 +37,11 @@ export default function CustomizeRoomScreen() {
   const handleSelectFloorPalette = (palette: FloorPalette) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setFloorPaletteId(palette.id);
+  };
+
+  const handleSelectRugPalette = (palette: RugPalette) => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRugPaletteId(palette.id);
   };
 
   const handleTabPress = (tab: CustomizationTab) => {
@@ -145,9 +154,9 @@ export default function CustomizeRoomScreen() {
             </Text>
           </Pressable>
 
-          {/* Categoria 3: Tapete (Em breve) */}
+          {/* Categoria 3: Tapete */}
           <Pressable
-            accessibilityLabel="Categoria Tapete, em breve"
+            accessibilityLabel="Categoria Tapete"
             accessibilityRole="button"
             onPress={() => handleTabPress('rug')}
             style={({ pressed }) => [
@@ -161,23 +170,20 @@ export default function CustomizeRoomScreen() {
               color={
                 activeTab === 'rug'
                   ? (isNight ? '#FFAE70' : colors.terracotta)
-                  : (isNight ? darkTheme.textSubtle : '#A89E95')
+                  : (isNight ? darkTheme.textMuted : colors.muted)
               }
-              name="shapes-outline"
+              name="disc-outline"
               size={16}
             />
             <Text
               style={[
-                styles.categoryChipTextDisabled,
-                isNight && styles.darkSubtleText,
+                styles.categoryChipText,
+                isNight && styles.darkMutedText,
                 activeTab === 'rug' && (isNight ? styles.categoryChipTextActiveNight : styles.categoryChipTextActive),
               ]}
             >
               Tapete
             </Text>
-            <View style={[styles.badgePill, isNight && styles.darkBadgePill]}>
-              <Text style={[styles.badgeText, isNight && styles.darkBadgeText]}>Em breve</Text>
-            </View>
           </Pressable>
         </ScrollView>
       </View>
@@ -343,20 +349,82 @@ export default function CustomizeRoomScreen() {
         </View>
       )}
 
-      {/* Conteúdo da categoria ativa: Tapete (Em breve) */}
+      {/* Conteúdo da categoria ativa: Tapete */}
       {activeTab === 'rug' && (
-        <View style={styles.comingSoonWrap}>
-          <Ionicons
-            color={isNight ? '#FFAE70' : colors.terracotta}
-            name="shapes-outline"
-            size={36}
-          />
-          <Text style={[styles.comingSoonTitle, isNight && styles.darkTitle]}>
-            Formatos de tapete em breve
+        <View style={styles.palettesSection}>
+          <Text selectable style={[styles.sectionHeading, isNight && styles.darkSectionHeading]}>
+            Estilos de Tapete
           </Text>
-          <Text style={[styles.comingSoonDesc, isNight && styles.darkMutedText]}>
-            Em breve você poderá escolher novas texturas, desenhos e acabamentos para o tapete do seu refúgio literário!
-          </Text>
+
+          <View style={styles.palettesGrid}>
+            {RUG_PALETTES.map((palette) => {
+              const isSelected = palette.id === rugPaletteId;
+
+              return (
+                <Pressable
+                  key={palette.id}
+                  accessibilityHint="Aplica esta cor ao tapete circular do quarto"
+                  accessibilityLabel={`Estilo de tapete: ${palette.name}`}
+                  accessibilityRole="button"
+                  onPress={() => handleSelectRugPalette(palette)}
+                  style={({ pressed }) => [
+                    styles.paletteCard,
+                    isNight && styles.darkPaletteCard,
+                    isSelected && (isNight ? styles.paletteCardSelectedNight : styles.paletteCardSelected),
+                    pressed && styles.cardPressed,
+                  ]}
+                >
+                  {/* Swatch circular do tapete com círculo interno */}
+                  <View
+                    accessibilityLabel={`Amostra de cor ${palette.name}`}
+                    style={[styles.swatchWrap, styles.rugSwatchWrap, { backgroundColor: palette.mainColor }]}
+                  >
+                    <View
+                      style={[
+                        styles.rugInnerCircle,
+                        { backgroundColor: palette.innerColor },
+                      ]}
+                    />
+                  </View>
+
+                  {/* Detalhes da cor */}
+                  <View style={styles.paletteInfo}>
+                    <Text
+                      numberOfLines={1}
+                      selectable
+                      style={[
+                        styles.paletteName,
+                        isNight && styles.darkTitle,
+                        isSelected && (isNight ? styles.paletteNameActiveNight : styles.paletteNameActive),
+                      ]}
+                    >
+                      {palette.name}
+                    </Text>
+                    <Text numberOfLines={1} selectable style={[styles.paletteSubtitle, isNight && styles.darkMutedText]}>
+                      {palette.subtitle}
+                    </Text>
+                  </View>
+
+                  {/* Indicador de seleção */}
+                  <View
+                    style={[
+                      styles.checkCircle,
+                      isNight && styles.darkCheckCircle,
+                      isSelected && (isNight ? styles.checkCircleActiveNight : styles.checkCircleActive),
+                    ]}
+                  >
+                    {isSelected ? (
+                      <Ionicons
+                        color={isNight ? '#131520' : colors.white}
+                        name="checkmark"
+                        size={14}
+                      />
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       )}
     </ScrollView>
@@ -580,6 +648,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3.5,
+  },
+  rugSwatchWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rugInnerCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    opacity: 0.9,
   },
   paletteInfo: {
     flex: 1,

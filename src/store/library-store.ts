@@ -4,8 +4,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Book, BookSearchResult } from '@/src/types/book';
 import {
   DEFAULT_FLOOR_PALETTE_ID,
+  DEFAULT_RUG_PALETTE_ID,
   DEFAULT_WALL_PALETTE_ID,
   FLOOR_PALETTES,
+  RUG_PALETTES,
   WALL_PALETTES,
 } from '@/src/types/room-customization';
 
@@ -20,12 +22,14 @@ type LibraryState = {
   ambienceMode: AmbienceMode;
   wallPaletteId: string;
   floorPaletteId: string;
+  rugPaletteId: string;
   profile: Profile;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
   setWallPaletteId: (id: string) => void;
   setFloorPaletteId: (id: string) => void;
+  setRugPaletteId: (id: string) => void;
   updateProfile: (profile: ProfileInput) => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
@@ -63,7 +67,7 @@ const STORAGE_KEY = 'bookroom-library-v1';
 
 export type PersistedLibraryState = Pick<
   LibraryState,
-  'profile' | 'books' | 'activeBookId' | 'isLampOn' | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId'
+  'profile' | 'books' | 'activeBookId' | 'isLampOn' | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId'
 >;
 
 const memoryStorage = new Map<string, string>();
@@ -171,6 +175,9 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
     floorPaletteId: FLOOR_PALETTES.some((palette) => palette.id === candidate.floorPaletteId)
       ? candidate.floorPaletteId!
       : DEFAULT_FLOOR_PALETTE_ID,
+    rugPaletteId: RUG_PALETTES.some((palette) => palette.id === candidate.rugPaletteId)
+      ? candidate.rugPaletteId!
+      : DEFAULT_RUG_PALETTE_ID,
   };
 };
 
@@ -191,6 +198,7 @@ export const createPersistedState = (state: PersistedLibraryState & { completing
     ambienceMode: state.ambienceMode,
     wallPaletteId: state.wallPaletteId,
     floorPaletteId: state.floorPaletteId,
+    rugPaletteId: state.rugPaletteId,
   };
 };
 
@@ -214,7 +222,7 @@ const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
 type LibraryDataState = Pick<
   LibraryState,
   '_hasHydrated' | 'books' | 'activeBookId' | 'completingBookId' | 'isLampOn'
-    | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'profile'
+    | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'profile'
 >;
 
 const initialState: LibraryDataState = {
@@ -226,6 +234,7 @@ const initialState: LibraryDataState = {
   ambienceMode: 'auto',
   wallPaletteId: DEFAULT_WALL_PALETTE_ID,
   floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
+  rugPaletteId: DEFAULT_RUG_PALETTE_ID,
   profile: DEFAULT_PROFILE,
 };
 
@@ -236,6 +245,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
   setWallPaletteId: (id) => set({ wallPaletteId: id }),
   setFloorPaletteId: (id) => set({ floorPaletteId: id }),
+  setRugPaletteId: (id) => set({ rugPaletteId: id }),
   updateProfile: (input) => set((state) => {
     if (input.name !== undefined && !input.name.trim()) return state;
     const next = normalizeProfile({ ...state.profile, ...input });

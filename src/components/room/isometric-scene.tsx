@@ -5,17 +5,24 @@ import * as Haptics from 'expo-haptics';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
+import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction, Vector3 } from 'three';
 
 import { Bookcase } from '@/src/components/room/bookcase';
+import {
+  CUSTOMIZATION_ANCHORS,
+  RoomCustomizationOverlay,
+  type ScreenAnchorPos,
+} from '@/src/components/room/room-customization-overlay';
 import { RoomFurniture } from '@/src/components/room/room-furniture';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 import {
   getFloorPalette,
+  getRugPalette,
   getWallPalette,
   type FloorPalette,
+  type RugPalette,
   type WallPalette,
 } from '@/src/types/room-customization';
 
@@ -41,6 +48,8 @@ type SceneProps = {
   onCustomize?: () => void;
   onOpenBook: (bookId: string) => void;
   onSelectBook: (bookId: string) => void;
+  isCustomizing?: boolean;
+  onCustomizingChange?: (isCustomizing: boolean) => void;
 };
 
 type RotationState = {
@@ -586,6 +595,7 @@ function RoomShell({
   onAddBook,
   wallPalette,
   floorPalette,
+  rugPalette,
 }: {
   isLampOn: boolean;
   onToggleLamp: () => void;
@@ -595,6 +605,7 @@ function RoomShell({
   onAddBook: () => void;
   wallPalette: WallPalette;
   floorPalette: FloorPalette;
+  rugPalette: RugPalette;
 }) {
   return (
     <>
@@ -647,11 +658,11 @@ function RoomShell({
       {/* Tapete circular aconchegante */}
       <mesh position={[0.42, 0.025, 1.05]}>
         <cylinderGeometry args={[1.85, 1.85, 0.035, 32]} />
-        <meshStandardMaterial color="#A65342" roughness={1} />
+        <meshStandardMaterial color={rugPalette.mainColor} roughness={1} />
       </mesh>
       <mesh position={[0.42, 0.048, 1.05]}>
         <cylinderGeometry args={[1.45, 1.45, 0.012, 32]} />
-        <meshStandardMaterial color="#8A4637" roughness={1} />
+        <meshStandardMaterial color={rugPalette.innerColor} roughness={1} />
       </mesh>
 
       {/* Sombras projetadas e de contato (piso, plantas e tapete) */}
@@ -686,11 +697,15 @@ function RoomGeometry({
   zoomRef,
   theme,
   isNight,
+  isCustomizing,
+  onUpdateAnchorPositions,
 }: SceneProps & {
   rotationRef: React.MutableRefObject<RotationState>;
   zoomRef: React.MutableRefObject<ZoomState>;
   theme: (typeof AMBIENCE_THEMES)[ResolvedAmbience];
   isNight: boolean;
+  isCustomizing?: boolean;
+  onUpdateAnchorPositions?: (anchors: Record<string, ScreenAnchorPos>) => void;
 }) {
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
@@ -702,8 +717,13 @@ function RoomGeometry({
   const wallPalette = getWallPalette(wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
   const floorPalette = getFloorPalette(floorPaletteId);
+  const rugPaletteId = useLibraryStore((state) => state.rugPaletteId);
+  const rugPalette = getRugPalette(rugPaletteId);
 
   const roomGroup = useRef<Group>(null);
+  const { camera, size } = useThree();
+  const lastAnchorMap = useRef<Record<string, ScreenAnchorPos>>({});
+  const tempVec = useMemo(() => new Vector3(), []);
 
   // Rotação estritamente horizontal sem desvio de centro, e zoom suave
   useFrame(() => {
@@ -719,6 +739,32 @@ function RoomGeometry({
 
     // Centro ancorado perfeitamente em (0, 0, 0) sem drift
     roomGroup.current.position.set(0, 0, 0);
+
+    // Atualiza projeção de tela dos âncoras no modo de personalização
+    if (isCustomizing && onUpdateAnchorPositions) {
+      roomGroup.current.updateMatrixWorld(true);
+      const nextMap: Record<string, ScreenAnchorPos> = {};
+      let hasShifted = false;
+
+      for (const anchor of CUSTOMIZATION_ANCHORS) {
+        tempVec.set(...anchor.pos);
+        roomGroup.current.localToWorld(tempVec);
+        tempVec.project(camera);
+        const px = ((tempVec.x + 1) / 2) * size.width;
+        const py = ((-tempVec.y + 1) / 2) * size.height;
+        nextMap[anchor.id] = { x: px, y: py };
+
+        const prev = lastAnchorMap.current[anchor.id];
+        if (!prev || Math.abs(prev.x - px) > 0.5 || Math.abs(prev.y - py) > 0.5) {
+          hasShifted = true;
+        }
+      }
+
+      if (hasShifted) {
+        lastAnchorMap.current = nextMap;
+        onUpdateAnchorPositions(nextMap);
+      }
+    }
   });
 
   const handleToggleLamp = () => {
@@ -746,6 +792,7 @@ function RoomGeometry({
         isNight={isNight}
         onAddBook={onAddBook}
         onToggleLamp={handleToggleLamp}
+        rugPalette={rugPalette}
         theme={theme}
         wallPalette={wallPalette}
       />
@@ -800,13 +847,47 @@ export function IsometricScene(props: SceneProps) {
   const [hasModified, setHasModified] = useState(false);
   const [panResponder, setPanResponder] = useState<ReturnType<typeof PanResponder.create> | null>(null);
 
+  const [internalCustomizing, setInternalCustomizing] = useState(false);
+  const isCustomizing = props.isCustomizing ?? internalCustomizing;
+  const setIsCustomizing = (value: boolean) => {
+    setInternalCustomizing(value);
+    props.onCustomizingChange?.(value);
+  };
+
+  const [anchorPositions, setAnchorPositions] = useState<Record<string, ScreenAnchorPos>>({});
+  const isCustomizingRef = useRef(isCustomizing);
+
+  useEffect(() => {
+    isCustomizingRef.current = isCustomizing;
+  }, [isCustomizing]);
+
+  const handleEnterCustomization = () => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    zoomRef.current.target = MIN_ZOOM;
+    rotationRef.current.targetY = 0;
+    setHasModified(true);
+    setIsCustomizing(true);
+    props.onCustomize?.();
+  };
+
+  const handleExitCustomization = () => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    zoomRef.current.target = 1.0;
+    setHasModified(false);
+    setIsCustomizing(false);
+  };
+
   useEffect(() => {
     let initialAngle = 0;
     let initialDistance = 0;
     let initialZoom = 1.0;
 
     const responder = PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Se estiver no modo de personalização e o gesto ocorrer no terço inferior da tela (área do seletor), nunca captura
+        if (isCustomizingRef.current && evt.nativeEvent.pageY > height - 260) {
+          return false;
+        }
         return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
       },
       onPanResponderGrant: (evt) => {
@@ -851,7 +932,7 @@ export function IsometricScene(props: SceneProps) {
     });
 
     setPanResponder(responder);
-  }, []);
+  }, [height]);
 
   const handleZoomIn = () => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -887,102 +968,111 @@ export function IsometricScene(props: SceneProps) {
   const ambienceLabel = ambienceMode === 'auto' ? 'Automático' : AMBIENCE_META[ambienceMode].label;
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.bgColor }]} {...(panResponder?.panHandlers ?? {})}>
-      <Canvas
-        camera={camera}
-        frameloop="always"
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        orthographic
-        style={styles.canvas}
-      >
-        <color attach="background" args={[currentTheme.bgColor]} />
-        <CameraRig />
-        <RoomGeometry
-          {...props}
+    <View style={[styles.container, { backgroundColor: currentTheme.bgColor }]}>
+      {/* Camada exclusiva da cena 3D com captura de rotação e zoom isolada */}
+      <View style={StyleSheet.absoluteFill} {...(panResponder?.panHandlers ?? {})}>
+        <Canvas
+          camera={camera}
+          frameloop="always"
+          gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+          orthographic
+          style={styles.canvas}
+        >
+          <color attach="background" args={[currentTheme.bgColor]} />
+          <CameraRig />
+          <RoomGeometry
+            {...props}
+            isCustomizing={isCustomizing}
+            isNight={isNight}
+            onUpdateAnchorPositions={setAnchorPositions}
+            rotationRef={rotationRef}
+            theme={currentTheme}
+            zoomRef={zoomRef}
+          />
+        </Canvas>
+      </View>
+
+      {/* Modo de Personalização com Pins 3D e Tooltips Flutuantes */}
+      {isCustomizing ? (
+        <RoomCustomizationOverlay
+          anchorPositions={anchorPositions}
           isNight={isNight}
-          rotationRef={rotationRef}
-          theme={currentTheme}
-          zoomRef={zoomRef}
+          onExit={handleExitCustomization}
         />
-      </Canvas>
+      ) : (
+        /* Controles Flutuantes Superiores: Zoom, Ambiência, Restaurar e Adicionar Livro */
+        <View style={[styles.cameraControlsWrap, { top: insets.top + (process.env.EXPO_OS === 'android' ? 12 : 8) }]}>
+          <View style={styles.controlsLeft}>
+            <View style={[styles.controlPill, isNight && styles.darkPill]}>
+              <Pressable
+                accessibilityLabel="Aumentar zoom"
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={handleZoomIn}
+                style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
+              >
+                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="add" size={18} />
+              </Pressable>
 
-      {/* Controles Flutuantes Superiores: Zoom, Ambiência, Restaurar e Adicionar Livro */}
-      <View style={[styles.cameraControlsWrap, { top: insets.top + (process.env.EXPO_OS === 'android' ? 12 : 8) }]}>
-        <View style={styles.controlsLeft}>
-          <View style={[styles.controlPill, isNight && styles.darkPill]}>
+              <View style={[styles.divider, isNight && styles.dividerDark]} />
+
+              <Pressable
+                accessibilityLabel="Diminuir zoom"
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={handleZoomOut}
+                style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
+              >
+                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="remove" size={18} />
+              </Pressable>
+            </View>
+
+            {/* Botão de Ambiência (ícone) */}
             <Pressable
-              accessibilityLabel="Aumentar zoom"
+              accessibilityHint="Altera a iluminação do quarto entre Dia, Pôr do Sol, Noite ou Automático"
+              accessibilityLabel={`Iluminação: ${ambienceLabel}`}
               accessibilityRole="button"
               hitSlop={6}
-              onPress={handleZoomIn}
-              style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-            >
-              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="add" size={18} />
-            </Pressable>
-
-            <View style={[styles.divider, isNight && styles.dividerDark]} />
-
-            <Pressable
-              accessibilityLabel="Diminuir zoom"
-              accessibilityRole="button"
-              hitSlop={6}
-              onPress={handleZoomOut}
-              style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-            >
-              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="remove" size={18} />
-            </Pressable>
-          </View>
-
-          {/* Botão de Ambiência (ícone) */}
-          <Pressable
-            accessibilityHint="Altera a iluminação do quarto entre Dia, Pôr do Sol, Noite ou Automático"
-            accessibilityLabel={`Iluminação: ${ambienceLabel}`}
-            accessibilityRole="button"
-            hitSlop={6}
-            onPress={handleCycleAmbience}
-            style={({ pressed }) => [
-              styles.iconPillBtn,
-              isNight && styles.darkPill,
-              pressed && styles.btnPressed,
-            ]}
-          >
-            <Ionicons
-              color={isNight && ambienceMode === 'night' ? '#FFAE70' : AMBIENCE_META[ambienceMode].color}
-              name={ambienceMode === 'auto' ? (resolvedAmbience === 'night' ? 'moon' : resolvedAmbience === 'sunset' ? 'partly-sunny' : 'sunny') : AMBIENCE_META[ambienceMode].icon}
-              size={18}
-            />
-          </Pressable>
-
-          {/* Botão Restaurar */}
-          {hasModified ? (
-            <Pressable
-              accessibilityLabel="Recentralizar câmera e rotação"
-              accessibilityRole="button"
-              hitSlop={6}
-              onPress={resetCamera}
+              onPress={handleCycleAmbience}
               style={({ pressed }) => [
                 styles.iconPillBtn,
                 isNight && styles.darkPill,
                 pressed && styles.btnPressed,
               ]}
             >
-              <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="refresh" size={17} />
+              <Ionicons
+                color={isNight && ambienceMode === 'night' ? '#FFAE70' : AMBIENCE_META[ambienceMode].color}
+                name={ambienceMode === 'auto' ? (resolvedAmbience === 'night' ? 'moon' : resolvedAmbience === 'sunset' ? 'partly-sunny' : 'sunny') : AMBIENCE_META[ambienceMode].icon}
+                size={18}
+              />
             </Pressable>
-          ) : null}
-        </View>
 
-        {/* Controles no Topo Direito: Personalizar e Adicionar Livro */}
-        <View style={styles.controlsRight}>
-          {props.onCustomize ? (
+            {/* Botão Restaurar */}
+            {hasModified ? (
+              <Pressable
+                accessibilityLabel="Recentralizar câmera e rotação"
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={resetCamera}
+                style={({ pressed }) => [
+                  styles.iconPillBtn,
+                  isNight && styles.darkPill,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="refresh" size={17} />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {/* Controles no Topo Direito: Personalizar e Adicionar Livro */}
+          <View style={styles.controlsRight}>
             <Pressable
-              accessibilityHint="Abre a tela para personalizar o ambiente, cores das paredes e detalhes do quarto"
+              accessibilityHint="Abre o modo interativo para personalizar cores e decoração da sala"
               accessibilityLabel="Personalizar quarto"
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => {
-                if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                props.onCustomize?.();
-              }}
+              onPress={handleEnterCustomization}
               style={({ pressed }) => [
                 styles.iconPillBtn,
                 isNight && styles.darkPill,
@@ -991,26 +1081,26 @@ export function IsometricScene(props: SceneProps) {
             >
               <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="color-palette-outline" size={20} />
             </Pressable>
-          ) : null}
 
-          {props.onAddBook ? (
-            <Pressable
-              accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
-              accessibilityLabel="Adicionar livro"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={props.onAddBook}
-              style={({ pressed }) => [
-                styles.iconPillBtn,
-                isNight && styles.darkPill,
-                pressed && styles.btnPressed,
-              ]}
-            >
-              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
-            </Pressable>
-          ) : null}
+            {props.onAddBook ? (
+              <Pressable
+                accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
+                accessibilityLabel="Adicionar livro"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={props.onAddBook}
+                style={({ pressed }) => [
+                  styles.iconPillBtn,
+                  isNight && styles.darkPill,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
