@@ -1,11 +1,18 @@
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { Book, BookSearchResult } from '@/src/types/book';
-import { DEFAULT_FLOOR_PALETTE_ID, DEFAULT_WALL_PALETTE_ID } from '@/src/types/room-customization';
+import {
+  DEFAULT_FLOOR_PALETTE_ID,
+  DEFAULT_WALL_PALETTE_ID,
+  FLOOR_PALETTES,
+  WALL_PALETTES,
+} from '@/src/types/room-customization';
 
 export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
 
 type LibraryState = {
+  _hasHydrated: boolean;
   books: Book[];
   activeBookId?: string;
   completingBookId?: string;
@@ -13,11 +20,13 @@ type LibraryState = {
   ambienceMode: AmbienceMode;
   wallPaletteId: string;
   floorPaletteId: string;
+  profile: Profile;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
   setWallPaletteId: (id: string) => void;
   setFloorPaletteId: (id: string) => void;
+  updateProfile: (profile: ProfileInput) => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
   updateBookCoverColor: (bookId: string, color: string) => void;
@@ -29,8 +38,161 @@ type LibraryState = {
   finalizeCompletion: (bookId: string) => void;
 };
 
+export type Profile = {
+  name: string;
+  bio: string;
+  bioAttribution: string;
+};
+
+export type ProfileInput = Partial<Profile>;
+
+export const PROFILE_LIMITS = {
+  name: 50,
+  bio: 280,
+  bioAttribution: 80,
+} as const;
+
+const DEFAULT_PROFILE: Profile = {
+  name: 'Leitor(a)',
+  bio: 'Sempre imaginei que o paraíso fosse uma espécie de biblioteca.',
+  bioAttribution: 'Jorge Luis Borges',
+};
+
+const STORAGE_VERSION = 1;
+const STORAGE_KEY = 'bookroom-library-v1';
+
+export type PersistedLibraryState = Pick<
+  LibraryState,
+  'profile' | 'books' | 'activeBookId' | 'isLampOn' | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId'
+>;
+
+const memoryStorage = new Map<string, string>();
+
+const isNativeRuntime = () => process.env.EXPO_OS === 'ios' || process.env.EXPO_OS === 'android';
+
+const storage = {
+  getItem: async (key: string) => {
+    if (!isNativeRuntime()) return memoryStorage.get(key) ?? null;
+    const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
+    return sqliteStorage.getItem(key);
+  },
+  setItem: async (key: string, value: string) => {
+    if (!isNativeRuntime()) {
+      memoryStorage.set(key, value);
+      return;
+    }
+    const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
+    await sqliteStorage.setItem(key, value);
+  },
+  removeItem: async (key: string) => {
+    if (!isNativeRuntime()) {
+      memoryStorage.delete(key);
+      return;
+    }
+    const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
+    await sqliteStorage.removeItem(key);
+  },
+};
+
 const clampPage = (page: number, total: number) =>
   Math.min(total, Math.max(0, Math.round(page)));
+
+const trimToLimit = (value: unknown, fallback: string, limit: number) =>
+  typeof value === 'string' ? value.trim().slice(0, limit) : fallback;
+
+const normalizeProfile = (value: unknown): Profile => {
+  const candidate = value && typeof value === 'object' ? value as Partial<Profile> : {};
+  const name = trimToLimit(candidate.name, DEFAULT_PROFILE.name, PROFILE_LIMITS.name);
+  return {
+    name: name || DEFAULT_PROFILE.name,
+    bio: trimToLimit(candidate.bio, DEFAULT_PROFILE.bio, PROFILE_LIMITS.bio),
+    bioAttribution: trimToLimit(candidate.bioAttribution, DEFAULT_PROFILE.bioAttribution, PROFILE_LIMITS.bioAttribution),
+  };
+};
+
+const isBookStatus = (value: unknown): value is Book['status'] =>
+  value === 'reading' || value === 'completing' || value === 'completed';
+
+const normalizeBook = (value: unknown): Book | undefined => {
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<Book>;
+  const totalPages = candidate.totalPages;
+  if (
+    typeof candidate.id !== 'string' || !candidate.id
+    || (candidate.source !== 'open-library' && candidate.source !== 'manual')
+    || typeof candidate.title !== 'string' || !candidate.title.trim()
+    || typeof candidate.author !== 'string'
+    || typeof candidate.coverColor !== 'string'
+    || !/^#[0-9A-F]{6}$/i.test(candidate.coverColor)
+    || typeof totalPages !== 'number' || !Number.isInteger(totalPages) || totalPages < 1
+  ) return undefined;
+
+  const status = candidate.status === 'completing' ? 'completed' : isBookStatus(candidate.status) ? candidate.status : 'reading';
+  const currentPage = status === 'completed'
+    ? totalPages
+    : clampPage(typeof candidate.currentPage === 'number' ? candidate.currentPage : 0, totalPages);
+
+  return {
+    ...candidate,
+    id: candidate.id,
+    source: candidate.source,
+    title: candidate.title.trim(),
+    author: candidate.author.trim() || 'Autor desconhecido',
+    coverColor: candidate.coverColor,
+    totalPages,
+    currentPage,
+    status,
+    rating: typeof candidate.rating === 'number' ? Math.min(5, Math.max(1, Math.round(candidate.rating))) : undefined,
+    notes: typeof candidate.notes === 'string' ? candidate.notes : undefined,
+  };
+};
+
+export const normalizePersistedState = (value: unknown): PersistedLibraryState => {
+  const candidate = value && typeof value === 'object' ? value as Partial<PersistedLibraryState> : {};
+  const books = Array.isArray(candidate.books)
+    ? candidate.books.map(normalizeBook).filter((book): book is Book => Boolean(book))
+    : [];
+  const readingBooks = books.filter((book) => book.status === 'reading');
+  const requestedActive = typeof candidate.activeBookId === 'string'
+    ? readingBooks.find((book) => book.id === candidate.activeBookId)
+    : undefined;
+
+  return {
+    profile: normalizeProfile(candidate.profile),
+    books,
+    activeBookId: requestedActive?.id ?? readingBooks.at(-1)?.id,
+    isLampOn: typeof candidate.isLampOn === 'boolean' ? candidate.isLampOn : true,
+    ambienceMode: candidate.ambienceMode === 'day' || candidate.ambienceMode === 'sunset' || candidate.ambienceMode === 'night'
+      ? candidate.ambienceMode
+      : 'auto',
+    wallPaletteId: WALL_PALETTES.some((palette) => palette.id === candidate.wallPaletteId)
+      ? candidate.wallPaletteId!
+      : DEFAULT_WALL_PALETTE_ID,
+    floorPaletteId: FLOOR_PALETTES.some((palette) => palette.id === candidate.floorPaletteId)
+      ? candidate.floorPaletteId!
+      : DEFAULT_FLOOR_PALETTE_ID,
+  };
+};
+
+export const createPersistedState = (state: PersistedLibraryState & { completingBookId?: string }): PersistedLibraryState => {
+  const stableBooks = state.books.map((book) => book.status === 'completing'
+    ? { ...book, currentPage: book.totalPages, status: 'completed' as const }
+    : book);
+  const readingBooks = stableBooks.filter((book) => book.status === 'reading');
+  const activeBookId = readingBooks.some((book) => book.id === state.activeBookId)
+    ? state.activeBookId
+    : readingBooks.at(-1)?.id;
+
+  return {
+    profile: state.profile,
+    books: stableBooks,
+    activeBookId,
+    isLampOn: state.isLampOn,
+    ambienceMode: state.ambienceMode,
+    wallPaletteId: state.wallPaletteId,
+    floorPaletteId: state.floorPaletteId,
+  };
+};
 
 const BOOK_COLORS = ['#B95F3B', '#4F7480', '#6D7657', '#6A4D61', '#C58A3C', '#2E4057'];
 
@@ -49,7 +211,14 @@ const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
   night: 'auto',
 };
 
-export const useLibraryStore = create<LibraryState>((set) => ({
+type LibraryDataState = Pick<
+  LibraryState,
+  '_hasHydrated' | 'books' | 'activeBookId' | 'completingBookId' | 'isLampOn'
+    | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'profile'
+>;
+
+const initialState: LibraryDataState = {
+  _hasHydrated: false,
   books: [],
   activeBookId: undefined,
   completingBookId: undefined,
@@ -57,11 +226,21 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   ambienceMode: 'auto',
   wallPaletteId: DEFAULT_WALL_PALETTE_ID,
   floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
+  profile: DEFAULT_PROFILE,
+};
+
+export const useLibraryStore = create<LibraryState>()(persist((set) => ({
+  ...initialState,
   setAmbienceMode: (mode) => set({ ambienceMode: mode }),
   cycleAmbienceMode: () => set((state) => ({ ambienceMode: NEXT_AMBIENCE[state.ambienceMode] })),
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
   setWallPaletteId: (id) => set({ wallPaletteId: id }),
   setFloorPaletteId: (id) => set({ floorPaletteId: id }),
+  updateProfile: (input) => set((state) => {
+    if (input.name !== undefined && !input.name.trim()) return state;
+    const next = normalizeProfile({ ...state.profile, ...input });
+    return { profile: next };
+  }),
   addOpenLibraryBook: (result) => set((state) => {
     if (state.books.some((book) => book.id === result.workKey)) return state;
     if (!result.title.trim() || !Number.isInteger(result.totalPages) || result.totalPages < 1 || result.totalPages > 99_999) return state;
@@ -164,4 +343,19 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       books: [...remainingBooks, { ...book, status: 'completed' }],
     };
   }),
+}), {
+  name: STORAGE_KEY,
+  version: STORAGE_VERSION,
+  storage: createJSONStorage(() => storage),
+  skipHydration: true,
+  partialize: (state): PersistedLibraryState => createPersistedState(state),
+  migrate: (persistedState) => normalizePersistedState(persistedState),
+  merge: (persistedState, currentState) => ({
+    ...currentState,
+    ...normalizePersistedState(persistedState),
+  }),
+  onRehydrateStorage: () => (_state, error) => {
+    if (error) console.warn('Não foi possível restaurar os dados locais do Bookroom.', error);
+    useLibraryStore.setState({ _hasHydrated: true });
+  },
 }));

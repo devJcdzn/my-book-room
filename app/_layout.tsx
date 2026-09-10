@@ -1,12 +1,15 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect, useMemo } from 'react';
 import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 LogBox.ignoreLogs([
   'THREE.WARNING: Multiple instances of Three.js being imported.',
@@ -31,8 +34,17 @@ if (typeof __DEV__ !== 'undefined' && __DEV__) {
 export const unstable_settings = { anchor: '(tabs)' };
 
 export default function RootLayout() {
+  const hasHydrated = useLibraryStore((state) => state._hasHydrated);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
+
+  useEffect(() => {
+    void useLibraryStore.persist.rehydrate();
+  }, []);
+
+  useEffect(() => {
+    if (hasHydrated) void SplashScreen.hideAsync();
+  }, [hasHydrated]);
 
   const theme = useMemo(() => {
     if (isNight) {
@@ -61,6 +73,8 @@ export default function RootLayout() {
     };
   }, [isNight]);
 
+  if (!hasHydrated) return null;
+
   return (
     <ThemeProvider value={theme}>
       <StatusBar animated style={isNight ? 'light' : 'dark'} />
@@ -86,6 +100,16 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="book-progress"
+          options={{
+            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+            sheetAllowedDetents: [0.65, 0.95],
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+          }}
+        />
+        <Stack.Screen
+          name="edit-profile"
           options={{
             presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
             sheetAllowedDetents: [0.65, 0.95],

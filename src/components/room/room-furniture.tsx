@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, react/no-unknown-property */
+import * as Haptics from 'expo-haptics';
+import { useEffect } from 'react';
 import { useLoader } from '@react-three/fiber/native';
 import { AdditiveBlending, DoubleSide, type Object3D } from 'three';
 import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -10,6 +12,7 @@ const MODEL_SOURCES = [
   require('@/assets/Separate_Assets_glb/Plants_05.glb'),
   require('@/assets/Separate_Assets_glb/Plants_15.glb'),
   require('@/assets/Separate_Assets_glb/Picture_21.glb'),
+  require('@/assets/cats-assets/catnap-orange.glb'),
 ];
 
 type FurnitureTheme = {
@@ -34,7 +37,7 @@ const BINARY_CHUNK = 0x004e4942;
 
 function toBase64(bytes: Uint8Array) {
   let binary = '';
-  const chunkSize = 0x8000;
+  const chunkSize = 0x4000;
 
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
@@ -129,12 +132,18 @@ class NativeGLTFLoader extends GLTFLoader {
 }
 
 function Model({ object }: { object: Object3D }) {
+  useEffect(() => {
+    object.traverse((child) => {
+      child.frustumCulled = false;
+    });
+  }, [object]);
+
   return <primitive object={object} />;
 }
 
 export function RoomFurniture({ isLampOn, isNight, onToggleLamp, theme }: RoomFurnitureProps) {
   const models = useLoader(NativeGLTFLoader, MODEL_SOURCES as unknown as string[]) as GLTF[];
-  const [table, chair, lamp, deskPlant, floorPlant, picture] = models;
+  const [table, chair, lamp, deskPlant, floorPlant, picture, cat] = models;
 
   return (
     <>
@@ -144,6 +153,24 @@ export function RoomFurniture({ isLampOn, isNight, onToggleLamp, theme }: RoomFu
 
       <group position={[0.42, 0, 1.75]} rotation={[0, Math.PI, 0]} scale={1.65}>
         <Model object={chair.scene} />
+      </group>
+
+      {/* Gatinho laranja aconchegante dormindo no espaço livre ao lado da mesa */}
+      <group
+        onClick={(event) => {
+          event.stopPropagation();
+          if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        position={[2.10, 0.02, 1.40]}
+        rotation={[0, -0.75, 0]}
+      >
+        <group position={[0, 0.445 * 0.60, 0]} scale={0.60}>
+          <Model object={cat.scene} />
+        </group>
+        <mesh position={[0, 0.25, 0]}>
+          <sphereGeometry args={[0.58, 8, 8]} />
+          <meshBasicMaterial depthWrite={false} opacity={0} transparent />
+        </mesh>
       </group>
 
       <group position={[-0.56, 1.17, 0.12]} scale={1.05}>

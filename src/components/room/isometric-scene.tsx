@@ -7,6 +7,7 @@ import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
 
+import { Bookcase } from '@/src/components/room/bookcase';
 import { RoomFurniture } from '@/src/components/room/room-furniture';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
@@ -392,56 +393,62 @@ function FloorContactShadows({ isNight }: { isNight: boolean }) {
 
   return (
     <group>
-      {/* --- SOMBRAS AO NÍVEL DO PISO DE MADEIRA (Y ≈ 0.018) --- */}
+      {/* --- SOMBRAS AO NÍVEL DO PISO DE MADEIRA (Y = 0.024) --- */}
 
-      {/* Sombra de oclusão da base da estante de livros (encostada na parede traseira X=1.45, Z=-3.00) */}
-      <mesh position={[1.45, 0.016, -3.00]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[2.30, 0.60]} />
-        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
+      {/* Sombra de oclusão da base da estante de livros (plinto de marcenaria X=1.45, Z=-2.60) */}
+      <mesh position={[1.45, 0.024, -2.60]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.26, 0.72]} />
+        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
+      </mesh>
+
+      {/* Sombra de contato suave do gatinho dormindo ao lado da mesa */}
+      <mesh position={[2.10, 0.024, 1.40]} rotation={[-Math.PI / 2, 0, -0.75]}>
+        <circleGeometry args={[0.50, 24]} />
+        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.05} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
 
       {/* Sombra suave e limpa da base da luminária de chão (restaurada para formato circular único) */}
-      <mesh position={[-2.28, 0.016, -1.08]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[-2.28, 0.024, -1.08]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.54, 24]} />
-        <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
+        <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
 
       {/* Sombra harmoniosa da planta de chão encostada na parede abaixo do quadro */}
-      <group position={[-1.85, 0.018, -2.80]}>
+      <group position={[-1.85, 0.024, -2.80]}>
         {/* Contato sob o vaso */}
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.34, 28]} />
-          <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 1.15} transparent />
+          <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
         {/* Projeção suave e sutil da copa para trás */}
         <mesh position={[-0.10, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, 0.4]}>
           <circleGeometry args={[0.42, 24]} />
-          <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.65} transparent />
+          <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.65} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       </group>
 
-      {/* --- SOMBRAS AO NÍVEL DO TAPETE (Y ≈ 0.056) --- */}
+      {/* --- SOMBRAS AO NÍVEL DO TAPETE (Y = 0.060) --- */}
 
       {/* Sombra principal projetada pelo tampo da mesa sobre o tapete */}
-      <mesh position={[0.22, 0.056, 0.38]} rotation={[-Math.PI / 2, 0, -0.06]}>
+      <mesh position={[0.22, 0.060, 0.38]} rotation={[-Math.PI / 2, 0, -0.06]}>
         <planeGeometry args={[2.50, 1.40]} />
-        <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.70} transparent />
+        <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.70} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
 
       {/* Sombras de contato suaves dos pés de apoio da mesa */}
-      <mesh position={[-0.18, 0.056, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[-0.18, 0.060, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.20, 1.05]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} transparent />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
-      <mesh position={[1.02, 0.056, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[1.02, 0.060, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.20, 1.05]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} transparent />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
 
       {/* Sombra unificada de contato da banqueta sobre o tapete (sem efeito fantasma duplo) */}
-      <mesh position={[0.42, 0.056, 1.70]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0.42, 0.060, 1.70]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.38, 24]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.85} transparent />
+        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.85} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
     </group>
   );
@@ -456,69 +463,69 @@ function DeskContactShadows({
   hasStackedBooks: boolean;
 }) {
   return (
-    <group position={[0.42, 1.142, 0.62]}>
+    <group position={[0.42, 1.144, 0.62]}>
       {/* Sombra botânica projetada da plantinha com florzinhas */}
-      <group position={[-0.98, 0.001, -0.50]}>
+      <group position={[-0.98, 0.002, -0.50]}>
         {/* Contato sob o vasinho */}
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.11, 16]} />
-          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.46} transparent />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.46} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
 
         {/* Projeção do corpo do vasinho para trás-esquerda */}
         <mesh position={[-0.06, 0, -0.06]} rotation={[-Math.PI / 2, 0, 0.78]}>
           <planeGeometry args={[0.14, 0.18]} />
-          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.38} transparent />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.38} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
 
         {/* Projeção da haste da flor e botões florais */}
         <mesh position={[-0.12, 0, -0.12]} rotation={[-Math.PI / 2, 0, 0.78]}>
           <planeGeometry args={[0.03, 0.16]} />
-          <meshBasicMaterial color="#221008" depthWrite={false} opacity={0.34} transparent />
+          <meshBasicMaterial color="#221008" depthWrite={false} opacity={0.34} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
         <mesh position={[-0.16, 0, -0.16]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.055, 12]} />
-          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.32} transparent />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.32} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       </group>
 
       {/* Sombra sob o porta-canetas (contato e leve projeção) */}
-      <group position={[-0.78, 0.001, -0.50]}>
+      <group position={[-0.78, 0.002, -0.50]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.10, 16]} />
-          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.44} transparent />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.44} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
         <mesh position={[-0.04, 0, -0.04]} rotation={[-Math.PI / 2, 0, 0.78]}>
           <planeGeometry args={[0.10, 0.14]} />
-          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.30} transparent />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.30} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       </group>
 
       {/* Sombra sob a xícara de café (contato e leve projeção) */}
-      <group position={[0.43, 0.001, -0.40]}>
+      <group position={[0.43, 0.002, -0.40]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.10, 16]} />
-          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.42} transparent />
+          <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={0.42} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
         <mesh position={[-0.04, 0, -0.04]} rotation={[-Math.PI / 2, 0, 0.78]}>
           <circleGeometry args={[0.10, 14]} />
-          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.28} transparent />
+          <meshBasicMaterial color="#241209" depthWrite={false} opacity={0.28} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       </group>
 
       {/* Sombra sob o livro ativo aberto na mesa */}
       {hasActiveBook ? (
-        <mesh position={[-0.34, 0.001, 0.09]} rotation={[-Math.PI / 2, 0, -0.08]}>
+        <mesh position={[-0.34, 0.002, 0.09]} rotation={[-Math.PI / 2, 0, -0.08]}>
           <planeGeometry args={[1.08, 0.70]} />
-          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.40} transparent />
+          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.40} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       ) : null}
 
       {/* Sombra sob a pilha de livros na mesa */}
       {hasStackedBooks ? (
-        <mesh position={[0.68, 0.001, 0.04]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0.68, 0.002, 0.04]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.85, 0.60]} />
-          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.38} transparent />
+          <meshBasicMaterial color="#1C0E05" depthWrite={false} opacity={0.38} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
       ) : null}
     </group>
@@ -662,23 +669,8 @@ function RoomShell({
         />
       </Suspense>
 
-      {/* Estante de livros encostada na parede traseira Z=-3.00 com respiro arejado em X=1.45 */}
-      <group position={[1.45, 0, -3.00]}>
-        <mesh position={[0, 1.42, 0]}>
-          <boxGeometry args={[2.18, 2.76, 0.5]} />
-          <meshStandardMaterial color="#533226" roughness={0.95} />
-        </mesh>
-        <mesh position={[0, 1.42, 0.27]}>
-          <boxGeometry args={[1.8, 2.38, 0.035]} />
-          <meshStandardMaterial color="#8A6248" roughness={1} />
-        </mesh>
-        {[0.16, 0.98, 1.8, 2.68].map((y) => (
-          <mesh key={y} position={[0, y, 0.54]}>
-            <boxGeometry args={[2.02, 0.11, 0.58]} />
-            <meshStandardMaterial color="#62402F" roughness={0.95} />
-          </mesh>
-        ))}
-      </group>
+      {/* Estante de livros profissional e completa com marcenaria artesanal */}
+      <Bookcase />
 
       {/* Partículas de poeira dourada */}
       <AmbientDust isLampOn={isLampOn} opacity={theme.dustOpacity} />
@@ -888,8 +880,8 @@ export function IsometricScene(props: SceneProps) {
   const camera = useMemo(() => ({
     position: [6.7, 6.25, 7.4] as Vector,
     zoom: baseZoom,
-    near: 0.1,
-    far: 100,
+    near: 2,
+    far: 32,
   }), [baseZoom]);
 
   const ambienceLabel = ambienceMode === 'auto' ? 'Automático' : AMBIENCE_META[ambienceMode].label;
@@ -899,7 +891,7 @@ export function IsometricScene(props: SceneProps) {
       <Canvas
         camera={camera}
         frameloop="always"
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         orthographic
         style={styles.canvas}
       >
