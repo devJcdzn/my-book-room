@@ -2,7 +2,8 @@ import type { BookSearchResult } from '@/src/types/book';
 
 const API_URL = 'https://openlibrary.org';
 const COVER_URL = 'https://covers.openlibrary.org/b/id';
-const PAGE_SIZE = 10;
+export const OPEN_LIBRARY_PAGE_SIZE = 10;
+const PAGE_SIZE = OPEN_LIBRARY_PAGE_SIZE;
 const SEARCH_TTL = 15 * 60_000;
 const TRENDING_TTL = 30 * 60_000;
 const MAX_CACHE_ENTRIES = 50;
@@ -138,14 +139,16 @@ export const mapOpenLibraryDocument = (
       ?? editionDocs.find((item) => item.cover_i);
   const editionKey = cleanKey(edition?.key ?? document.edition_key?.[0], 'books');
   const coverId = positiveCoverId(coverEdition?.cover_i) ?? positiveCoverId(document.cover_i);
+  const totalPages = positivePageCount(edition?.number_of_pages)
+    ?? positivePageCount(document.number_of_pages_median);
 
   return {
     workKey,
     editionKey,
     title,
     author: document.author_name?.find((author) => author.trim())?.trim() || 'Autor desconhecido',
-    totalPages: positivePageCount(edition?.number_of_pages)
-      ?? positivePageCount(document.number_of_pages_median),
+    totalPages,
+    ...(totalPages ? { totalPagesSource: 'open_library' as const } : {}),
     coverId,
     coverUrl: coverUrlForId(coverId),
     isbn: searchedIsbn,
@@ -314,7 +317,11 @@ export const createOpenLibraryClient = ({
     if (isbn && results[0]?.editionKey) {
       try {
         const exactPages = await editionPages(results[0].editionKey, signal);
-        if (exactPages) results[0] = { ...results[0], totalPages: exactPages };
+        if (exactPages) results[0] = {
+          ...results[0],
+          totalPages: exactPages,
+          totalPagesSource: 'open_library',
+        };
       } catch (error) {
         if (isAbortError(error)) throw error;
         // A edição é um refinamento opcional; a mediana ou confirmação manual continuam válidas.

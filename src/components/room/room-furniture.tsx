@@ -1,18 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports, react/no-unknown-property */
-import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { useLoader } from '@react-three/fiber/native';
 import { AdditiveBlending, DoubleSide, type Object3D } from 'three';
 import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-const MODEL_SOURCES = [
+export const FURNITURE_SOURCES = [
   require('@/assets/Separate_Assets_glb/Work_Table_06.glb'),
   require('@/assets/Separate_Assets_glb/Chair_17.glb'),
   require('@/assets/Separate_Assets_glb/Light_05.glb'),
   require('@/assets/Separate_Assets_glb/Plants_05.glb'),
   require('@/assets/Separate_Assets_glb/Plants_15.glb'),
-  require('@/assets/Separate_Assets_glb/Picture_21.glb'),
-  require('@/assets/cats-assets/catnap-orange.glb'),
 ];
 
 type FurnitureTheme = {
@@ -35,18 +32,57 @@ const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const BINARY_CHUNK = 0x004e4942;
 
-function toBase64(bytes: Uint8Array) {
-  let binary = '';
-  const chunkSize = 0x4000;
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const base64Cache = new Map<number, string>();
+const inlinedBufferCache = new WeakMap<ArrayBuffer, ArrayBuffer>();
 
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+function fastToBase64(bytes: Uint8Array): string {
+  const len = bytes.length;
+  const sampleKey =
+    len ^
+    (bytes[0] || 0) ^
+    ((bytes[Math.floor(len / 2)] || 0) << 8) ^
+    ((bytes[len - 1] || 0) << 16);
+
+  const cached = base64Cache.get(sampleKey);
+  if (cached) return cached;
+
+  let res = '';
+  const extra = len % 3;
+  const mainLen = len - extra;
+
+  for (let i = 0; i < mainLen; i += 3) {
+    const b0 = bytes[i];
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    res +=
+      B64_CHARS[(b0 >> 2) & 0x3f] +
+      B64_CHARS[((b0 << 4) | (b1 >> 4)) & 0x3f] +
+      B64_CHARS[((b1 << 2) | (b2 >> 6)) & 0x3f] +
+      B64_CHARS[b2 & 0x3f];
   }
 
-  return btoa(binary);
+  if (extra === 1) {
+    const b0 = bytes[mainLen];
+    res += B64_CHARS[(b0 >> 2) & 0x3f] + B64_CHARS[(b0 << 4) & 0x3f] + '==';
+  } else if (extra === 2) {
+    const b0 = bytes[mainLen];
+    const b1 = bytes[mainLen + 1];
+    res +=
+      B64_CHARS[(b0 >> 2) & 0x3f] +
+      B64_CHARS[((b0 << 4) | (b1 >> 4)) & 0x3f] +
+      B64_CHARS[(b1 << 2) & 0x3f] +
+      '=';
+  }
+
+  base64Cache.set(sampleKey, res);
+  return res;
 }
 
 function inlineEmbeddedImages(data: ArrayBuffer) {
+  const cachedOutput = inlinedBufferCache.get(data);
+  if (cachedOutput) return cachedOutput;
+
   const source = new DataView(data);
   if (source.byteLength < 28 || source.getUint32(0, true) !== GLB_MAGIC) return data;
 
@@ -76,7 +112,7 @@ function inlineEmbeddedImages(data: ArrayBuffer) {
       binaryOffset + (bufferView.byteOffset ?? 0),
       bufferView.byteLength,
     );
-    image.uri = `data:${image.mimeType ?? 'image/png'};base64,${toBase64(bytes)}`;
+    image.uri = `data:${image.mimeType ?? 'image/png'};base64,${fastToBase64(bytes)}`;
     delete image.bufferView;
     changed = true;
   }
@@ -102,10 +138,11 @@ function inlineEmbeddedImages(data: ArrayBuffer) {
   outputView.setUint32(outputBinaryHeader + 4, BINARY_CHUNK, true);
   outputBytes.set(new Uint8Array(data, binaryOffset, binaryLength), outputBinaryHeader + 8);
 
+  inlinedBufferCache.set(data, output);
   return output;
 }
 
-class NativeGLTFLoader extends GLTFLoader {
+export class NativeGLTFLoader extends GLTFLoader {
   override parse(
     data: ArrayBuffer | string,
     path: string,
@@ -142,8 +179,8 @@ function Model({ object }: { object: Object3D }) {
 }
 
 export function RoomFurniture({ isLampOn, isNight, onToggleLamp, theme }: RoomFurnitureProps) {
-  const models = useLoader(NativeGLTFLoader, MODEL_SOURCES as unknown as string[]) as GLTF[];
-  const [table, chair, lamp, deskPlant, floorPlant, picture, cat] = models;
+  const models = useLoader(NativeGLTFLoader, FURNITURE_SOURCES as unknown as string[]) as GLTF[];
+  const [table, chair, lamp, deskPlant, floorPlant] = models;
 
   return (
     <>
@@ -155,35 +192,13 @@ export function RoomFurniture({ isLampOn, isNight, onToggleLamp, theme }: RoomFu
         <Model object={chair.scene} />
       </group>
 
-      {/* Gatinho laranja aconchegante dormindo no espaço livre ao lado da mesa */}
-      <group
-        onClick={(event) => {
-          event.stopPropagation();
-          if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-        position={[2.10, 0.02, 1.40]}
-        rotation={[0, -0.75, 0]}
-      >
-        <group position={[0, 0.445 * 0.60, 0]} scale={0.60}>
-          <Model object={cat.scene} />
-        </group>
-        <mesh position={[0, 0.25, 0]}>
-          <sphereGeometry args={[0.58, 8, 8]} />
-          <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-        </mesh>
-      </group>
-
       <group position={[-0.56, 1.17, 0.12]} scale={1.05}>
         <Model object={deskPlant.scene} />
       </group>
 
-      {/* Planta de chão abaixo do quadro e encostada na parede */}
-      <group position={[-1.85, 0, -2.80]} rotation={[0, 0.4, 0]} scale={1.35}>
+      {/* Planta de chão posicionada ao lado da estante de livros (não colada, harmoniosa) */}
+      <group position={[0.10, 0, -2.80]} rotation={[0, -0.4, 0]} scale={1.35}>
         <Model object={floorPlant.scene} />
-      </group>
-
-      <group position={[-1.85, 1.9, -3.255]} scale={[1.9, 1.65, 1]}>
-        <Model object={picture.scene} />
       </group>
 
       <group position={[-2.28, 0, -1.08]}>

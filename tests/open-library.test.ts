@@ -185,6 +185,7 @@ test('ISBN usa edição exata e substitui a mediana quando há páginas', async 
   });
   const page = await client.searchBooks('978-0-439-55493-0');
   assert.equal(page.results[0].totalPages, 312);
+  assert.equal(page.results[0].totalPagesSource, 'open_library');
   assert.match(urls[0], /q=isbn%3A9780439554930/);
   assert.equal(urls.length, 2);
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { mergeUniqueResults, openLibraryClient } from '@/src/services/open-library';
+import { mergeUniqueResults } from '@/src/services/open-library';
+import { searchBookSources } from '@/src/services/book-search';
 import type { BookSearchResult } from '@/src/types/book';
 
 export type BookSearchStatus =
@@ -46,9 +47,7 @@ export const useBookSearch = (query: string) => {
       setError(undefined);
       setResults([]);
       try {
-        const response = normalizedQuery.length >= 2
-          ? await openLibraryClient.searchBooks(normalizedQuery, 1, controller.signal)
-          : await openLibraryClient.trendingBooks(1, controller.signal);
+        const response = await searchBookSources(normalizedQuery, 1, controller.signal);
         if (controller.signal.aborted) return;
         setResults(response.results);
         setPage(1);
@@ -79,9 +78,7 @@ export const useBookSearch = (query: string) => {
     setLoadMoreError(undefined);
     try {
       const nextPage = page + 1;
-      const response = normalizedQuery.length >= 2
-        ? await openLibraryClient.searchBooks(normalizedQuery, nextPage, controller.signal)
-        : await openLibraryClient.trendingBooks(nextPage, controller.signal);
+      const response = await searchBookSources(normalizedQuery, nextPage, controller.signal);
       if (controller.signal.aborted) return;
       setResults((current) => mergeUniqueResults(current, response.results));
       setPage(nextPage);

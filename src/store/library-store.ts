@@ -3,12 +3,26 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { Book, BookSearchResult } from '@/src/types/book';
 import {
+  BOOKCASE_PALETTES,
+  CAT_OPTIONS,
+  DEFAULT_BOOKCASE_PALETTE_ID,
+  DEFAULT_CAT_ID,
   DEFAULT_FLOOR_PALETTE_ID,
+  DEFAULT_LEFT_WALL_ITEM,
+  DEFAULT_PICTURE_FRAME_SIZE,
+  DEFAULT_PICTURE_FRAME_STYLE_ID,
+  DEFAULT_POSTER_FRAME_ID,
   DEFAULT_RUG_PALETTE_ID,
   DEFAULT_WALL_PALETTE_ID,
+  DEFAULT_WINDOW_STYLE_ID,
   FLOOR_PALETTES,
+  LeftWallItemType,
+  PICTURE_FRAME_STYLES,
+  PictureFrameSize,
+  POSTER_FRAME_OPTIONS,
   RUG_PALETTES,
   WALL_PALETTES,
+  WINDOW_STYLES,
 } from '@/src/types/room-customization';
 
 export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
@@ -23,6 +37,15 @@ type LibraryState = {
   wallPaletteId: string;
   floorPaletteId: string;
   rugPaletteId: string;
+  bookcasePaletteId: string;
+  catId: string;
+  leftWallItem: LeftWallItemType;
+  leftWallPosterBookId?: string;
+  leftWallWindowStyle: string;
+  leftWallFrameColor: string;
+  pictureFrameSize: PictureFrameSize;
+  pictureFrameStyleId: string;
+  pictureFramePhotoUri: string | null;
   profile: Profile;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
@@ -30,6 +53,15 @@ type LibraryState = {
   setWallPaletteId: (id: string) => void;
   setFloorPaletteId: (id: string) => void;
   setRugPaletteId: (id: string) => void;
+  setBookcasePaletteId: (id: string) => void;
+  setCatId: (id: string) => void;
+  setLeftWallItem: (item: LeftWallItemType) => void;
+  setLeftWallPosterBookId: (bookId?: string) => void;
+  setLeftWallWindowStyle: (styleId: string) => void;
+  setLeftWallFrameColor: (frameId: string) => void;
+  setPictureFrameSize: (size: PictureFrameSize) => void;
+  setPictureFrameStyleId: (styleId: string) => void;
+  setPictureFramePhotoUri: (uri: string | null) => void;
   updateProfile: (profile: ProfileInput) => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
@@ -67,7 +99,23 @@ const STORAGE_KEY = 'bookroom-library-v1';
 
 export type PersistedLibraryState = Pick<
   LibraryState,
-  'profile' | 'books' | 'activeBookId' | 'isLampOn' | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId'
+  | 'profile'
+  | 'books'
+  | 'activeBookId'
+  | 'isLampOn'
+  | 'ambienceMode'
+  | 'wallPaletteId'
+  | 'floorPaletteId'
+  | 'rugPaletteId'
+  | 'bookcasePaletteId'
+  | 'catId'
+  | 'leftWallItem'
+  | 'leftWallPosterBookId'
+  | 'leftWallWindowStyle'
+  | 'leftWallFrameColor'
+  | 'pictureFrameSize'
+  | 'pictureFrameStyleId'
+  | 'pictureFramePhotoUri'
 >;
 
 const memoryStorage = new Map<string, string>();
@@ -106,23 +154,22 @@ const trimToLimit = (value: unknown, fallback: string, limit: number) =>
 
 const normalizeProfile = (value: unknown): Profile => {
   const candidate = value && typeof value === 'object' ? value as Partial<Profile> : {};
-  const name = trimToLimit(candidate.name, DEFAULT_PROFILE.name, PROFILE_LIMITS.name);
   return {
-    name: name || DEFAULT_PROFILE.name,
+    name: trimToLimit(candidate.name, DEFAULT_PROFILE.name, PROFILE_LIMITS.name) || DEFAULT_PROFILE.name,
     bio: trimToLimit(candidate.bio, DEFAULT_PROFILE.bio, PROFILE_LIMITS.bio),
     bioAttribution: trimToLimit(candidate.bioAttribution, DEFAULT_PROFILE.bioAttribution, PROFILE_LIMITS.bioAttribution),
   };
 };
 
 const isBookStatus = (value: unknown): value is Book['status'] =>
-  value === 'reading' || value === 'completing' || value === 'completed';
+  value === 'reading' || value === 'completed';
 
 const normalizeBook = (value: unknown): Book | undefined => {
   if (!value || typeof value !== 'object') return undefined;
   const candidate = value as Partial<Book>;
   const totalPages = candidate.totalPages;
   if (
-    typeof candidate.id !== 'string' || !candidate.id
+    typeof candidate.id !== 'string' || !candidate.id.trim()
     || (candidate.source !== 'open-library' && candidate.source !== 'manual')
     || typeof candidate.title !== 'string' || !candidate.title.trim()
     || typeof candidate.author !== 'string'
@@ -178,6 +225,41 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
     rugPaletteId: RUG_PALETTES.some((palette) => palette.id === candidate.rugPaletteId)
       ? candidate.rugPaletteId!
       : DEFAULT_RUG_PALETTE_ID,
+    bookcasePaletteId: BOOKCASE_PALETTES.some((palette) => palette.id === candidate.bookcasePaletteId)
+      ? candidate.bookcasePaletteId!
+      : DEFAULT_BOOKCASE_PALETTE_ID,
+    catId: CAT_OPTIONS.some((cat) => cat.id === candidate.catId)
+      ? candidate.catId!
+      : DEFAULT_CAT_ID,
+    leftWallItem: candidate.leftWallItem === 'window' || candidate.leftWallItem === 'poster'
+      ? candidate.leftWallItem
+      : DEFAULT_LEFT_WALL_ITEM,
+    leftWallPosterBookId: typeof candidate.leftWallPosterBookId === 'string' && books.some((b) => b.id === candidate.leftWallPosterBookId)
+      ? candidate.leftWallPosterBookId
+      : undefined,
+    leftWallWindowStyle: WINDOW_STYLES.some((style) => style.id === candidate.leftWallWindowStyle)
+      ? candidate.leftWallWindowStyle!
+      : DEFAULT_WINDOW_STYLE_ID,
+    leftWallFrameColor: POSTER_FRAME_OPTIONS.some((frame) => frame.id === candidate.leftWallFrameColor)
+      ? candidate.leftWallFrameColor!
+      : DEFAULT_POSTER_FRAME_ID,
+    pictureFrameSize:
+      candidate.pictureFrameSize === 'none' ||
+      candidate.pictureFrameSize === '1:1' ||
+      candidate.pictureFrameSize === '2:1'
+        ? candidate.pictureFrameSize
+        : candidate.pictureFrameSize === ('1:2' as unknown)
+          ? '2:1'
+          : DEFAULT_PICTURE_FRAME_SIZE,
+    pictureFrameStyleId: PICTURE_FRAME_STYLES.some((style) => style.id === candidate.pictureFrameStyleId)
+      ? candidate.pictureFrameStyleId!
+      : DEFAULT_PICTURE_FRAME_STYLE_ID,
+    pictureFramePhotoUri:
+      typeof candidate.pictureFramePhotoUri === 'string' &&
+      candidate.pictureFramePhotoUri.length > 0 &&
+      !candidate.pictureFramePhotoUri.startsWith('data:')
+        ? candidate.pictureFramePhotoUri
+        : null,
   };
 };
 
@@ -199,6 +281,15 @@ export const createPersistedState = (state: PersistedLibraryState & { completing
     wallPaletteId: state.wallPaletteId,
     floorPaletteId: state.floorPaletteId,
     rugPaletteId: state.rugPaletteId,
+    bookcasePaletteId: state.bookcasePaletteId,
+    catId: state.catId,
+    leftWallItem: state.leftWallItem,
+    leftWallPosterBookId: state.leftWallPosterBookId,
+    leftWallWindowStyle: state.leftWallWindowStyle,
+    leftWallFrameColor: state.leftWallFrameColor,
+    pictureFrameSize: state.pictureFrameSize,
+    pictureFrameStyleId: state.pictureFrameStyleId,
+    pictureFramePhotoUri: state.pictureFramePhotoUri,
   };
 };
 
@@ -222,7 +313,9 @@ const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
 type LibraryDataState = Pick<
   LibraryState,
   '_hasHydrated' | 'books' | 'activeBookId' | 'completingBookId' | 'isLampOn'
-    | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'profile'
+    | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'bookcasePaletteId'
+    | 'catId' | 'leftWallItem' | 'leftWallPosterBookId' | 'leftWallWindowStyle' | 'leftWallFrameColor'
+    | 'pictureFrameSize' | 'pictureFrameStyleId' | 'pictureFramePhotoUri' | 'profile'
 >;
 
 const initialState: LibraryDataState = {
@@ -235,6 +328,15 @@ const initialState: LibraryDataState = {
   wallPaletteId: DEFAULT_WALL_PALETTE_ID,
   floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
   rugPaletteId: DEFAULT_RUG_PALETTE_ID,
+  bookcasePaletteId: DEFAULT_BOOKCASE_PALETTE_ID,
+  catId: DEFAULT_CAT_ID,
+  leftWallItem: DEFAULT_LEFT_WALL_ITEM,
+  leftWallPosterBookId: undefined,
+  leftWallWindowStyle: DEFAULT_WINDOW_STYLE_ID,
+  leftWallFrameColor: DEFAULT_POSTER_FRAME_ID,
+  pictureFrameSize: DEFAULT_PICTURE_FRAME_SIZE,
+  pictureFrameStyleId: DEFAULT_PICTURE_FRAME_STYLE_ID,
+  pictureFramePhotoUri: null,
   profile: DEFAULT_PROFILE,
 };
 
@@ -246,6 +348,15 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   setWallPaletteId: (id) => set({ wallPaletteId: id }),
   setFloorPaletteId: (id) => set({ floorPaletteId: id }),
   setRugPaletteId: (id) => set({ rugPaletteId: id }),
+  setBookcasePaletteId: (id) => set({ bookcasePaletteId: id }),
+  setCatId: (id) => set({ catId: id }),
+  setLeftWallItem: (item) => set({ leftWallItem: item }),
+  setLeftWallPosterBookId: (bookId) => set({ leftWallPosterBookId: bookId }),
+  setLeftWallWindowStyle: (styleId) => set({ leftWallWindowStyle: styleId }),
+  setLeftWallFrameColor: (frameId) => set({ leftWallFrameColor: frameId }),
+  setPictureFrameSize: (size) => set({ pictureFrameSize: size }),
+  setPictureFrameStyleId: (styleId) => set({ pictureFrameStyleId: styleId }),
+  setPictureFramePhotoUri: (uri) => set({ pictureFramePhotoUri: uri }),
   updateProfile: (input) => set((state) => {
     if (input.name !== undefined && !input.name.trim()) return state;
     const next = normalizeProfile({ ...state.profile, ...input });

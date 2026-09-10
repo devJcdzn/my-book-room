@@ -2,7 +2,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as Haptics from 'expo-haptics';
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction, Vector3 } from 'three';
@@ -13,15 +13,22 @@ import {
   RoomCustomizationOverlay,
   type ScreenAnchorPos,
 } from '@/src/components/room/room-customization-overlay';
+import { preloadCatModels, RoomCat } from '@/src/components/room/room-cat';
 import { RoomFurniture } from '@/src/components/room/room-furniture';
+import { RoomPictureFrame } from '@/src/components/room/room-picture-frame';
+import { RoomPoster } from '@/src/components/room/room-poster';
+import { RoomWindow } from '@/src/components/room/room-window';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 import {
+  getBookcasePalette,
   getFloorPalette,
   getRugPalette,
   getWallPalette,
+  type BookcasePalette,
   type FloorPalette,
+  type LeftWallItemType,
   type RugPalette,
   type WallPalette,
 } from '@/src/types/room-customization';
@@ -50,6 +57,7 @@ type SceneProps = {
   onSelectBook: (bookId: string) => void;
   isCustomizing?: boolean;
   onCustomizingChange?: (isCustomizing: boolean) => void;
+  onSceneReady?: () => void;
 };
 
 type RotationState = {
@@ -183,21 +191,134 @@ function CameraRig() {
   return null;
 }
 
+function FirstFrameNotifier({ onReady }: { onReady?: () => void }) {
+  const hasFired = useRef(false);
+  useFrame(() => {
+    if (!hasFired.current) {
+      hasFired.current = true;
+      onReady?.();
+    }
+  });
+  return null;
+}
+
 function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }) {
   const shape = bookShape(book.id);
-  const size: Vector = upright
-    ? [shape.thickness * 1.6, shape.width * 0.82, shape.depth * 0.68]
-    : [shape.width, shape.thickness, shape.depth];
+  const color = book.coverColor;
+
+  if (upright) {
+    // Dimensões do livro em pé na estante:
+    // x: espessura na prateleira (~0.14 a 0.20)
+    // y: altura do livro (~0.57 a 0.70)
+    // z: profundidade da estante (~0.31 a 0.38)
+    const w = shape.thickness * 1.6;
+    const h = shape.width * 0.82;
+    const d = shape.depth * 0.68;
+    const boardThick = 0.014;
+    const paperRecess = 0.016;
+
+    // A estante tem a lombada voltada para +z (sala/câmera).
+    // O miolo de folhas fica recuado para -z e protegido pelas capas duras.
+    return (
+      <group rotation={[0, 0, shape.rotation * 1.8]}>
+        {/* Capa esquerda (contracapa) */}
+        <mesh position={[-w / 2 + boardThick / 2, 0, 0]}>
+          <boxGeometry args={[boardThick, h, d]} />
+          <meshStandardMaterial color={color} roughness={0.78} />
+        </mesh>
+
+        {/* Capa direita (capa da frente) */}
+        <mesh position={[w / 2 - boardThick / 2, 0, 0]}>
+          <boxGeometry args={[boardThick, h, d]} />
+          <meshStandardMaterial color={color} roughness={0.78} />
+        </mesh>
+
+        {/* Lombada sólida voltada para a sala (+z) */}
+        <mesh position={[0, 0, d / 2 - boardThick / 2]}>
+          <boxGeometry args={[w, h, boardThick]} />
+          <meshStandardMaterial color={color} roughness={0.75} />
+        </mesh>
+
+        {/* Nervuras clássicas em relevo na lombada (3 filetes horizontais) */}
+        {[-h * 0.28, 0, h * 0.28].map((yOffset, i) => (
+          <mesh key={i} position={[0, yOffset, d / 2 + 0.003]}>
+            <boxGeometry args={[w * 0.98, 0.016, 0.012]} />
+            <meshStandardMaterial color="#D4AF37" metalness={0.25} roughness={0.5} />
+          </mesh>
+        ))}
+
+        {/* Plaqueta/Etiqueta nobre de título na lombada */}
+        <mesh position={[0, h * 0.14, d / 2 + 0.005]}>
+          <boxGeometry args={[w * 0.74, h * 0.20, 0.008]} />
+          <meshStandardMaterial color="#FDF9F0" roughness={0.9} />
+        </mesh>
+        {/* Linha elegante de texto dourado na etiqueta */}
+        <mesh position={[0, h * 0.14, d / 2 + 0.010]}>
+          <boxGeometry args={[w * 0.52, 0.008, 0.004]} />
+          <meshStandardMaterial color="#A68341" roughness={0.6} />
+        </mesh>
+
+        {/* Miolo de páginas (rebaixado e visível de cima com quadratura clássica) */}
+        <mesh position={[0, 0, -paperRecess / 2]}>
+          <boxGeometry args={[w - boardThick * 2.2, h - 0.024, d - boardThick - paperRecess]} />
+          <meshStandardMaterial color="#FFF9EC" roughness={1} />
+        </mesh>
+
+        {/* Capitel / tecido decorativo visível no topo da lombada */}
+        <mesh position={[0, h / 2 - 0.01, d / 2 - 0.02]}>
+          <boxGeometry args={[w - 0.02, 0.012, 0.018]} />
+          <meshStandardMaterial color="#993D3D" roughness={0.8} />
+        </mesh>
+      </group>
+    );
+  }
+
+  // Livro deitado na mesa ou empilhado:
+  const w = shape.width;
+  const t = shape.thickness;
+  const d = shape.depth;
+  const boardThick = 0.012;
 
   return (
-    <group rotation={upright ? [0, 0, shape.rotation * 3] : [0, shape.rotation, 0]}>
-      <mesh>
-        <boxGeometry args={size} />
-        <meshStandardMaterial color={book.coverColor} roughness={0.9} />
+    <group rotation={[0, shape.rotation, 0]}>
+      {/* Capa inferior */}
+      <mesh position={[0, -t / 2 + boardThick / 2, 0]}>
+        <boxGeometry args={[w, boardThick, d]} />
+        <meshStandardMaterial color={color} roughness={0.8} />
       </mesh>
-      <mesh position={upright ? [0, 0, size[2] / 2 + 0.006] : [0, size[1] / 2 + 0.006, 0]}>
-        <boxGeometry args={upright ? [size[0] * 0.72, size[1] * 0.88, 0.012] : [size[0] * 0.82, 0.012, size[2] * 0.82]} />
-        <meshStandardMaterial color="#F5E9D5" roughness={1} />
+
+      {/* Capa superior */}
+      <mesh position={[0, t / 2 - boardThick / 2, 0]}>
+        <boxGeometry args={[w, boardThick, d]} />
+        <meshStandardMaterial color={color} roughness={0.8} />
+      </mesh>
+
+      {/* Moldura nobre em relevo na capa superior */}
+      <mesh position={[0.02, t / 2 + 0.002, 0]}>
+        <boxGeometry args={[w * 0.82, 0.004, d * 0.82]} />
+        <meshStandardMaterial color={color} roughness={0.6} />
+      </mesh>
+      <mesh position={[0.02, t / 2 + 0.004, 0]}>
+        <boxGeometry args={[w * 0.76, 0.004, d * 0.76]} />
+        <meshStandardMaterial color="#E8D5B5" roughness={0.9} />
+      </mesh>
+
+      {/* Lombada lateral esquerda unindo as capas */}
+      <mesh position={[-w / 2 + boardThick / 2, 0, 0]}>
+        <boxGeometry args={[boardThick, t, d]} />
+        <meshStandardMaterial color={color} roughness={0.78} />
+      </mesh>
+
+      {/* Miolo de folhas com quadratura elegante */}
+      <mesh position={[boardThick / 2, 0, 0]}>
+        <boxGeometry args={[w - boardThick * 2, t - boardThick * 2.2, d - 0.02]} />
+        <meshStandardMaterial color="#FFF9ED" roughness={1} />
+      </mesh>
+
+      {/* Fitilho marcador de páginas em fita de cetim terracota */}
+      <mesh position={[w / 2 + 0.02, -t / 2 + 0.022, 0.05]} rotation={[0, 0.2, 0.25]}>
+        <boxGeometry args={[0.07, 0.006, 0.028]} />
+        <meshStandardMaterial color="#B85F42" roughness={0.6} />
       </mesh>
     </group>
   );
@@ -213,33 +334,92 @@ function OpenBook({ color, onPress }: { color: string; onPress: () => void }) {
   });
 
   return (
-    <group ref={group} position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.12, OPEN_BOOK_POSITION[2]]} rotation={[0, -0.08, 0]} scale={[0.86, 0.86, 0.86]}>
-      <mesh position={[-0.25, 0, 0]} rotation={[0, 0, -0.035]}>
-        <boxGeometry args={[0.50, 0.032, 0.64]} />
-        <meshStandardMaterial color={color} roughness={0.92} />
+    <group
+      ref={group}
+      position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.12, OPEN_BOOK_POSITION[2]]}
+      rotation={[0, -0.08, 0]}
+      scale={[0.86, 0.86, 0.86]}
+    >
+      {/* Capa externa esquerda */}
+      <mesh position={[-0.26, -0.012, 0]} rotation={[0, 0, -0.04]}>
+        <boxGeometry args={[0.52, 0.016, 0.66]} />
+        <meshStandardMaterial color={color} roughness={0.85} />
       </mesh>
-      <mesh position={[0.25, 0, 0]} rotation={[0, 0, 0.035]}>
-        <boxGeometry args={[0.50, 0.032, 0.64]} />
-        <meshStandardMaterial color={color} roughness={0.92} />
+      {/* Capa externa direita */}
+      <mesh position={[0.26, -0.012, 0]} rotation={[0, 0, 0.04]}>
+        <boxGeometry args={[0.52, 0.016, 0.66]} />
+        <meshStandardMaterial color={color} roughness={0.85} />
       </mesh>
-      <mesh position={[-0.24, 0.038, 0]} rotation={[0, 0, -0.055]}>
-        <boxGeometry args={[0.46, 0.024, 0.60]} />
+      {/* Base da lombada central */}
+      <mesh position={[0, -0.016, 0]}>
+        <boxGeometry args={[0.08, 0.012, 0.66]} />
+        <meshStandardMaterial color={color} roughness={0.9} />
+      </mesh>
+
+      {/* Bloco de páginas esquerdas com curvatura suave */}
+      <mesh position={[-0.24, 0.016, 0]} rotation={[0, 0, -0.04]}>
+        <boxGeometry args={[0.47, 0.026, 0.61]} />
         <meshStandardMaterial color="#FFF5E5" roughness={1} />
       </mesh>
-      <mesh position={[0.24, 0.038, 0]} rotation={[0, 0, 0.055]}>
-        <boxGeometry args={[0.46, 0.024, 0.60]} />
+      {/* Folha superior esquerda ligeiramente elevada */}
+      <mesh position={[-0.24, 0.033, 0]} rotation={[0, 0, -0.06]}>
+        <boxGeometry args={[0.46, 0.006, 0.60]} />
+        <meshStandardMaterial color="#FFFDF7" roughness={1} />
+      </mesh>
+
+      {/* Bloco de páginas direitas com curvatura suave */}
+      <mesh position={[0.24, 0.016, 0]} rotation={[0, 0, 0.04]}>
+        <boxGeometry args={[0.47, 0.026, 0.61]} />
         <meshStandardMaterial color="#FFF5E5" roughness={1} />
       </mesh>
-      <mesh position={[0, 0.052, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.018, 0.018, 0.60, 8]} />
-        <meshStandardMaterial color="#D9C7AB" roughness={1} />
+      {/* Folha superior direita ligeiramente elevada */}
+      <mesh position={[0.24, 0.033, 0]} rotation={[0, 0, 0.06]}>
+        <boxGeometry args={[0.46, 0.006, 0.60]} />
+        <meshStandardMaterial color="#FFFDF7" roughness={1} />
       </mesh>
-      <mesh position={[0.05, 0.056, 0.30]} rotation={[0.2, 0, 0]}>
-        <boxGeometry args={[0.028, 0.008, 0.16]} />
-        <meshStandardMaterial color="#B85F42" roughness={0.9} />
+
+      {/* Impressão sutil de linhas de texto nas páginas */}
+      {[-0.18, -0.06, 0.06, 0.18].map((zOffset, i) => (
+        <React.Fragment key={i}>
+          {/* Linha esquerda */}
+          <mesh position={[-0.24, 0.038, zOffset]} rotation={[0, 0, -0.06]}>
+            <boxGeometry args={[0.34, 0.002, 0.03]} />
+            <meshStandardMaterial color="#E2D4C0" roughness={1} />
+          </mesh>
+          {/* Linha direita */}
+          <mesh position={[0.24, 0.038, zOffset]} rotation={[0, 0, 0.06]}>
+            <boxGeometry args={[0.34, 0.002, 0.03]} />
+            <meshStandardMaterial color="#E2D4C0" roughness={1} />
+          </mesh>
+        </React.Fragment>
+      ))}
+
+      {/* Sulco/Vinco central da lombada */}
+      <mesh position={[0, 0.026, 0]}>
+        <boxGeometry args={[0.016, 0.028, 0.61]} />
+        <meshStandardMaterial color="#CEBFAB" roughness={1} />
       </mesh>
-      <mesh onClick={(event) => { event.stopPropagation(); onPress(); }} position={[0, 0.12, 0]}>
-        <boxGeometry args={[1.15, 0.22, 0.78]} />
+
+      {/* Fitilho de cetim pousado graciosamente na página direita */}
+      <mesh position={[0.12, 0.044, 0.08]} rotation={[0, -0.28, 0.06]}>
+        <boxGeometry args={[0.026, 0.005, 0.42]} />
+        <meshStandardMaterial color="#B85F42" roughness={0.7} />
+      </mesh>
+      {/* Ponta do fitilho caindo além da borda */}
+      <mesh position={[0.18, 0.026, 0.33]} rotation={[0.42, -0.15, 0]}>
+        <boxGeometry args={[0.026, 0.005, 0.12]} />
+        <meshStandardMaterial color="#B85F42" roughness={0.7} />
+      </mesh>
+
+      {/* Hit box transparente ampliada para clique confortável */}
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation();
+          onPress();
+        }}
+        position={[0, 0.12, 0]}
+      >
+        <boxGeometry args={[1.20, 0.24, 0.82]} />
         <meshBasicMaterial depthWrite={false} opacity={0} transparent />
       </mesh>
     </group>
@@ -422,15 +602,15 @@ function FloorContactShadows({ isNight }: { isNight: boolean }) {
         <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
       </mesh>
 
-      {/* Sombra harmoniosa da planta de chão encostada na parede abaixo do quadro */}
-      <group position={[-1.85, 0.024, -2.80]}>
+      {/* Sombra harmoniosa da planta de chão posicionada ao lado da estante de livros */}
+      <group position={[0.10, 0.024, -2.80]}>
         {/* Contato sob o vaso */}
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.34, 28]} />
           <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
         {/* Projeção suave e sutil da copa para trás */}
-        <mesh position={[-0.10, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, 0.4]}>
+        <mesh position={[-0.10, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, -0.4]}>
           <circleGeometry args={[0.42, 24]} />
           <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.65} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
         </mesh>
@@ -595,7 +775,15 @@ function RoomShell({
   onAddBook,
   wallPalette,
   floorPalette,
+  bookcasePalette,
   rugPalette,
+  onCatLoadingChange,
+  leftWallItem,
+  leftWallWindowStyle,
+  leftWallFrameColor,
+  posterBook,
+  resolvedAmbience,
+  onSceneReady,
 }: {
   isLampOn: boolean;
   onToggleLamp: () => void;
@@ -605,7 +793,15 @@ function RoomShell({
   onAddBook: () => void;
   wallPalette: WallPalette;
   floorPalette: FloorPalette;
+  bookcasePalette: BookcasePalette;
   rugPalette: RugPalette;
+  onCatLoadingChange?: (loading: boolean, catId: string) => void;
+  leftWallItem: LeftWallItemType;
+  leftWallWindowStyle: string;
+  leftWallFrameColor: string;
+  posterBook?: Book;
+  resolvedAmbience: ResolvedAmbience;
+  onSceneReady?: () => void;
 }) {
   return (
     <>
@@ -655,6 +851,23 @@ function RoomShell({
         <meshStandardMaterial color={wallPalette.cornerColor} roughness={1} />
       </mesh>
 
+      {/* Decoração da Parede Esquerda: Janela procedural ou Pôster de leitura emoldurado */}
+      {leftWallItem === 'window' ? (
+        <RoomWindow
+          ambience={resolvedAmbience}
+          styleId={leftWallWindowStyle}
+        />
+      ) : null}
+      {leftWallItem === 'poster' ? (
+        <RoomPoster
+          book={posterBook}
+          frameId={leftWallFrameColor}
+        />
+      ) : null}
+
+      {/* Quadro de Parede Personalizável (Fotos locais, formatos 1:1 e 1:2) */}
+      <RoomPictureFrame />
+
       {/* Tapete circular aconchegante */}
       <mesh position={[0.42, 0.025, 1.05]}>
         <cylinderGeometry args={[1.85, 1.85, 0.035, 32]} />
@@ -678,10 +891,14 @@ function RoomShell({
           onToggleLamp={onToggleLamp}
           theme={theme}
         />
+        <FirstFrameNotifier onReady={onSceneReady} />
       </Suspense>
 
+      {/* Gatinho da sala com carregamento sob demanda e disfarce 3D procedural */}
+      <RoomCat onLoadingChange={onCatLoadingChange} />
+
       {/* Estante de livros profissional e completa com marcenaria artesanal */}
-      <Bookcase />
+      <Bookcase palette={bookcasePalette} />
 
       {/* Partículas de poeira dourada */}
       <AmbientDust isLampOn={isLampOn} opacity={theme.dustOpacity} />
@@ -693,19 +910,24 @@ function RoomGeometry({
   onAddBook,
   onOpenBook,
   onSelectBook,
+  onSceneReady,
   rotationRef,
   zoomRef,
   theme,
   isNight,
+  resolvedAmbience,
   isCustomizing,
   onUpdateAnchorPositions,
+  onCatLoadingChange,
 }: SceneProps & {
   rotationRef: React.MutableRefObject<RotationState>;
   zoomRef: React.MutableRefObject<ZoomState>;
   theme: (typeof AMBIENCE_THEMES)[ResolvedAmbience];
   isNight: boolean;
+  resolvedAmbience: ResolvedAmbience;
   isCustomizing?: boolean;
   onUpdateAnchorPositions?: (anchors: Record<string, ScreenAnchorPos>) => void;
+  onCatLoadingChange?: (loading: boolean, catId: string) => void;
 }) {
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
@@ -717,8 +939,14 @@ function RoomGeometry({
   const wallPalette = getWallPalette(wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
   const floorPalette = getFloorPalette(floorPaletteId);
+  const bookcasePaletteId = useLibraryStore((state) => state.bookcasePaletteId);
+  const bookcasePalette = getBookcasePalette(bookcasePaletteId);
   const rugPaletteId = useLibraryStore((state) => state.rugPaletteId);
   const rugPalette = getRugPalette(rugPaletteId);
+  const leftWallItem = useLibraryStore((state) => state.leftWallItem);
+  const leftWallPosterBookId = useLibraryStore((state) => state.leftWallPosterBookId);
+  const leftWallWindowStyle = useLibraryStore((state) => state.leftWallWindowStyle);
+  const leftWallFrameColor = useLibraryStore((state) => state.leftWallFrameColor);
 
   const roomGroup = useRef<Group>(null);
   const { camera, size } = useThree();
@@ -780,18 +1008,35 @@ function RoomGeometry({
   const completedBooks = books.filter((book) => book.status === 'completed');
   const movingBook = books.find((book) => book.id === completingBookId);
 
+  const posterBook = useMemo(() => {
+    if (leftWallItem !== 'poster') return undefined;
+    if (leftWallPosterBookId) {
+      const found = books.find((book) => book.id === leftWallPosterBookId);
+      if (found) return found;
+    }
+    return completedBooks[0] ?? readingBooks[0] ?? activeBook ?? books[0];
+  }, [activeBook, books, completedBooks, leftWallItem, leftWallPosterBookId, readingBooks]);
+
   // Mesa limpa quando 0 livros estiverem em leitura
   const isEmptyDesk = !activeBook && readingBooks.length === 0;
 
   return (
     <group ref={roomGroup}>
       <RoomShell
+        bookcasePalette={bookcasePalette}
         floorPalette={floorPalette}
         isEmptyDesk={isEmptyDesk}
         isLampOn={isLampOn}
         isNight={isNight}
+        leftWallFrameColor={leftWallFrameColor}
+        leftWallItem={leftWallItem}
+        leftWallWindowStyle={leftWallWindowStyle}
         onAddBook={onAddBook}
+        onCatLoadingChange={onCatLoadingChange}
+        onSceneReady={onSceneReady}
         onToggleLamp={handleToggleLamp}
+        posterBook={posterBook}
+        resolvedAmbience={resolvedAmbience}
         rugPalette={rugPalette}
         theme={theme}
         wallPalette={wallPalette}
@@ -857,6 +1102,22 @@ export function IsometricScene(props: SceneProps) {
   const [anchorPositions, setAnchorPositions] = useState<Record<string, ScreenAnchorPos>>({});
   const isCustomizingRef = useRef(isCustomizing);
 
+  const catId = useLibraryStore((state) => state.catId);
+  const [catLoadingId, setCatLoadingId] = useState<string | null>(null);
+
+  const handleCatLoadingChange = useCallback((loading: boolean, activeCatId: string) => {
+    setCatLoadingId(loading ? activeCatId : null);
+  }, []);
+
+  useEffect(() => {
+    if (isCustomizing) {
+      const timer = setTimeout(() => {
+        preloadCatModels(catId);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isCustomizing, catId]);
+
   useEffect(() => {
     isCustomizingRef.current = isCustomizing;
   }, [isCustomizing]);
@@ -883,6 +1144,13 @@ export function IsometricScene(props: SceneProps) {
     let initialZoom = 1.0;
 
     const responder = PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        // Se estiver no modo de personalização e o gesto ocorrer no terço inferior da tela (área do seletor), nunca captura
+        if (isCustomizingRef.current && evt.nativeEvent.pageY > height - 260) {
+          return false;
+        }
+        return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
+      },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         // Se estiver no modo de personalização e o gesto ocorrer no terço inferior da tela (área do seletor), nunca captura
         if (isCustomizingRef.current && evt.nativeEvent.pageY > height - 260) {
@@ -890,6 +1158,7 @@ export function IsometricScene(props: SceneProps) {
         }
         return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
       },
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
         initialAngle = rotationRef.current.targetY;
         const touches = evt.nativeEvent.touches;
@@ -979,12 +1248,15 @@ export function IsometricScene(props: SceneProps) {
           style={styles.canvas}
         >
           <color attach="background" args={[currentTheme.bgColor]} />
+          <FirstFrameNotifier onReady={props.onSceneReady} />
           <CameraRig />
           <RoomGeometry
             {...props}
             isCustomizing={isCustomizing}
             isNight={isNight}
+            onCatLoadingChange={handleCatLoadingChange}
             onUpdateAnchorPositions={setAnchorPositions}
+            resolvedAmbience={resolvedAmbience}
             rotationRef={rotationRef}
             theme={currentTheme}
             zoomRef={zoomRef}
@@ -997,6 +1269,7 @@ export function IsometricScene(props: SceneProps) {
         <RoomCustomizationOverlay
           anchorPositions={anchorPositions}
           isNight={isNight}
+          loadingCatId={catLoadingId}
           onExit={handleExitCustomization}
         />
       ) : (

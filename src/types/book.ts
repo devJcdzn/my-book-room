@@ -8,6 +8,7 @@ export type BookSearchResult = {
   title: string;
   author: string;
   totalPages?: number;
+  totalPagesSource?: 'open_library' | 'user';
   coverId?: number;
   coverUrl?: string;
   isbn?: string;

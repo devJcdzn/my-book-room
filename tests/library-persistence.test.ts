@@ -9,9 +9,16 @@ import {
   useLibraryStore,
 } from '../src/store/library-store';
 import {
+  DEFAULT_BOOKCASE_PALETTE_ID,
+  DEFAULT_CAT_ID,
   DEFAULT_FLOOR_PALETTE_ID,
+  DEFAULT_LEFT_WALL_ITEM,
+  DEFAULT_PICTURE_FRAME_SIZE,
+  DEFAULT_PICTURE_FRAME_STYLE_ID,
+  DEFAULT_POSTER_FRAME_ID,
   DEFAULT_RUG_PALETTE_ID,
   DEFAULT_WALL_PALETTE_ID,
+  DEFAULT_WINDOW_STYLE_ID,
 } from '../src/types/room-customization';
 
 const readingBook: Book = {
@@ -38,6 +45,15 @@ test('snapshot local inclui perfil, livros, progresso e sala sem estado transit�
     wallPaletteId: 'sage-green',
     floorPaletteId: 'dark-walnut',
     rugPaletteId: 'sage-botanic',
+    bookcasePaletteId: 'rustic-mahogany',
+    catId: 'black-catnap',
+    leftWallItem: 'poster',
+    leftWallPosterBookId: readingBook.id,
+    leftWallWindowStyle: 'golden-oak',
+    leftWallFrameColor: 'antique-gold',
+    pictureFrameSize: '2:1',
+    pictureFrameStyleId: 'antique-gold',
+    pictureFramePhotoUri: 'file:///storage/user-photo.jpg',
     completingBookId: readingBook.id,
   });
 
@@ -50,6 +66,15 @@ test('snapshot local inclui perfil, livros, progresso e sala sem estado transit�
   assert.equal(snapshot.wallPaletteId, 'sage-green');
   assert.equal(snapshot.floorPaletteId, 'dark-walnut');
   assert.equal(snapshot.rugPaletteId, 'sage-botanic');
+  assert.equal(snapshot.bookcasePaletteId, 'rustic-mahogany');
+  assert.equal(snapshot.catId, 'black-catnap');
+  assert.equal(snapshot.leftWallItem, 'poster');
+  assert.equal(snapshot.leftWallPosterBookId, readingBook.id);
+  assert.equal(snapshot.leftWallWindowStyle, 'golden-oak');
+  assert.equal(snapshot.leftWallFrameColor, 'antique-gold');
+  assert.equal(snapshot.pictureFrameSize, '2:1');
+  assert.equal(snapshot.pictureFrameStyleId, 'antique-gold');
+  assert.equal(snapshot.pictureFramePhotoUri, 'file:///storage/user-photo.jpg');
   assert.equal('completingBookId' in snapshot, false);
 });
 
@@ -58,14 +83,23 @@ test('normaliza snapshot corrompido com defaults e corrige ids e estados inváli
     profile: { name: '   ', bio: 42, bioAttribution: '' },
     books: [
       { ...readingBook, status: 'completing', currentPage: 20 },
-      { id: 'inválido', title: '', totalPages: 0 },
+      { id: 'invalido' },
     ],
-    activeBookId: 'id-inexistente',
-    isLampOn: 'sim',
-    ambienceMode: 'unknown',
-    wallPaletteId: 'unknown',
-    floorPaletteId: 'unknown',
-    rugPaletteId: 'unknown',
+    activeBookId: 'inexistente',
+    isLampOn: 'nao-booleano',
+    ambienceMode: 'inexistente',
+    wallPaletteId: 'inexistente',
+    floorPaletteId: 'inexistente',
+    rugPaletteId: 'inexistente',
+    bookcasePaletteId: 'inexistente',
+    catId: 'inexistente',
+    leftWallItem: 'inexistente',
+    leftWallPosterBookId: 'livro-inexistente',
+    leftWallWindowStyle: 'inexistente',
+    leftWallFrameColor: 'inexistente',
+    pictureFrameSize: 'unknown',
+    pictureFrameStyleId: 'unknown',
+    pictureFramePhotoUri: 'data:image/jpeg;base64,corruptedCrashData',
   });
 
   assert.equal(normalized.profile.name, 'Leitor(a)');
@@ -80,19 +114,37 @@ test('normaliza snapshot corrompido com defaults e corrige ids e estados inváli
   assert.equal(normalized.wallPaletteId, DEFAULT_WALL_PALETTE_ID);
   assert.equal(normalized.floorPaletteId, DEFAULT_FLOOR_PALETTE_ID);
   assert.equal(normalized.rugPaletteId, DEFAULT_RUG_PALETTE_ID);
+  assert.equal(normalized.bookcasePaletteId, DEFAULT_BOOKCASE_PALETTE_ID);
+  assert.equal(normalized.catId, DEFAULT_CAT_ID);
+  assert.equal(normalized.leftWallItem, DEFAULT_LEFT_WALL_ITEM);
+  assert.equal(normalized.leftWallPosterBookId, undefined);
+  assert.equal(normalized.leftWallWindowStyle, DEFAULT_WINDOW_STYLE_ID);
+  assert.equal(normalized.leftWallFrameColor, DEFAULT_POSTER_FRAME_ID);
+  assert.equal(normalized.pictureFrameSize, DEFAULT_PICTURE_FRAME_SIZE);
+  assert.equal(normalized.pictureFrameStyleId, DEFAULT_PICTURE_FRAME_STYLE_ID);
+  assert.equal(normalized.pictureFramePhotoUri, null);
 });
 
 test('rehidrata do storage assíncrono e restaura perfil, progresso e personalização', async () => {
   let storedValue = JSON.stringify({
     state: {
-      profile: { name: 'Bia', bio: 'Ler é voltar para casa.', bioAttribution: 'Fonte pessoal' },
-      books: [readingBook],
+      profile: { name: 'Bia', bio: 'Lendo o mundo', bioAttribution: 'Autora' },
+      books: [{ ...readingBook, currentPage: 84 }],
       activeBookId: readingBook.id,
       isLampOn: false,
       ambienceMode: 'sunset',
       wallPaletteId: 'warm-terracotta',
       floorPaletteId: 'warm-cherry',
       rugPaletteId: 'velvet-burgundy',
+      bookcasePaletteId: 'rustic-mahogany',
+      catId: 'black-catnap',
+      leftWallItem: 'window',
+      leftWallPosterBookId: undefined,
+      leftWallWindowStyle: 'golden-oak',
+      leftWallFrameColor: 'antique-gold',
+      pictureFrameSize: '1:2',
+      pictureFrameStyleId: 'antique-gold',
+      pictureFramePhotoUri: 'file:///storage/rehydrated-photo.jpg',
     },
     version: 1,
   });
@@ -115,6 +167,14 @@ test('rehidrata do storage assíncrono e restaura perfil, progresso e personaliz
   assert.equal(state.wallPaletteId, 'warm-terracotta');
   assert.equal(state.floorPaletteId, 'warm-cherry');
   assert.equal(state.rugPaletteId, 'velvet-burgundy');
+  assert.equal(state.bookcasePaletteId, 'rustic-mahogany');
+  assert.equal(state.catId, 'black-catnap');
+  assert.equal(state.leftWallItem, 'window');
+  assert.equal(state.leftWallWindowStyle, 'golden-oak');
+  assert.equal(state.leftWallFrameColor, 'antique-gold');
+  assert.equal(state.pictureFrameSize, '2:1');
+  assert.equal(state.pictureFrameStyleId, 'antique-gold');
+  assert.equal(state.pictureFramePhotoUri, 'file:///storage/rehydrated-photo.jpg');
   assert.equal(state._hasHydrated, true);
 
   useLibraryStore.persist.setOptions({ storage: originalStorage });
@@ -127,6 +187,16 @@ test('rehidrata do storage assíncrono e restaura perfil, progresso e personaliz
     ambienceMode: 'auto',
     wallPaletteId: DEFAULT_WALL_PALETTE_ID,
     floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
+    rugPaletteId: DEFAULT_RUG_PALETTE_ID,
+    bookcasePaletteId: DEFAULT_BOOKCASE_PALETTE_ID,
+    catId: DEFAULT_CAT_ID,
+    leftWallItem: DEFAULT_LEFT_WALL_ITEM,
+    leftWallPosterBookId: undefined,
+    leftWallWindowStyle: DEFAULT_WINDOW_STYLE_ID,
+    leftWallFrameColor: DEFAULT_POSTER_FRAME_ID,
+    pictureFrameSize: DEFAULT_PICTURE_FRAME_SIZE,
+    pictureFrameStyleId: DEFAULT_PICTURE_FRAME_STYLE_ID,
+    pictureFramePhotoUri: null,
     profile: { name: 'Leitor(a)', bio: 'Sempre imaginei que o paraíso fosse uma espécie de biblioteca.', bioAttribution: 'Jorge Luis Borges' },
   });
 });

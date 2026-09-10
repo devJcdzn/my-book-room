@@ -1,3 +1,4 @@
+import { Asset } from 'expo-asset';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -6,10 +7,15 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { FURNITURE_SOURCES } from '@/src/components/room/room-furniture';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+SplashScreen.setOptions({
+  duration: 400,
+  fade: true,
+});
 
 LogBox.ignoreLogs([
   'THREE.WARNING: Multiple instances of Three.js being imported.',
@@ -40,11 +46,16 @@ export default function RootLayout() {
 
   useEffect(() => {
     void useLibraryStore.persist.rehydrate();
+    void Asset.loadAsync(FURNITURE_SOURCES).catch(() => undefined);
   }, []);
 
+  // Timer de segurança (3500ms) para garantir ocultação da splash screen mesmo em cenários extremos
   useEffect(() => {
-    if (hasHydrated) void SplashScreen.hideAsync();
-  }, [hasHydrated]);
+    const safetyTimer = setTimeout(() => {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }, 3500);
+    return () => clearTimeout(safetyTimer);
+  }, []);
 
   const theme = useMemo(() => {
     if (isNight) {

@@ -1,0 +1,1 @@
+-- O catálogo é populado pela RPC durante o uso do app.

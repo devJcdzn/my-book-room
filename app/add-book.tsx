@@ -8,6 +8,7 @@ import { BookCover } from '@/src/components/book-cover';
 import { PrimaryButton } from '@/src/components/primary-button';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useBookSearch } from '@/src/hooks/use-book-search';
+import { bookCatalogClient, type CatalogPagesSource } from '@/src/services/book-catalog';
 import { extractCoverColor } from '@/src/services/cover-color';
 import { deriveBookColor, useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
@@ -53,6 +54,10 @@ export default function AddBookScreen() {
     });
   };
 
+  const syncCatalogBook = (result: BookSearchResult, totalPagesSource: CatalogPagesSource) => {
+    void bookCatalogClient.upsertBook({ result, totalPagesSource }).catch(() => undefined);
+  };
+
   const selectCatalogBook = (book: BookSearchResult) => {
     if (addedIds.has(book.workKey)) return;
     if (!book.totalPages) {
@@ -64,7 +69,9 @@ export default function AddBookScreen() {
       setShowCustomForm(true);
       return;
     }
-    addOpenLibraryBook({ ...book, totalPages: book.totalPages });
+    const catalogBook = { ...book, totalPages: book.totalPages };
+    addOpenLibraryBook(catalogBook);
+    syncCatalogBook(catalogBook, book.totalPagesSource ?? 'open_library');
     updateCoverColor(book);
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
@@ -73,12 +80,14 @@ export default function AddBookScreen() {
   const handleCreateCustom = () => {
     if (!customTitle.trim() || !validPages) return;
     if (pendingResult) {
-      addOpenLibraryBook({
+      const catalogBook = {
         ...pendingResult,
         title: customTitle.trim(),
         author: customAuthor.trim() || 'Autor desconhecido',
         totalPages: parsedPages,
-      });
+      };
+      addOpenLibraryBook(catalogBook);
+      syncCatalogBook(catalogBook, 'user');
       updateCoverColor(pendingResult);
     } else {
       addCustomBook({

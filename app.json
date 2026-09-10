@@ -4,23 +4,28 @@
     "slug": "my-book-room",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/ios-light.png",
     "scheme": "mybookroom",
     "userInterfaceStyle": "light",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDF7E9"
+    },
+    "platforms": ["ios", "android"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bookroom.app"
+      "bundleIdentifier": "com.devjc.bookroom",
+      "icon": {
+        "light": "./assets/ios-light.png",
+        "dark": "./assets/ios-dark.png",
+        "tinted": "./assets/ios-tinted.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F5EBDD",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FDF7E9",
+        "foregroundImage": "./assets/adaptive-icon.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -31,9 +36,14 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
           "resizeMode": "contain",
-          "backgroundColor": "#F5EBDD"
+          "backgroundColor": "#FDF7E9",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#131520"
+          }
         }
       ],
       [
@@ -45,7 +55,9 @@
             "./assets/Separate_Assets_glb/Light_05.glb",
             "./assets/Separate_Assets_glb/Plants_05.glb",
             "./assets/Separate_Assets_glb/Plants_15.glb",
-            "./assets/Separate_Assets_glb/Picture_21.glb"
+            "./assets/cats-assets/catnap-orange.glb",
+            "./assets/cats-assets/black-catnap.glb",
+            "./assets/cats-assets/gray-catnap.glb"
           ]
         }
       ],
