@@ -12,7 +12,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#FDF7E9"
     },
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.devjc.bookroom",
@@ -20,6 +23,9 @@
         "light": "./assets/ios-light.png",
         "dark": "./assets/ios-dark.png",
         "tinted": "./assets/ios-tinted.png"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -66,6 +72,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c7b7808a-d8c4-4a56-8003-ce654b9904cb"
+      }
     }
   }
 }
