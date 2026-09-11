@@ -19,7 +19,7 @@ revoke all on table public.testflight_waitlist from public, anon, authenticated;
 grant select, update on table public.testflight_waitlist to service_role;
 
 create or replace function public.join_testflight_waitlist(p_email text)
-returns table(status text, remaining integer, position integer)
+returns table(status text, remaining integer, waitlist_position integer)
 language plpgsql
 security definer
 set search_path = public, pg_temp

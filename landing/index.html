@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f4ecdf" />
+    <meta name="theme-color" content="#f3ede3" />
     <meta
       name="description"
       content="Bookroom é um espaço de leitura para acompanhar páginas, organizar livros e ver seu acervo ganhar vida."
     />
-    <meta property="og:title" content="Bookroom — seu refúgio de leitura" />
+    <meta property="og:title" content="Bookroom - seu refúgio de leitura" />
     <meta
       property="og:description"
       content="Entre na primeira turma do Bookroom para iPhone via TestFlight."
@@ -17,8 +17,8 @@
     <meta property="og:image" content="assets/bookroom-logo.webp" />
     <link rel="icon" href="assets/bookroom-logo.webp" type="image/webp" />
     <link rel="preload" as="image" href="assets/ambient-room.webp" type="image/webp" fetchpriority="high" />
-    <link rel="stylesheet" href="styles.css" />
-    <title>Bookroom — seu refúgio de leitura</title>
+    <link rel="stylesheet" href="styles.css?v=4" />
+    <title>Bookroom - seu refúgio de leitura</title>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -30,7 +30,7 @@
       </a>
       <nav class="site-nav" aria-label="Navegação principal">
         <a href="#experiencia">A experiência</a>
-        <a class="header-cta" href="#waitlist">Entrar na waitlist</a>
+        <a class="header-cta" href="#waitlist">Quero testar o Bookroom</a>
       </nav>
     </header>
 
@@ -39,9 +39,9 @@
         <div class="hero-inner">
           <div class="hero-copy">
             <p class="eyebrow">Primeira turma para iPhone</p>
-            <h1 id="hero-title">Seu refúgio de leitura, agora no iPhone.</h1>
+            <h1 id="hero-title">Sua leitura ganha um lugar.</h1>
             <p class="hero-lede">
-              Organize seus livros, acompanhe cada página e veja sua biblioteca ganhar vida em um ambiente 3D feito por você.
+              Acompanhe cada página e veja sua biblioteca ganhar vida em uma sala 3D feita por você.
             </p>
 
             <div class="hero-action" id="waitlist">
@@ -50,14 +50,15 @@
                 <span data-counter>Turma inicial de 200 leitores</span>
               </div>
               <form class="waitlist-form" data-waitlist-form novalidate>
-                <label class="sr-only" for="hero-email">Email usado na sua Conta Apple</label>
+                <label class="field-label" for="hero-email">Email da sua Conta Apple</label>
                 <input
                   id="hero-email"
                   name="email"
                   type="email"
                   autocomplete="email"
                   inputmode="email"
-                  placeholder="Email usado na sua Conta Apple"
+                  placeholder="voce@exemplo.com"
+                  aria-describedby="hero-form-note hero-form-status"
                   maxlength="320"
                   required
                 />
@@ -65,8 +66,8 @@
                 <button type="submit">Quero testar o Bookroom <span aria-hidden="true">↗</span></button>
                 <div class="turnstile-slot" data-turnstile></div>
               </form>
-              <p class="form-note">Use o mesmo email da sua Conta Apple. O convite chegará pelo TestFlight.</p>
-              <p class="form-status" data-form-status aria-live="polite"></p>
+              <p class="form-note" id="hero-form-note">O convite chegará pelo TestFlight.</p>
+              <p class="form-status" id="hero-form-status" data-form-status aria-live="polite"></p>
             </div>
           </div>
 
@@ -86,7 +87,6 @@
       </section>
 
       <section class="intro" id="experiencia" aria-labelledby="intro-title">
-        <div class="section-kicker">A experiência</div>
         <h2 id="intro-title">Ler deixa uma marca no espaço.</h2>
         <p>
           No Bookroom, cada página lida é um pequeno movimento. Seus livros começam na mesa, acompanham seu ritmo e encontram seu lugar na estante quando a história termina.
@@ -95,7 +95,6 @@
 
       <section class="story story-library" aria-labelledby="library-title">
         <div class="story-copy" data-reveal>
-          <p class="section-kicker">01 / Progresso</p>
           <h2 id="library-title">Progresso visível, sem transformar leitura em obrigação.</h2>
           <p>
             Atualize suas páginas, mantenha suas notas e reencontre exatamente o ponto onde parou. O acervo mostra o caminho sem cobrar pressa.
@@ -127,7 +126,6 @@
           </div>
         </figure>
         <div class="story-copy" data-reveal>
-          <p class="section-kicker">02 / Atmosfera</p>
           <h2 id="profile-title">Um espaço com a sua atmosfera.</h2>
           <p>
             Escolha o clima da sala e acompanhe um acervo que fica mais pessoal a cada livro. A leitura não precisa disputar atenção com o resto do dia.
@@ -138,28 +136,29 @@
       <section class="closing" aria-labelledby="closing-title">
         <div class="closing-inner">
           <div>
-            <p class="section-kicker">Beta privado · 200 convites</p>
+            <p class="section-kicker">Primeiros 200 leitores</p>
             <h2 id="closing-title">Reserve seu lugar na primeira estante.</h2>
             <p>Entre na lista para receber o convite do Bookroom pelo TestFlight.</p>
           </div>
           <div class="closing-action">
             <form class="waitlist-form" data-waitlist-form novalidate>
-              <label class="sr-only" for="closing-email">Email usado na sua Conta Apple</label>
+              <label class="field-label" for="closing-email">Email da sua Conta Apple</label>
               <input
                 id="closing-email"
                 name="email"
                 type="email"
                 autocomplete="email"
                 inputmode="email"
-                placeholder="Email usado na sua Conta Apple"
+                placeholder="voce@exemplo.com"
+                aria-describedby="closing-form-status"
                 maxlength="320"
                 required
               />
               <input class="honeypot" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
-              <button type="submit">Entrar na waitlist <span aria-hidden="true">↗</span></button>
+              <button type="submit">Quero testar o Bookroom <span aria-hidden="true">↗</span></button>
               <div class="turnstile-slot" data-turnstile></div>
             </form>
-            <p class="form-status" data-form-status aria-live="polite"></p>
+            <p class="form-status" id="closing-form-status" data-form-status aria-live="polite"></p>
           </div>
         </div>
       </section>
@@ -171,8 +170,7 @@
       <p>Feito para voltar a ler com calma.</p>
     </footer>
 
-    <script src="config.js"></script>
-    <script src="script.js"></script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&amp;onload=bookroomTurnstileReady" async defer></script>
+    <script src="config.js?v=4"></script>
+    <script src="script.js?v=4"></script>
   </body>
 </html>

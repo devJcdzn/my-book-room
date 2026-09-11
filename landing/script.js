@@ -8,9 +8,10 @@
   const forms = Array.from(document.querySelectorAll('[data-waitlist-form]'));
   const counterNodes = Array.from(document.querySelectorAll('[data-counter]'));
   const availabilityNodes = Array.from(document.querySelectorAll('[data-availability]'));
-  const configured =
+  const endpointConfigured =
     endpoint.startsWith('https://') &&
-    !endpoint.includes('YOUR_PROJECT_REF') &&
+    !endpoint.includes('YOUR_PROJECT_REF');
+  const turnstileConfigured =
     turnstileSiteKey.length > 0 &&
     !turnstileSiteKey.includes('YOUR_');
 
@@ -57,6 +58,7 @@
   };
 
   const getTurnstileToken = async (form) => {
+    if (!turnstileConfigured) return '';
     if (form.dataset.turnstileToken) return form.dataset.turnstileToken;
     if (!window.turnstile || !form._turnstileId) {
       throw new Error('TURNSTILE_UNAVAILABLE');
@@ -88,7 +90,7 @@
   };
 
   window.bookroomTurnstileReady = function () {
-    if (!configured || !window.turnstile) return;
+    if (!endpointConfigured || !turnstileConfigured || !window.turnstile) return;
 
     forms.forEach((form) => {
       const container = form.querySelector('[data-turnstile]');
@@ -125,7 +127,7 @@
   };
 
   const fetchAvailability = async () => {
-    if (!configured) return;
+    if (!endpointConfigured) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 8000);
@@ -159,7 +161,7 @@
       return;
     }
 
-    if (!configured) {
+    if (!endpointConfigured) {
       setStatus(form, 'A waitlist ainda está sendo configurada. Tente novamente em breve.', 'error');
       return;
     }
@@ -167,6 +169,7 @@
     if (honeypot?.value) return;
 
     button.disabled = true;
+    form.setAttribute('aria-busy', 'true');
     setStatus(form, 'Reservando seu lugar…');
 
     try {
@@ -205,7 +208,9 @@
       setStatus(form, friendlyMessage, 'error');
     } finally {
       resetTurnstile(form);
-      button.disabled = false;
+      const waitlistIsFull = availabilityNodes.some((node) => node.dataset.full === 'true');
+      if (!waitlistIsFull) button.disabled = false;
+      form.removeAttribute('aria-busy');
     }
   };
 
@@ -231,6 +236,15 @@
     revealItems.forEach((item) => revealObserver.observe(item));
   } else {
     revealItems.forEach((item) => item.classList.add('is-visible'));
+  }
+
+  if (turnstileConfigured) {
+    const turnstileScript = document.createElement('script');
+    turnstileScript.src =
+      'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=bookroomTurnstileReady';
+    turnstileScript.async = true;
+    turnstileScript.defer = true;
+    document.head.append(turnstileScript);
   }
 
   void fetchAvailability();

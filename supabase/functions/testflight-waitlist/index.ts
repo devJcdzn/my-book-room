@@ -43,7 +43,8 @@ const wait = (milliseconds: number) =>
 
 const verifyTurnstile = async (token: string, request: Request) => {
   const secret = Deno.env.get("TURNSTILE_SECRET_KEY");
-  if (!secret || !token) return false;
+  if (!secret) return true;
+  if (!token) return false;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
@@ -202,7 +203,7 @@ Deno.serve(async (request) => {
     if (result.status === "joined") {
       const notified = await notifyDiscord(
         email,
-        result.position,
+        result.waitlist_position,
         result.remaining,
       );
       if (notified) {
