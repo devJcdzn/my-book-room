@@ -6,6 +6,7 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { initializeRevenueCat } from '@/src/services/revenuecat';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 
@@ -44,6 +45,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     void useLibraryStore.persist.rehydrate();
+  }, []);
+
+  useEffect(() => {
+    void initializeRevenueCat();
   }, []);
 
   // Timer de segurança (3500ms) para garantir ocultação da splash screen mesmo em cenários extremos
