@@ -1,4 +1,3 @@
-import { Asset } from 'expo-asset';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,7 +6,6 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
-import { FURNITURE_SOURCES } from '@/src/components/room/room-furniture';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 
@@ -46,7 +44,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     void useLibraryStore.persist.rehydrate();
-    void Asset.loadAsync(FURNITURE_SOURCES).catch(() => undefined);
   }, []);
 
   // Timer de segurança (3500ms) para garantir ocultação da splash screen mesmo em cenários extremos

@@ -137,19 +137,7 @@ export function RoomPictureFrame({
   // Centro da arte na parede de fundo (face frontal da parede traseira em z = -3.26)
   return (
     <group position={[-1.85, 1.95, -3.255]}>
-      {/* 1. Sombra Suave Projetada Atrás da Moldura na Parede */}
-      <mesh position={[0.02, -0.03, -0.005]}>
-        <planeGeometry args={[outerWidth + 0.08, outerHeight + 0.08]} />
-        <meshBasicMaterial color="#120A05" depthWrite={false} opacity={0.36} transparent />
-      </mesh>
-
-      {/* 2. Suporte de Fixação / Grampo Traseiro Superior */}
-      <mesh position={[0, outerHeight / 2 + 0.015, 0.005]}>
-        <boxGeometry args={[0.10, 0.03, 0.012]} />
-        <meshStandardMaterial color="#888888" metalness={0.6} roughness={0.4} />
-      </mesh>
-
-      {/* 3. Fundo Traseiro Protetor (MDF / Backboard) */}
+      {/* 1. Fundo Traseiro Protetor (MDF / Backboard) */}
       <mesh position={[0, 0, 0.002]}>
         <planeGeometry args={[matWidth, matHeight]} />
         <meshStandardMaterial color="#2B1D16" roughness={0.95} />

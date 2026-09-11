@@ -19,6 +19,13 @@ npx supabase secrets set \
 
 `WAITLIST_ALLOWED_ORIGINS` é opcional. Se for usado, inclua todos os domínios de produção, preview e desenvolvimento separados por vírgula; uma origem ausente recebe HTTP 403. Sem esse secret, a função aceita qualquer origem web. Use o Turnstile para proteção anti-spam.
 
+Configuração atual:
+
+```bash
+npx supabase secrets set \
+  WAITLIST_ALLOWED_ORIGINS=https://testmybookroom.netlify.app,http://127.0.0.1:4173,http://localhost:4173
+```
+
 Para ativar o Turnstile depois:
 
 ```bash
