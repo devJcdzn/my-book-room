@@ -6,6 +6,7 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { RevenueCatProvider } from '@/src/providers/revenuecat-provider';
 import { initializeRevenueCat } from '@/src/services/revenuecat';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
@@ -89,59 +90,61 @@ export default function RootLayout() {
   if (!hasHydrated) return null;
 
   return (
-    <ThemeProvider value={theme}>
-      <StatusBar animated style={isNight ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: isNight ? '#181A26' : colors.paper },
-          headerTintColor: isNight ? '#FAF4EB' : colors.ink,
-          headerTitleStyle: { fontWeight: '700', color: isNight ? '#FAF4EB' : colors.ink },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="add-book"
-          options={{
-            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-            sheetAllowedDetents: [0.75, 1],
-            sheetGrabberVisible: true,
-            headerShown: false,
-            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.cream },
+    <RevenueCatProvider>
+      <ThemeProvider value={theme}>
+        <StatusBar animated style={isNight ? 'light' : 'dark'} />
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: isNight ? '#181A26' : colors.paper },
+            headerTintColor: isNight ? '#FAF4EB' : colors.ink,
+            headerTitleStyle: { fontWeight: '700', color: isNight ? '#FAF4EB' : colors.ink },
           }}
-        />
-        <Stack.Screen
-          name="book-progress"
-          options={{
-            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-            sheetAllowedDetents: [0.65, 0.95],
-            sheetGrabberVisible: true,
-            headerShown: false,
-            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-          }}
-        />
-        <Stack.Screen
-          name="edit-profile"
-          options={{
-            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-            sheetAllowedDetents: [0.65, 0.95],
-            sheetGrabberVisible: true,
-            headerShown: false,
-            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-          }}
-        />
-        <Stack.Screen
-          name="customize-room"
-          options={{
-            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-            sheetAllowedDetents: [0.55, 0.85],
-            sheetGrabberVisible: true,
-            headerShown: false,
-            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-          }}
-        />
-      </Stack>
-    </ThemeProvider>
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="add-book"
+            options={{
+              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+              sheetAllowedDetents: [0.75, 1],
+              sheetGrabberVisible: true,
+              headerShown: false,
+              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.cream },
+            }}
+          />
+          <Stack.Screen
+            name="book-progress"
+            options={{
+              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+              sheetAllowedDetents: [0.65, 0.95],
+              sheetGrabberVisible: true,
+              headerShown: false,
+              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+            }}
+          />
+          <Stack.Screen
+            name="edit-profile"
+            options={{
+              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+              sheetAllowedDetents: [0.65, 0.95],
+              sheetGrabberVisible: true,
+              headerShown: false,
+              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+            }}
+          />
+          <Stack.Screen
+            name="customize-room"
+            options={{
+              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+              sheetAllowedDetents: [0.55, 0.85],
+              sheetGrabberVisible: true,
+              headerShown: false,
+              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
+            }}
+          />
+        </Stack>
+      </ThemeProvider>
+    </RevenueCatProvider>
   );
 }

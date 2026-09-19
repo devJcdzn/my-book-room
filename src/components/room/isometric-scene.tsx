@@ -18,6 +18,7 @@ import { RoomFurniture } from '@/src/components/room/room-furniture';
 import { RoomPictureFrame } from '@/src/components/room/room-picture-frame';
 import { RoomPoster } from '@/src/components/room/room-poster';
 import { RoomWindow } from '@/src/components/room/room-window';
+import { resolveRoomCustomization, resolveRoomOptionId } from '@/src/services/room-customization-access';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
@@ -29,6 +30,7 @@ import {
   type BookcasePalette,
   type FloorPalette,
   type LeftWallItemType,
+  type PictureFrameSize,
   type RugPalette,
   type WallPalette,
 } from '@/src/types/room-customization';
@@ -55,6 +57,7 @@ type SceneProps = {
   onCustomize?: () => void;
   onOpenBook: (bookId: string) => void;
   onSelectBook: (bookId: string) => void;
+  isPro: boolean;
   isCustomizing?: boolean;
   onCustomizingChange?: (isCustomizing: boolean) => void;
   onSceneReady?: () => void;
@@ -781,6 +784,10 @@ function RoomShell({
   leftWallItem,
   leftWallWindowStyle,
   leftWallFrameColor,
+  pictureFrameSize,
+  pictureFrameStyleId,
+  pictureFramePhotoUri,
+  catId,
   posterBook,
   resolvedAmbience,
   onSceneReady,
@@ -799,6 +806,10 @@ function RoomShell({
   leftWallItem: LeftWallItemType;
   leftWallWindowStyle: string;
   leftWallFrameColor: string;
+  pictureFrameSize: PictureFrameSize;
+  pictureFrameStyleId: string;
+  pictureFramePhotoUri: string | null;
+  catId: string;
   posterBook?: Book;
   resolvedAmbience: ResolvedAmbience;
   onSceneReady?: () => void;
@@ -866,7 +877,11 @@ function RoomShell({
       ) : null}
 
       {/* Quadro de Parede Personalizável (Fotos locais, formatos 1:1 e 1:2) */}
-      <RoomPictureFrame />
+      <RoomPictureFrame
+        photoUriOverride={pictureFramePhotoUri}
+        sizeOverride={pictureFrameSize}
+        styleIdOverride={pictureFrameStyleId}
+      />
 
       {/* Tapete circular aconchegante */}
       <mesh position={[0.42, 0.025, 1.05]}>
@@ -895,7 +910,7 @@ function RoomShell({
       </Suspense>
 
       {/* Gatinho da sala com carregamento sob demanda e disfarce 3D procedural */}
-      <RoomCat onLoadingChange={onCatLoadingChange} />
+      <RoomCat catId={catId} onLoadingChange={onCatLoadingChange} />
 
       {/* Estante de livros profissional e completa com marcenaria artesanal */}
       <Bookcase palette={bookcasePalette} />
@@ -919,6 +934,7 @@ function RoomGeometry({
   isCustomizing,
   onUpdateAnchorPositions,
   onCatLoadingChange,
+  isPro,
 }: SceneProps & {
   rotationRef: React.MutableRefObject<RotationState>;
   zoomRef: React.MutableRefObject<ZoomState>;
@@ -936,17 +952,45 @@ function RoomGeometry({
   const isLampOn = useLibraryStore((state) => state.isLampOn);
   const toggleLamp = useLibraryStore((state) => state.toggleLamp);
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
-  const wallPalette = getWallPalette(wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
-  const floorPalette = getFloorPalette(floorPaletteId);
   const bookcasePaletteId = useLibraryStore((state) => state.bookcasePaletteId);
-  const bookcasePalette = getBookcasePalette(bookcasePaletteId);
   const rugPaletteId = useLibraryStore((state) => state.rugPaletteId);
-  const rugPalette = getRugPalette(rugPaletteId);
+  const catId = useLibraryStore((state) => state.catId);
   const leftWallItem = useLibraryStore((state) => state.leftWallItem);
   const leftWallPosterBookId = useLibraryStore((state) => state.leftWallPosterBookId);
   const leftWallWindowStyle = useLibraryStore((state) => state.leftWallWindowStyle);
   const leftWallFrameColor = useLibraryStore((state) => state.leftWallFrameColor);
+  const pictureFrameSize = useLibraryStore((state) => state.pictureFrameSize);
+  const pictureFrameStyleId = useLibraryStore((state) => state.pictureFrameStyleId);
+  const pictureFramePhotoUri = useLibraryStore((state) => state.pictureFramePhotoUri);
+
+  const effectiveCustomization = useMemo(() => resolveRoomCustomization({
+    wallPaletteId,
+    floorPaletteId,
+    rugPaletteId,
+    bookcasePaletteId,
+    catId,
+    leftWallWindowStyle,
+    leftWallFrameColor,
+    pictureFrameStyleId,
+    pictureFramePhotoUri,
+  }, isPro), [
+    bookcasePaletteId,
+    catId,
+    floorPaletteId,
+    leftWallFrameColor,
+    leftWallWindowStyle,
+    pictureFramePhotoUri,
+    pictureFrameStyleId,
+    isPro,
+    rugPaletteId,
+    wallPaletteId,
+  ]);
+
+  const wallPalette = getWallPalette(effectiveCustomization.wallPaletteId);
+  const floorPalette = getFloorPalette(effectiveCustomization.floorPaletteId);
+  const bookcasePalette = getBookcasePalette(effectiveCustomization.bookcasePaletteId);
+  const rugPalette = getRugPalette(effectiveCustomization.rugPaletteId);
 
   const roomGroup = useRef<Group>(null);
   const { camera, size } = useThree();
@@ -1028,14 +1072,18 @@ function RoomGeometry({
         isEmptyDesk={isEmptyDesk}
         isLampOn={isLampOn}
         isNight={isNight}
-        leftWallFrameColor={leftWallFrameColor}
+        leftWallFrameColor={effectiveCustomization.leftWallFrameColor}
         leftWallItem={leftWallItem}
-        leftWallWindowStyle={leftWallWindowStyle}
+        leftWallWindowStyle={effectiveCustomization.leftWallWindowStyle}
         onAddBook={onAddBook}
         onCatLoadingChange={onCatLoadingChange}
         onSceneReady={onSceneReady}
         onToggleLamp={handleToggleLamp}
+        catId={effectiveCustomization.catId}
         posterBook={posterBook}
+        pictureFramePhotoUri={effectiveCustomization.pictureFramePhotoUri}
+        pictureFrameSize={pictureFrameSize}
+        pictureFrameStyleId={effectiveCustomization.pictureFrameStyleId}
         resolvedAmbience={resolvedAmbience}
         rugPalette={rugPalette}
         theme={theme}
@@ -1103,6 +1151,7 @@ export function IsometricScene(props: SceneProps) {
   const isCustomizingRef = useRef(isCustomizing);
 
   const catId = useLibraryStore((state) => state.catId);
+  const effectiveCatId = resolveRoomOptionId('cat', catId, props.isPro);
   const [catLoadingId, setCatLoadingId] = useState<string | null>(null);
 
   const handleCatLoadingChange = useCallback((loading: boolean, activeCatId: string) => {
@@ -1112,11 +1161,11 @@ export function IsometricScene(props: SceneProps) {
   useEffect(() => {
     if (isCustomizing) {
       const timer = setTimeout(() => {
-        preloadCatModels(catId);
+        preloadCatModels(effectiveCatId);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isCustomizing, catId]);
+  }, [effectiveCatId, isCustomizing]);
 
   useEffect(() => {
     isCustomizingRef.current = isCustomizing;

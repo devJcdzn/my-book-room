@@ -1,9 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { useProAccess } from '@/src/providers/revenuecat-provider';
+import { resolveRoomOptionId } from '@/src/services/room-customization-access';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
 import { getFloorPalette, getWallPalette } from '@/src/types/room-customization';
@@ -26,18 +28,30 @@ export default function ProfileScreen() {
   const setAmbienceMode = useLibraryStore((state) => state.setAmbienceMode);
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
+  const { isPro, isPending, restorePurchases } = useProAccess();
 
   const completed = books.filter((book) => book.status === 'completed').length;
   const totalPagesRead = books.reduce((sum, b) => sum + b.currentPage, 0);
   const isNight = resolveAmbience(ambienceMode) === 'night';
   const avatarInitial = profile.name.trim().charAt(0).toUpperCase() || 'L';
 
-  const wallPalette = getWallPalette(wallPaletteId);
-  const floorPalette = getFloorPalette(floorPaletteId);
+  const wallPalette = getWallPalette(resolveRoomOptionId('walls', wallPaletteId, isPro));
+  const floorPalette = getFloorPalette(resolveRoomOptionId('flooring', floorPaletteId, isPro));
 
   const handleSelectAmbience = (mode: AmbienceMode) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAmbienceMode(mode);
+  };
+
+  const handleRestorePurchases = async () => {
+    if (isPending) return;
+    const restored = await restorePurchases();
+    Alert.alert(
+      restored ? 'Unlimited Furniture ativo' : 'Compra não encontrada',
+      restored
+        ? 'Seu acesso Unlimited foi confirmado neste aparelho.'
+        : 'Não foi possível confirmar uma compra Unlimited agora.',
+    );
   };
 
   return (
@@ -209,6 +223,31 @@ export default function ProfileScreen() {
             </Text>
             <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
           </View>
+        </Pressable>
+
+        <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
+
+        <Pressable
+          accessibilityHint="Confirma compras do Unlimited Furniture nesta conta da loja"
+          accessibilityLabel="Restaurar compra Unlimited Furniture"
+          accessibilityRole="button"
+          disabled={isPending}
+          onPress={() => { void handleRestorePurchases(); }}
+          style={({ pressed }) => [styles.restoreRow, pressed && styles.pressed]}
+        >
+          <View style={styles.restoreLeft}>
+            {isPending ? (
+              <ActivityIndicator color={isNight ? '#FFAE70' : colors.terracotta} size="small" />
+            ) : (
+              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="refresh-outline" size={18} />
+            )}
+            <Text style={[styles.restoreText, isNight && styles.darkTitle]}>
+              {isPending ? 'Verificando compra...' : 'Restaurar compra Unlimited'}
+            </Text>
+          </View>
+          <Text style={[styles.restoreStatus, isNight && styles.darkMutedText]}>
+            {isPro ? 'Ativo' : 'Verificar'}
+          </Text>
         </Pressable>
       </View>
 
@@ -454,6 +493,28 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   customizePaletteName: {
+    color: colors.muted,
+    fontFamily: typography.ui,
+    fontSize: 12,
+  },
+  restoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+  },
+  restoreLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  restoreText: {
+    color: colors.ink,
+    fontFamily: typography.ui,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  restoreStatus: {
     color: colors.muted,
     fontFamily: typography.ui,
     fontSize: 12,

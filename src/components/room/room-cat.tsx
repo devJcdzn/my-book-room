@@ -151,11 +151,13 @@ function CatModel({ catId, onLoaded }: { catId: string; onLoaded?: () => void })
 }
 
 type RoomCatProps = {
+  catId?: string;
   onLoadingChange?: (loading: boolean, catId: string) => void;
 };
 
-export function RoomCat({ onLoadingChange }: RoomCatProps) {
-  const catId = useLibraryStore((state) => state.catId);
+export function RoomCat({ catId: catIdOverride, onLoadingChange }: RoomCatProps) {
+  const storeCatId = useLibraryStore((state) => state.catId);
+  const catId = catIdOverride ?? storeCatId;
 
   const handleLoaded = useCallback(() => {
     onLoadingChange?.(false, catId);

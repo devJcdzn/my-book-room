@@ -23,6 +23,12 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCover } from '@/src/components/book-cover';
+import { useProAccess } from '@/src/providers/revenuecat-provider';
+import {
+  isFreeRoomOption,
+  resolveRoomCustomization,
+  type RoomCustomizationCategory,
+} from '@/src/services/room-customization-access';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, typography } from '@/src/theme';
 import {
@@ -115,6 +121,56 @@ export const CUSTOMIZATION_ANCHORS: CustomizationAnchorItem[] = [
   },
 ];
 
+function LockedSwatchBadge({ isNight }: { isNight: boolean }) {
+  return (
+    <View pointerEvents="none" style={styles.lockedSwatchOverlay}>
+      <View style={[styles.lockedSeal, isNight && styles.darkLockedSeal]}>
+        <Ionicons color={isNight ? '#FFAE70' : '#FFD699'} name="lock-closed" size={10} />
+      </View>
+    </View>
+  );
+}
+
+function CatLockBadge({ isNight }: { isNight: boolean }) {
+  return (
+    <View style={[styles.catLockBadge, isNight && styles.darkCatLockBadge]}>
+      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="lock-closed" size={10} />
+    </View>
+  );
+}
+
+function UnlimitedPill({
+  isNight,
+  onPress,
+  isPending,
+}: {
+  isNight: boolean;
+  onPress: () => void;
+  isPending?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityHint="Abre o Bookroom Unlimited para liberar a coleção completa"
+      accessibilityLabel="Bookroom Unlimited"
+      accessibilityRole="button"
+      disabled={isPending}
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.unlimitedPill,
+        isNight && styles.darkUnlimitedPill,
+        pressed && styles.btnPressed,
+      ]}
+    >
+      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="sparkles" size={11} />
+      <Text style={[styles.unlimitedPillText, isNight && styles.darkUnlimitedPillText]}>
+        Unlimited
+      </Text>
+      <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="chevron-forward" size={10} />
+    </Pressable>
+  );
+}
+
 type RoomCustomizationOverlayProps = {
   anchorPositions: Record<string, ScreenAnchorPos>;
   isNight: boolean;
@@ -130,6 +186,7 @@ export function RoomCustomizationOverlay({
 }: RoomCustomizationOverlayProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { isPro, isPending: isProPending, requestProAccess } = useProAccess();
 
   const [activeCategory, setActiveCategory] = useState<
     'walls' | 'flooring' | 'rug' | 'bookcase' | 'cat' | 'left_wall' | 'picture_frame' | null
@@ -163,19 +220,62 @@ export function RoomCustomizationOverlay({
 
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
 
-  const currentWallPalette = getWallPalette(wallPaletteId);
-  const currentFloorPalette = getFloorPalette(floorPaletteId);
-  const currentBookcasePalette = getBookcasePalette(bookcasePaletteId);
-  const currentRugPalette = getRugPalette(rugPaletteId);
-  const currentWindowStyle = getWindowStyle(leftWallWindowStyle);
-  const currentPosterFrame = getPosterFrame(leftWallFrameColor);
-  const currentPictureFrameStyle = getPictureFrameStyle(pictureFrameStyleId);
+  const effectiveCustomization = resolveRoomCustomization({
+    wallPaletteId,
+    floorPaletteId,
+    rugPaletteId,
+    bookcasePaletteId,
+    catId,
+    leftWallWindowStyle,
+    leftWallFrameColor,
+    pictureFrameStyleId,
+    pictureFramePhotoUri,
+  }, isPro);
+
+  const currentWallPalette = getWallPalette(effectiveCustomization.wallPaletteId);
+  const currentFloorPalette = getFloorPalette(effectiveCustomization.floorPaletteId);
+  const currentBookcasePalette = getBookcasePalette(effectiveCustomization.bookcasePaletteId);
+  const currentRugPalette = getRugPalette(effectiveCustomization.rugPaletteId);
+  const currentWindowStyle = getWindowStyle(effectiveCustomization.leftWallWindowStyle);
+  const currentPosterFrame = getPosterFrame(effectiveCustomization.leftWallFrameColor);
+  const currentPictureFrameStyle = getPictureFrameStyle(effectiveCustomization.pictureFrameStyleId);
+  const effectivePictureFramePhotoUri = effectiveCustomization.pictureFramePhotoUri;
 
   const completedBooks = books.filter((book) => book.status === 'completed');
   const selectableBooks = completedBooks.length > 0 ? completedBooks : books;
 
+  const handleOpenUnlimited = async () => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const unlocked = await requestProAccess();
+    if (unlocked && process.env.EXPO_OS === 'ios') {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const selectRoomOption = async (
+    category: RoomCustomizationCategory,
+    id: string,
+    apply: () => void,
+  ) => {
+    if (!isPro && !isFreeRoomOption(category, id)) {
+      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const unlocked = await requestProAccess();
+      if (!unlocked) return;
+      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    apply();
+  };
+
   const handlePickPicturePhoto = async (targetSize: PictureFrameSize) => {
     if (targetSize === 'none') return;
+    if (!isPro) {
+      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const unlocked = await requestProAccess();
+      if (!unlocked) return;
+      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     try {
       setIsProcessingPhoto(true);
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -231,28 +331,23 @@ export function RoomCustomizationOverlay({
   };
 
   const handleSelectWallPalette = (palette: WallPalette) => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setWallPaletteId(palette.id);
+    void selectRoomOption('walls', palette.id, () => setWallPaletteId(palette.id));
   };
 
   const handleSelectFloorPalette = (palette: FloorPalette) => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setFloorPaletteId(palette.id);
+    void selectRoomOption('flooring', palette.id, () => setFloorPaletteId(palette.id));
   };
 
   const handleSelectBookcasePalette = (palette: BookcasePalette) => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setBookcasePaletteId(palette.id);
+    void selectRoomOption('bookcase', palette.id, () => setBookcasePaletteId(palette.id));
   };
 
   const handleSelectRugPalette = (palette: RugPalette) => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRugPaletteId(palette.id);
+    void selectRoomOption('rug', palette.id, () => setRugPaletteId(palette.id));
   };
 
   const handleSelectCat = (cat: CatOption) => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCatId(cat.id);
+    void selectRoomOption('cat', cat.id, () => setCatId(cat.id));
   };
 
   const isSurfaceActive =
@@ -504,11 +599,18 @@ export function RoomCustomizationOverlay({
             </Pressable>
           </View>
 
-          {/* Nome da Paleta Atual */}
+          {/* Nome da Paleta Atual e Atalho Unlimited */}
           <View style={styles.paletteHeaderRow}>
             <Text numberOfLines={1} style={[styles.paletteTitleText, isNight && styles.darkText]}>
               {currentPaletteName}
             </Text>
+            {!isPro ? (
+              <UnlimitedPill
+                isNight={isNight}
+                isPending={isProPending}
+                onPress={handleOpenUnlimited}
+              />
+            ) : null}
           </View>
 
           {/* Linha Minimalista de Círculos de Cores */}
@@ -521,13 +623,15 @@ export function RoomCustomizationOverlay({
           >
             {activeCategory === 'walls' &&
               WALL_PALETTES.map((palette) => {
-                const isCurrent = palette.id === wallPaletteId;
+                const isCurrent = palette.id === effectiveCustomization.wallPaletteId;
+                const isLocked = !isPro && !isFreeRoomOption('walls', palette.id);
                 return (
                   <Pressable
                     key={palette.id}
-                    accessibilityHint={palette.subtitle}
-                    accessibilityLabel={`Cor ${palette.name}`}
+                    accessibilityHint={`${palette.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                    accessibilityLabel={`Cor ${palette.name}${isLocked ? ' (bloqueada)' : ''}`}
                     accessibilityRole="button"
+                    disabled={isProPending}
                     hitSlop={6}
                     onPress={() => handleSelectWallPalette(palette)}
                     style={({ pressed }) => [
@@ -536,20 +640,24 @@ export function RoomCustomizationOverlay({
                       pressed && styles.btnPressed,
                     ]}
                   >
-                    <View style={[styles.swatchCircle, { backgroundColor: palette.previewColor }]} />
+                    <View style={[styles.swatchCircle, { backgroundColor: palette.previewColor }]}>
+                      {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
+                    </View>
                   </Pressable>
                 );
               })}
 
             {activeCategory === 'flooring' &&
               FLOOR_PALETTES.map((palette) => {
-                const isCurrent = palette.id === floorPaletteId;
+                const isCurrent = palette.id === effectiveCustomization.floorPaletteId;
+                const isLocked = !isPro && !isFreeRoomOption('flooring', palette.id);
                 return (
                   <Pressable
                     key={palette.id}
-                    accessibilityHint={palette.subtitle}
-                    accessibilityLabel={`Piso ${palette.name}`}
+                    accessibilityHint={`${palette.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                    accessibilityLabel={`Piso ${palette.name}${isLocked ? ' (bloqueado)' : ''}`}
                     accessibilityRole="button"
+                    disabled={isProPending}
                     hitSlop={6}
                     onPress={() => handleSelectFloorPalette(palette)}
                     style={({ pressed }) => [
@@ -560,6 +668,7 @@ export function RoomCustomizationOverlay({
                   >
                     <View style={[styles.swatchCircle, { backgroundColor: palette.plankColor }]}>
                       <View style={[styles.floorGroovePreview, { backgroundColor: palette.grooveColor }]} />
+                      {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                     </View>
                   </Pressable>
                 );
@@ -567,13 +676,15 @@ export function RoomCustomizationOverlay({
 
             {activeCategory === 'rug' &&
               RUG_PALETTES.map((palette) => {
-                const isCurrent = palette.id === rugPaletteId;
+                const isCurrent = palette.id === effectiveCustomization.rugPaletteId;
+                const isLocked = !isPro && !isFreeRoomOption('rug', palette.id);
                 return (
                   <Pressable
                     key={palette.id}
-                    accessibilityHint={palette.subtitle}
-                    accessibilityLabel={`Tapete ${palette.name}`}
+                    accessibilityHint={`${palette.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                    accessibilityLabel={`Tapete ${palette.name}${isLocked ? ' (bloqueado)' : ''}`}
                     accessibilityRole="button"
+                    disabled={isProPending}
                     hitSlop={6}
                     onPress={() => handleSelectRugPalette(palette)}
                     style={({ pressed }) => [
@@ -584,6 +695,7 @@ export function RoomCustomizationOverlay({
                   >
                     <View style={[styles.swatchCircle, { backgroundColor: palette.mainColor }]}>
                       <View style={[styles.rugInnerCirclePreview, { backgroundColor: palette.innerColor }]} />
+                      {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                     </View>
                   </Pressable>
                 );
@@ -606,14 +718,23 @@ export function RoomCustomizationOverlay({
                 Estante • {currentBookcasePalette.name}
               </Text>
             </View>
-            <Pressable
-              accessibilityLabel="Fechar seletor"
-              hitSlop={8}
-              onPress={() => setActiveCategory(null)}
-              style={styles.closeTabBtn}
-            >
-              <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
-            </Pressable>
+            <View style={styles.headerActionGroup}>
+              {!isPro ? (
+                <UnlimitedPill
+                  isNight={isNight}
+                  isPending={isProPending}
+                  onPress={handleOpenUnlimited}
+                />
+              ) : null}
+              <Pressable
+                accessibilityLabel="Fechar seletor"
+                hitSlop={8}
+                onPress={() => setActiveCategory(null)}
+                style={styles.closeTabBtn}
+              >
+                <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
+              </Pressable>
+            </View>
           </View>
 
           <ScrollView
@@ -624,13 +745,15 @@ export function RoomCustomizationOverlay({
             showsHorizontalScrollIndicator={false}
           >
             {BOOKCASE_PALETTES.map((palette) => {
-              const isCurrent = palette.id === bookcasePaletteId;
+              const isCurrent = palette.id === effectiveCustomization.bookcasePaletteId;
+              const isLocked = !isPro && !isFreeRoomOption('bookcase', palette.id);
               return (
                 <Pressable
                   key={palette.id}
-                  accessibilityHint={palette.subtitle}
-                  accessibilityLabel={`Estante ${palette.name}`}
+                  accessibilityHint={`${palette.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                  accessibilityLabel={`Estante ${palette.name}${isLocked ? ' (bloqueada)' : ''}`}
                   accessibilityRole="button"
+                  disabled={isProPending}
                   hitSlop={6}
                   onPress={() => handleSelectBookcasePalette(palette)}
                   style={({ pressed }) => [
@@ -641,6 +764,7 @@ export function RoomCustomizationOverlay({
                 >
                   <View style={[styles.swatchCircle, { backgroundColor: palette.frameColor }]}>
                     <View style={[styles.bookcaseShelfPreview, { backgroundColor: palette.shelfColor }]} />
+                    {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                   </View>
                 </Pressable>
               );
@@ -663,26 +787,37 @@ export function RoomCustomizationOverlay({
                 {loadingCatId ? 'Aconchegando gatinho...' : 'Gatinho da Sala'}
               </Text>
             </View>
-            <Pressable
-              accessibilityLabel="Fechar seletor"
-              hitSlop={8}
-              onPress={() => setActiveCategory(null)}
-              style={styles.closeTabBtn}
-            >
-              <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
-            </Pressable>
+            <View style={styles.headerActionGroup}>
+              {!isPro ? (
+                <UnlimitedPill
+                  isNight={isNight}
+                  isPending={isProPending}
+                  onPress={handleOpenUnlimited}
+                />
+              ) : null}
+              <Pressable
+                accessibilityLabel="Fechar seletor"
+                hitSlop={8}
+                onPress={() => setActiveCategory(null)}
+                style={styles.closeTabBtn}
+              >
+                <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.catOptionsRow}>
             {CAT_OPTIONS.map((cat) => {
-              const isCurrent = cat.id === catId;
+              const isCurrent = cat.id === effectiveCustomization.catId;
               const isLoading = cat.id === loadingCatId;
+              const isLocked = !isPro && !isFreeRoomOption('cat', cat.id);
               return (
                 <Pressable
                   key={cat.id}
-                  accessibilityHint={cat.subtitle}
-                  accessibilityLabel={cat.name}
+                  accessibilityHint={`${cat.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                  accessibilityLabel={`${cat.name}${isLocked ? ' (bloqueado)' : ''}`}
                   accessibilityRole="button"
+                  disabled={isProPending || isLoading}
                   hitSlop={6}
                   onPress={() => handleSelectCat(cat)}
                   style={({ pressed }) => [
@@ -709,6 +844,7 @@ export function RoomCustomizationOverlay({
                   >
                     {cat.name.replace('Gatinho ', '')}
                   </Text>
+                  {isLocked ? <CatLockBadge isNight={isNight} /> : null}
                 </Pressable>
               );
             })}
@@ -745,14 +881,23 @@ export function RoomCustomizationOverlay({
                     : 'Decorar Parede'}
               </Text>
             </View>
-            <Pressable
-              accessibilityLabel="Fechar seletor"
-              hitSlop={8}
-              onPress={() => setActiveCategory(null)}
-              style={styles.closeTabBtn}
-            >
-              <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
-            </Pressable>
+            <View style={styles.headerActionGroup}>
+              {!isPro ? (
+                <UnlimitedPill
+                  isNight={isNight}
+                  isPending={isProPending}
+                  onPress={handleOpenUnlimited}
+                />
+              ) : null}
+              <Pressable
+                accessibilityLabel="Fechar seletor"
+                hitSlop={8}
+                onPress={() => setActiveCategory(null)}
+                style={styles.closeTabBtn}
+              >
+                <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Seletor Segmentado: Vazia | Janela | Pôster */}
@@ -861,17 +1006,18 @@ export function RoomCustomizationOverlay({
               showsHorizontalScrollIndicator={false}
             >
               {WINDOW_STYLES.map((style) => {
-                const isCurrent = style.id === leftWallWindowStyle;
+                const isCurrent = style.id === effectiveCustomization.leftWallWindowStyle;
+                const isLocked = !isPro && !isFreeRoomOption('window', style.id);
                 return (
                   <Pressable
                     key={style.id}
-                    accessibilityHint={style.subtitle}
-                    accessibilityLabel={`Janela ${style.name}`}
+                    accessibilityHint={`${style.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                    accessibilityLabel={`Janela ${style.name}${isLocked ? ' (bloqueada)' : ''}`}
                     accessibilityRole="button"
                     hitSlop={6}
+                    disabled={isProPending}
                     onPress={() => {
-                      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setLeftWallWindowStyle(style.id);
+                      void selectRoomOption('window', style.id, () => setLeftWallWindowStyle(style.id));
                     }}
                     style={({ pressed }) => [
                       styles.swatchCircleWrap,
@@ -884,6 +1030,7 @@ export function RoomCustomizationOverlay({
                         <View style={[styles.windowMullionH, { backgroundColor: style.mullionColor }]} />
                         <View style={[styles.windowMullionV, { backgroundColor: style.mullionColor }]} />
                       </View>
+                      {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                     </View>
                   </Pressable>
                 );
@@ -988,17 +1135,18 @@ export function RoomCustomizationOverlay({
                 showsHorizontalScrollIndicator={false}
               >
                 {POSTER_FRAME_OPTIONS.map((frame) => {
-                  const isCurrent = frame.id === leftWallFrameColor;
+                  const isCurrent = frame.id === effectiveCustomization.leftWallFrameColor;
+                  const isLocked = !isPro && !isFreeRoomOption('frame', frame.id);
                   return (
                     <Pressable
                       key={frame.id}
-                      accessibilityHint={frame.subtitle}
-                      accessibilityLabel={`Moldura ${frame.name}`}
+                      accessibilityHint={`${frame.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                      accessibilityLabel={`Moldura ${frame.name}${isLocked ? ' (bloqueada)' : ''}`}
                       accessibilityRole="button"
                       hitSlop={6}
+                      disabled={isProPending}
                       onPress={() => {
-                        if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setLeftWallFrameColor(frame.id);
+                        void selectRoomOption('frame', frame.id, () => setLeftWallFrameColor(frame.id));
                       }}
                       style={({ pressed }) => [
                         styles.swatchCircleWrap,
@@ -1008,6 +1156,7 @@ export function RoomCustomizationOverlay({
                     >
                       <View style={[styles.swatchCircle, { backgroundColor: frame.frameColor }]}>
                         <View style={[styles.posterMatPreview, { backgroundColor: frame.matColor }]} />
+                        {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                       </View>
                     </Pressable>
                   );
@@ -1049,14 +1198,23 @@ export function RoomCustomizationOverlay({
                   : `Quadro • ${pictureFrameSize === '1:1' ? 'Quadrado' : 'Retrato'}`}
               </Text>
             </View>
-            <Pressable
-              accessibilityLabel="Fechar seletor"
-              hitSlop={8}
-              onPress={() => setActiveCategory(null)}
-              style={styles.closeTabBtn}
-            >
-              <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
-            </Pressable>
+            <View style={styles.headerActionGroup}>
+              {!isPro ? (
+                <UnlimitedPill
+                  isNight={isNight}
+                  isPending={isProPending}
+                  onPress={handleOpenUnlimited}
+                />
+              ) : null}
+              <Pressable
+                accessibilityLabel="Fechar seletor"
+                hitSlop={8}
+                onPress={() => setActiveCategory(null)}
+                style={styles.closeTabBtn}
+              >
+                <Ionicons color={isNight ? '#8C92A4' : '#9E9287'} name="close" size={16} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Seletor Segmentado: Vazia | Quadrado | Retrato */}
@@ -1157,10 +1315,10 @@ export function RoomCustomizationOverlay({
             <View style={styles.posterSectionContainer}>
               {/* Seção da Foto */}
               <View style={styles.picturePhotoContainer}>
-                {pictureFramePhotoUri ? (
+                {effectivePictureFramePhotoUri ? (
                   <View style={styles.picturePhotoRow}>
                     <Image
-                      source={{ uri: pictureFramePhotoUri }}
+                      source={{ uri: effectivePictureFramePhotoUri }}
                       style={[
                         styles.picturePhotoThumb,
                         pictureFrameSize === '2:1' && styles.picturePhotoThumbPortrait,
@@ -1168,20 +1326,39 @@ export function RoomCustomizationOverlay({
                     />
                     <View style={styles.picturePhotoActions}>
                       <Pressable
-                        accessibilityLabel="Trocar foto do quadro"
-                        disabled={isProcessingPhoto}
+                        accessibilityLabel={isPro ? 'Trocar foto do quadro' : 'Trocar foto do quadro (Requer Unlimited)'}
+                        disabled={isProcessingPhoto || isProPending}
                         onPress={() => handlePickPicturePhoto(pictureFrameSize)}
                         style={({ pressed }) => [
                           styles.pictureActionButton,
+                          !isPro && (isNight ? styles.darkPictureActionButtonLocked : styles.pictureActionButtonLocked),
                           pressed && styles.btnPressed,
                         ]}
                       >
                         {isProcessingPhoto ? (
-                          <ActivityIndicator color="#FFF" size="small" />
+                          <ActivityIndicator color={!isPro ? (isNight ? '#FFAE70' : colors.terracotta) : '#FFF'} size="small" />
                         ) : (
                           <>
-                            <Ionicons color="#FFF" name="image-outline" size={14} />
-                            <Text style={styles.pictureActionButtonText}>Trocar Foto</Text>
+                            <Ionicons
+                              color={!isPro ? (isNight ? '#FFAE70' : colors.terracotta) : '#FFF'}
+                              name={isPro ? 'image-outline' : 'lock-closed'}
+                              size={14}
+                            />
+                            <Text
+                              style={[
+                                styles.pictureActionButtonText,
+                                !isPro && (isNight ? styles.darkPictureActionButtonLockedText : styles.pictureActionButtonLockedText),
+                              ]}
+                            >
+                              Trocar Foto
+                            </Text>
+                            {!isPro ? (
+                              <View style={[styles.unlimitedMiniTag, isNight && styles.darkUnlimitedMiniTag]}>
+                                <Text style={[styles.unlimitedMiniTagText, isNight && styles.darkUnlimitedMiniTagText]}>
+                                  Unlimited
+                                </Text>
+                              </View>
+                            ) : null}
                           </>
                         )}
                       </Pressable>
@@ -1209,23 +1386,41 @@ export function RoomCustomizationOverlay({
                   </View>
                 ) : (
                   <Pressable
-                    accessibilityLabel="Escolher foto da galeria"
+                    accessibilityLabel={isPro ? 'Escolher foto da galeria' : 'Escolher foto da galeria (Requer Unlimited)'}
                     accessibilityRole="button"
-                    disabled={isProcessingPhoto}
+                    disabled={isProcessingPhoto || isProPending}
                     onPress={() => handlePickPicturePhoto(pictureFrameSize)}
                     style={({ pressed }) => [
                       styles.picturePickEmptyButton,
+                      !isPro && (isNight ? styles.darkPicturePickEmptyButtonLocked : styles.picturePickEmptyButtonLocked),
                       pressed && styles.btnPressed,
                     ]}
                   >
                     {isProcessingPhoto ? (
-                      <ActivityIndicator color="#FFF" size="small" />
+                      <ActivityIndicator color={!isPro ? (isNight ? '#FFAE70' : colors.terracotta) : '#FFF'} size="small" />
                     ) : (
                       <>
-                        <Ionicons color="#FFF" name="images-outline" size={16} />
-                        <Text style={styles.picturePickEmptyButtonText}>
-                          Escolher Foto da Galeria
+                        <Ionicons
+                          color={!isPro ? (isNight ? '#FFAE70' : colors.terracotta) : '#FFF'}
+                          name={isPro ? 'images-outline' : 'sparkles'}
+                          size={16}
+                        />
+                        <Text
+                          style={[
+                            styles.picturePickEmptyButtonText,
+                            !isPro && (isNight ? styles.darkPicturePickEmptyButtonLockedText : styles.picturePickEmptyButtonLockedText),
+                          ]}
+                        >
+                          {isPro ? 'Escolher Foto da Galeria' : 'Foto Pessoal da Galeria'}
                         </Text>
+                        {!isPro ? (
+                          <View style={[styles.unlimitedMiniTag, isNight && styles.darkUnlimitedMiniTag]}>
+                            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="lock-closed" size={9} />
+                            <Text style={[styles.unlimitedMiniTagText, isNight && styles.darkUnlimitedMiniTagText]}>
+                              Unlimited
+                            </Text>
+                          </View>
+                        ) : null}
                       </>
                     )}
                   </Pressable>
@@ -1249,17 +1444,18 @@ export function RoomCustomizationOverlay({
                 showsHorizontalScrollIndicator={false}
               >
                 {PICTURE_FRAME_STYLES.map((frame) => {
-                  const isCurrent = frame.id === pictureFrameStyleId;
+                  const isCurrent = frame.id === effectiveCustomization.pictureFrameStyleId;
+                  const isLocked = !isPro && !isFreeRoomOption('frame', frame.id);
                   return (
                     <Pressable
                       key={frame.id}
-                      accessibilityHint={frame.subtitle}
-                      accessibilityLabel={`Moldura ${frame.name}`}
+                      accessibilityHint={`${frame.subtitle}${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
+                      accessibilityLabel={`Moldura ${frame.name}${isLocked ? ' (bloqueada)' : ''}`}
                       accessibilityRole="button"
                       hitSlop={6}
+                      disabled={isProPending}
                       onPress={() => {
-                        if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPictureFrameStyleId(frame.id);
+                        void selectRoomOption('frame', frame.id, () => setPictureFrameStyleId(frame.id));
                       }}
                       style={({ pressed }) => [
                         styles.swatchCircleWrap,
@@ -1269,6 +1465,7 @@ export function RoomCustomizationOverlay({
                     >
                       <View style={[styles.swatchCircle, { backgroundColor: frame.frameColor }]}>
                         <View style={[styles.posterMatPreview, { backgroundColor: frame.matColor }]} />
+                        {isLocked ? <LockedSwatchBadge isNight={isNight} /> : null}
                       </View>
                     </Pressable>
                   );
@@ -1435,9 +1632,14 @@ const styles = StyleSheet.create({
   paletteHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
     marginBottom: 10,
+  },
+  headerActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   paletteTitleText: {
     fontSize: 13,
@@ -1477,6 +1679,92 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.1)',
     boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
     overflow: 'hidden',
+  },
+  lockedSwatchOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 10, 8, 0.22)',
+  },
+  lockedSeal: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(28, 22, 18, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 154, 61, 0.65)',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.28)',
+  },
+  darkLockedSeal: {
+    backgroundColor: 'rgba(16, 18, 28, 0.88)',
+    borderColor: 'rgba(255, 174, 112, 0.65)',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.45)',
+  },
+  catLockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(189, 107, 77, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(189, 107, 77, 0.25)',
+    marginLeft: 6,
+  },
+  darkCatLockBadge: {
+    backgroundColor: 'rgba(255, 174, 112, 0.15)',
+    borderColor: 'rgba(255, 174, 112, 0.30)',
+  },
+  unlimitedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(189, 107, 77, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(189, 107, 77, 0.24)',
+  },
+  darkUnlimitedPill: {
+    backgroundColor: 'rgba(255, 174, 112, 0.12)',
+    borderColor: 'rgba(255, 174, 112, 0.25)',
+  },
+  unlimitedPillText: {
+    fontSize: 11,
+    fontFamily: typography.ui,
+    fontWeight: '600',
+    color: colors.terracotta,
+  },
+  darkUnlimitedPillText: {
+    color: '#FFAE70',
+  },
+  unlimitedMiniTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(189, 107, 77, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(189, 107, 77, 0.25)',
+  },
+  darkUnlimitedMiniTag: {
+    backgroundColor: 'rgba(255, 174, 112, 0.15)',
+    borderColor: 'rgba(255, 174, 112, 0.30)',
+  },
+  unlimitedMiniTagText: {
+    fontSize: 10,
+    fontFamily: typography.ui,
+    fontWeight: '600',
+    color: colors.terracotta,
+  },
+  darkUnlimitedMiniTagText: {
+    color: '#FFAE70',
   },
   floorGroovePreview: {
     position: 'absolute',
@@ -1876,11 +2164,28 @@ const styles = StyleSheet.create({
     minHeight: 40,
     boxShadow: '0 2px 6px rgba(185, 95, 59, 0.25)',
   },
+  pictureActionButtonLocked: {
+    backgroundColor: 'rgba(189, 107, 77, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(189, 107, 77, 0.35)',
+    boxShadow: 'none',
+  },
+  darkPictureActionButtonLocked: {
+    backgroundColor: 'rgba(255, 174, 112, 0.14)',
+    borderColor: 'rgba(255, 174, 112, 0.40)',
+    boxShadow: 'none',
+  },
   pictureActionButtonText: {
     color: '#FFF',
     fontSize: 12,
     fontFamily: typography.ui,
     fontWeight: '600',
+  },
+  pictureActionButtonLockedText: {
+    color: colors.terracotta,
+  },
+  darkPictureActionButtonLockedText: {
+    color: '#FFAE70',
   },
   pictureRemoveButton: {
     flexDirection: 'row',
@@ -1917,11 +2222,28 @@ const styles = StyleSheet.create({
     minHeight: 44,
     boxShadow: '0 2px 8px rgba(185, 95, 59, 0.25)',
   },
+  picturePickEmptyButtonLocked: {
+    backgroundColor: 'rgba(189, 107, 77, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(189, 107, 77, 0.35)',
+    boxShadow: 'none',
+  },
+  darkPicturePickEmptyButtonLocked: {
+    backgroundColor: 'rgba(255, 174, 112, 0.14)',
+    borderColor: 'rgba(255, 174, 112, 0.40)',
+    boxShadow: 'none',
+  },
   picturePickEmptyButtonText: {
     color: '#FFF',
     fontSize: 13,
     fontFamily: typography.ui,
     fontWeight: '600',
+  },
+  picturePickEmptyButtonLockedText: {
+    color: colors.terracotta,
+  },
+  darkPicturePickEmptyButtonLockedText: {
+    color: '#FFAE70',
   },
   picturePrivacyCaption: {
     fontSize: 11,

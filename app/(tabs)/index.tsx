@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { BookCover } from '@/src/components/book-cover';
 import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
+import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, typography } from '@/src/theme';
 
@@ -22,6 +23,7 @@ export default function RoomScreen() {
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const { isPro } = useProAccess();
 
   const resolvedAmbience = resolveAmbience(ambienceMode);
   const theme = AMBIENCE_THEMES[resolvedAmbience];
@@ -58,6 +60,7 @@ export default function RoomScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.bgColor }]}>
       <IsometricScene
+        isPro={isPro}
         isCustomizing={isCustomizing}
         onAddBook={() => {
           tapFeedback();
