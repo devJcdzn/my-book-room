@@ -115,3 +115,15 @@ test('room-snapshot-service registra handler e gerencia snapshots', async () => 
   assert.equal(getLastCapturedRoomUri('day'), null);
   assert.equal(getLastCapturedRoomUri('night'), null);
 });
+
+test('shareToInstagramOrSystem e canOpenInstagram tratam ambiente sem expo nativo graciosamente', async () => {
+  const { canOpenInstagram, shareToInstagramOrSystem } = await import('../src/services/share-room');
+  const canOpen = await canOpenInstagram();
+  assert.equal(typeof canOpen, 'boolean');
+
+  const shareResult = await shareToInstagramOrSystem({
+    imageUri: 'file:///tmp/story-card.png',
+    message: 'Test message',
+  });
+  assert.equal(typeof shareResult, 'boolean');
+});

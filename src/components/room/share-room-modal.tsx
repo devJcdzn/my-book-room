@@ -1,10 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
 import { BookCover } from '@/src/components/book-cover';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
@@ -33,6 +35,11 @@ type Props = {
   onClose: () => void;
   roomSnapshotUri?: string | null;
   onCaptureSnapshot?: (options?: { ambience?: 'day' | 'night' }) => Promise<string | null>;
+};
+
+type PendingShare = {
+  imageUri?: string;
+  message: string;
 };
 
 const tapFeedback = (style = Haptics.ImpactFeedbackStyle.Light) => {
@@ -68,8 +75,14 @@ export function ShareRoomModal({
   });
   const [isSharing, setIsSharing] = useState(false);
   const [copiedNotification, setCopiedNotification] = useState(false);
+  const pendingShareRef = useRef<PendingShare | null>(null);
+  const cardRef = useRef<View>(null);
 
-  const activeSnapshotUri = getLastCapturedRoomUri(cardTheme) ?? ambienceSnapshots[cardTheme] ?? null;
+  const activeSnapshotUri =
+    getLastCapturedRoomUri(cardTheme) ??
+    ambienceSnapshots[cardTheme] ??
+    roomSnapshotUri ??
+    null;
   const isGeneratingSnapshot = !activeSnapshotUri;
 
   // Sincroniza a imagem da sala com o tema selecionado (Claro com sol / Noturno com abajur aceso)
@@ -134,32 +147,63 @@ export function ShareRoomModal({
   const displayBooks = readingBooks.slice(0, 2);
   const cardWidth = Math.min(324, windowWidth - 44);
 
+  const runPendingShare = async () => {
+    const pendingShare = pendingShareRef.current;
+    pendingShareRef.current = null;
+    if (!pendingShare) return;
+
+    await shareToInstagramOrSystem(pendingShare);
+  };
+
+  const shareAfterModalDismiss = (pendingShare: PendingShare) => {
+    pendingShareRef.current = pendingShare;
+    onClose();
+
+    if (Platform.OS !== 'ios') {
+      setTimeout(() => void runPendingShare(), 400);
+    }
+  };
+
+  const captureCardImage = async (): Promise<string | null> => {
+    if (!cardRef.current) return null;
+    try {
+      const uri = await captureRef(cardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
+      });
+      return uri;
+    } catch (err) {
+      console.warn('Erro ao capturar card de leitura completo via react-native-view-shot:', err);
+      return null;
+    }
+  };
+
   const handleShareInstagram = async () => {
     tapFeedback(Haptics.ImpactFeedbackStyle.Medium);
     setIsSharing(true);
 
     try {
-      let imageUri = activeSnapshotUri ?? getLastCapturedRoomUri(cardTheme);
-      if (!imageUri && onCaptureSnapshot) {
-        imageUri = await onCaptureSnapshot({ ambience: cardTheme });
-        if (imageUri) {
-          setAmbienceSnapshots((prev) => ({ ...prev, [cardTheme]: imageUri }));
+      // 1. Tenta capturar o card editorial completo (com stats, capa do livro e sala 3D)
+      let imageUri = await captureCardImage();
+
+      // 2. Fallback seguro caso o snapshot do card não esteja disponível
+      if (!imageUri) {
+        imageUri = activeSnapshotUri ?? getLastCapturedRoomUri(cardTheme);
+        if (!imageUri && onCaptureSnapshot) {
+          imageUri = await onCaptureSnapshot({ ambience: cardTheme });
+          if (imageUri) {
+            setAmbienceSnapshots((prev) => ({ ...prev, [cardTheme]: imageUri }));
+          }
         }
       }
 
       const summary = formatReadingStatsSummary(stats);
 
-      // Fecha o modal antes de disparar o compartilhamento nativo.
-      // No iOS, tentar apresentar UIActivityViewController sobre um RCTModalHostViewController (pageSheet)
-      // sem âncora gera NSGenericException (crash nativo imediato).
-      onClose();
-
-      setTimeout(async () => {
-        await shareToInstagramOrSystem({
-          imageUri: imageUri ?? undefined,
-          message: summary,
-        });
-      }, 400);
+      shareAfterModalDismiss({
+        imageUri: imageUri ?? undefined,
+        message: summary,
+      });
     } catch (err) {
       console.warn('Erro ao compartilhar nos Stories:', err);
     } finally {
@@ -171,25 +215,26 @@ export function ShareRoomModal({
     tapFeedback();
     setIsSharing(true);
     try {
-      let imageUri = activeSnapshotUri ?? getLastCapturedRoomUri(cardTheme);
-      if (!imageUri && onCaptureSnapshot) {
-        imageUri = await onCaptureSnapshot({ ambience: cardTheme });
-        if (imageUri) {
-          setAmbienceSnapshots((prev) => ({ ...prev, [cardTheme]: imageUri }));
+      // 1. Tenta capturar o card editorial completo (com stats, capa do livro e sala 3D)
+      let imageUri = await captureCardImage();
+
+      // 2. Fallback seguro caso o snapshot do card não esteja disponível
+      if (!imageUri) {
+        imageUri = activeSnapshotUri ?? getLastCapturedRoomUri(cardTheme);
+        if (!imageUri && onCaptureSnapshot) {
+          imageUri = await onCaptureSnapshot({ ambience: cardTheme });
+          if (imageUri) {
+            setAmbienceSnapshots((prev) => ({ ...prev, [cardTheme]: imageUri }));
+          }
         }
       }
 
       const summary = formatReadingStatsSummary(stats);
 
-      // Fecha o modal antes de disparar o compartilhamento nativo para evitar colisão de ViewControllers no iOS.
-      onClose();
-
-      setTimeout(async () => {
-        await shareToInstagramOrSystem({
-          imageUri: imageUri ?? undefined,
-          message: summary,
-        });
-      }, 400);
+      shareAfterModalDismiss({
+        imageUri: imageUri ?? undefined,
+        message: summary,
+      });
     } catch (err) {
       console.warn('Erro ao compartilhar imagem:', err);
     } finally {
@@ -216,6 +261,7 @@ export function ShareRoomModal({
   return (
     <Modal
       animationType="slide"
+      onDismiss={() => void runPendingShare()}
       presentationStyle="pageSheet"
       transparent={false}
       visible={visible}
@@ -323,16 +369,25 @@ export function ShareRoomModal({
           <Animated.View
             entering={FadeInDown.duration(340)}
             style={[
-              styles.storyFrame,
+              styles.storyCardShadowWrapper,
               {
-                width: cardWidth,
-                backgroundColor: cardPalette.bg,
-                borderColor: cardPalette.border,
                 boxShadow: cardPalette.shadow,
               },
             ]}
           >
-            {/* Topo do Story: Tipografia Editorial Pura */}
+            <View
+              ref={cardRef}
+              collapsable={false}
+              style={[
+                styles.storyFrame,
+                {
+                  width: cardWidth,
+                  backgroundColor: cardPalette.bg,
+                  borderColor: cardPalette.border,
+                },
+              ]}
+            >
+              {/* Topo do Story: Tipografia Editorial Pura */}
             <View style={styles.storyHeader}>
               <Text selectable style={[styles.storyKicker, { color: cardPalette.accent }]}>
                 REFÚGIO DE LEITURA
@@ -471,7 +526,8 @@ export function ShareRoomModal({
                 BOOKROOM
               </Text>
             </View>
-          </Animated.View>
+          </View>
+        </Animated.View>
 
           {/* Botões de Ação */}
           <View style={[styles.actionsContainer, { width: cardWidth }]}>
@@ -626,12 +682,17 @@ const styles = StyleSheet.create({
   },
 
   // Story Card Proporcional - Design Minimalista Editorial
+  storyCardShadowWrapper: {
+    borderRadius: 24,
+    borderCurve: 'continuous',
+  },
   storyFrame: {
     borderRadius: 24,
     borderCurve: 'continuous',
     borderWidth: 1,
     padding: 16,
     gap: 12,
+    overflow: 'hidden',
   },
   storyHeader: {
     alignItems: 'center',

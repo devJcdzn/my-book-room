@@ -84,16 +84,23 @@ export const shareToInstagramOrSystem = async ({
   message?: string;
 }): Promise<boolean> => {
   try {
-    const { Share, Platform } = await import('react-native');
     const title = 'Meu Refúgio de Leitura • Bookroom';
 
-    const payload = imageUri
-      ? Platform.OS === 'ios'
-        ? { url: imageUri, title }
-        : { message: message ? `${message}\n\n${imageUri}` : imageUri, title }
-      : { message: message ?? '', title };
+    if (imageUri) {
+      const Sharing = await import('expo-sharing');
+      if (!(await Sharing.isAvailableAsync())) {
+        return false;
+      }
 
-    const result = await Share.share(payload, {
+      await Sharing.shareAsync(imageUri, {
+        dialogTitle: 'Compartilhar Refúgio de Leitura',
+        UTI: 'public.png',
+      });
+      return true;
+    }
+
+    const { Share } = await import('react-native');
+    const result = await Share.share({ message: message ?? '', title }, {
       dialogTitle: 'Compartilhar Refúgio de Leitura',
       subject: title,
     });
