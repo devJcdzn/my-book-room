@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bookroom",
     "slug": "my-book-room",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/ios-light.png",
     "scheme": "mybookroom",
@@ -26,10 +26,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Permite escolher fotos para personalizar os quadros da sua sala de leitura.",
         "NSPhotoLibraryAddUsageDescription": "Permite salvar imagens do seu refúgio de leitura no seu rolo da câmera.",
-        "LSApplicationQueriesSchemes": [
-          "instagram",
-          "instagram-stories"
-        ]
+        "LSApplicationQueriesSchemes": ["instagram", "instagram-stories"]
       }
     },
     "android": {
