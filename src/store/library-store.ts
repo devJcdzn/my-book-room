@@ -26,6 +26,9 @@ import {
 } from '@/src/types/room-customization';
 
 export type AmbienceMode = 'auto' | 'day' | 'sunset' | 'night';
+export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
+
+export const ONBOARDING_VERSION = 1;
 
 type LibraryState = {
   _hasHydrated: boolean;
@@ -47,6 +50,9 @@ type LibraryState = {
   pictureFrameStyleId: string;
   pictureFramePhotoUri: string | null;
   profile: Profile;
+  onboardingVersion: number;
+  onboardingStatus: OnboardingStatus;
+  onboardingStep: number;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
@@ -63,6 +69,10 @@ type LibraryState = {
   setPictureFrameStyleId: (styleId: string) => void;
   setPictureFramePhotoUri: (uri: string | null) => void;
   updateProfile: (profile: ProfileInput) => void;
+  setOnboardingStep: (step: number) => void;
+  completeOnboarding: () => void;
+  skipOnboarding: () => void;
+  restartOnboarding: () => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number }) => void;
   updateBookCoverColor: (bookId: string, color: string) => void;
@@ -102,7 +112,7 @@ export type LibraryStorageScope = 'guest' | `user:${string}`;
 const storageKeyForScope = (scope: LibraryStorageScope) =>
   scope === 'guest' ? GUEST_STORAGE_KEY : `bookroom-library-v1:${scope}`;
 
-export type PersistedLibraryState = Pick<
+type PersistedLibraryFields = Pick<
   LibraryState,
   | 'profile'
   | 'books'
@@ -121,7 +131,15 @@ export type PersistedLibraryState = Pick<
   | 'pictureFrameSize'
   | 'pictureFrameStyleId'
   | 'pictureFramePhotoUri'
+  | 'onboardingVersion'
+  | 'onboardingStatus'
+  | 'onboardingStep'
 >;
+
+export type PersistedLibraryState = Omit<
+  PersistedLibraryFields,
+  'onboardingVersion' | 'onboardingStatus' | 'onboardingStep'
+> & Partial<Pick<PersistedLibraryFields, 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep'>>;
 
 const memoryStorage = new Map<string, string>();
 
@@ -265,6 +283,15 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
       !candidate.pictureFramePhotoUri.startsWith('data:')
         ? candidate.pictureFramePhotoUri
         : null,
+    onboardingVersion: ONBOARDING_VERSION,
+    onboardingStatus: candidate.onboardingStatus === 'in_progress'
+      || candidate.onboardingStatus === 'completed'
+      || candidate.onboardingStatus === 'skipped'
+      ? candidate.onboardingStatus
+      : 'not_started',
+    onboardingStep: typeof candidate.onboardingStep === 'number'
+      ? Math.min(3, Math.max(0, Math.round(candidate.onboardingStep)))
+      : 0,
   };
 };
 
@@ -295,6 +322,9 @@ export const createPersistedState = (state: PersistedLibraryState & { completing
     pictureFrameSize: state.pictureFrameSize,
     pictureFrameStyleId: state.pictureFrameStyleId,
     pictureFramePhotoUri: state.pictureFramePhotoUri,
+    onboardingVersion: state.onboardingVersion ?? ONBOARDING_VERSION,
+    onboardingStatus: state.onboardingStatus ?? 'not_started',
+    onboardingStep: state.onboardingStep ?? 0,
   };
 };
 
@@ -321,6 +351,7 @@ type LibraryDataState = Pick<
     | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'bookcasePaletteId'
     | 'catId' | 'leftWallItem' | 'leftWallPosterBookId' | 'leftWallWindowStyle' | 'leftWallFrameColor'
     | 'pictureFrameSize' | 'pictureFrameStyleId' | 'pictureFramePhotoUri' | 'profile'
+    | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep'
 >;
 
 const initialState: LibraryDataState = {
@@ -343,6 +374,9 @@ const initialState: LibraryDataState = {
   pictureFrameStyleId: DEFAULT_PICTURE_FRAME_STYLE_ID,
   pictureFramePhotoUri: null,
   profile: DEFAULT_PROFILE,
+  onboardingVersion: ONBOARDING_VERSION,
+  onboardingStatus: 'not_started',
+  onboardingStep: 0,
 };
 
 export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
@@ -357,6 +391,8 @@ export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
   && snapshot.catId === DEFAULT_CAT_ID
   && snapshot.leftWallItem === DEFAULT_LEFT_WALL_ITEM
   && snapshot.pictureFramePhotoUri === null
+  && snapshot.onboardingStatus === 'not_started'
+  && snapshot.onboardingStep === 0
 );
 
 export const useLibraryStore = create<LibraryState>()(persist((set) => ({
@@ -380,6 +416,24 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     if (input.name !== undefined && !input.name.trim()) return state;
     const next = normalizeProfile({ ...state.profile, ...input });
     return { profile: next };
+  }),
+  setOnboardingStep: (step) => set({
+    onboardingStatus: 'in_progress',
+    onboardingStep: Math.min(3, Math.max(0, Math.round(step))),
+  }),
+  completeOnboarding: () => set({
+    onboardingVersion: ONBOARDING_VERSION,
+    onboardingStatus: 'completed',
+    onboardingStep: 3,
+  }),
+  skipOnboarding: () => set({
+    onboardingVersion: ONBOARDING_VERSION,
+    onboardingStatus: 'skipped',
+  }),
+  restartOnboarding: () => set({
+    onboardingVersion: ONBOARDING_VERSION,
+    onboardingStatus: 'in_progress',
+    onboardingStep: 0,
   }),
   addOpenLibraryBook: (result) => set((state) => {
     if (state.books.some((book) => book.id === result.workKey)) return state;

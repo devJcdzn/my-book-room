@@ -1,13 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { ShareRoomModal } from '@/src/components/room/share-room-modal';
 import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth } from '@/src/providers/auth-provider';
 import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { resolveRoomOptionId } from '@/src/services/room-customization-access';
+import { captureRoomSnapshot, getLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
 import { getFloorPalette, getWallPalette } from '@/src/types/room-customization';
@@ -30,6 +33,7 @@ export default function ProfileScreen() {
   const setAmbienceMode = useLibraryStore((state) => state.setAmbienceMode);
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
+  const restartOnboarding = useLibraryStore((state) => state.restartOnboarding);
   const { isPro, isPending, restorePurchases } = useProAccess();
   const { user, syncStatus } = useAuth();
 
@@ -40,10 +44,16 @@ export default function ProfileScreen() {
 
   const wallPalette = getWallPalette(resolveRoomOptionId('walls', wallPaletteId, isPro));
   const floorPalette = getFloorPalette(resolveRoomOptionId('flooring', floorPaletteId, isPro));
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const handleSelectAmbience = (mode: AmbienceMode) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAmbienceMode(mode);
+  };
+
+  const handleOpenShare = () => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsShareModalOpen(true);
   };
 
   const handleRestorePurchases = async () => {
@@ -150,6 +160,40 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* 2.5 COMPARTILHAR REFÚGIO NOS STORIES */}
+      <Pressable
+        accessibilityHint="Gera imagem da sua sala e dados de leitura para compartilhar no Instagram Stories ou redes"
+        accessibilityLabel="Compartilhar sala e estatísticas no Instagram Stories"
+        accessibilityRole="button"
+        onPress={handleOpenShare}
+        style={({ pressed }) => [
+          styles.card,
+          styles.shareBanner,
+          isNight && styles.darkCard,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.shareBannerLeft}>
+          <View
+            style={[
+              styles.shareBannerIconWrap,
+              { backgroundColor: isNight ? 'rgba(255, 174, 112, 0.15)' : 'rgba(225, 48, 108, 0.12)' },
+            ]}
+          >
+            <Ionicons color={isNight ? '#FFAE70' : '#E1306C'} name="logo-instagram" size={20} />
+          </View>
+          <View style={styles.shareBannerTextWrap}>
+            <Text style={[styles.shareBannerTitle, isNight && styles.darkTitle]}>
+              Compartilhar Refúgio
+            </Text>
+            <Text style={[styles.shareBannerSub, isNight && styles.darkMutedText]}>
+              Stories do Instagram com seus livros e progresso
+            </Text>
+          </View>
+        </View>
+        <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="chevron-forward" size={18} />
+      </Pressable>
+
       {/* 3. CONFIGURAÇÃO DA SALA 3D (SIMPLIFICADA) */}
       <View style={[styles.card, isNight && styles.darkCard]}>
         <View style={styles.settingHeader}>
@@ -228,6 +272,26 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
 
+        <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
+
+        <Pressable
+          accessibilityHint="Revê a apresentação e a configuração inicial do Bookroom"
+          accessibilityLabel="Conheça o Bookroom"
+          accessibilityRole="button"
+          onPress={() => {
+            if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            restartOnboarding();
+            router.push({ pathname: '/onboarding', params: { from: 'profile' } } as unknown as Href);
+          }}
+          style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}
+        >
+          <View style={styles.restoreLeft}>
+            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="sparkles-outline" size={18} />
+            <Text style={[styles.restoreText, isNight && styles.darkTitle]}>Conheça o Bookroom</Text>
+          </View>
+          <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
+        </Pressable>
+
         {ACCOUNT_SYNC_ENABLED ? (
           <>
             <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
@@ -285,6 +349,13 @@ export default function ProfileScreen() {
           Bookroom · Seu refúgio pessoal para ler com calma
         </Text>
       </View>
+
+      <ShareRoomModal
+        onCaptureSnapshot={captureRoomSnapshot}
+        onClose={() => setIsShareModalOpen(false)}
+        roomSnapshotUri={getLastCapturedRoomUri()}
+        visible={isShareModalOpen}
+      />
     </ScrollView>
   );
 }
@@ -549,6 +620,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   restoreStatus: {
+    color: colors.muted,
+    fontFamily: typography.ui,
+    fontSize: 12,
+  },
+
+  /* Compartilhar Refúgio */
+  shareBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  shareBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  shareBannerIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBannerTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  shareBannerTitle: {
+    color: colors.ink,
+    fontFamily: typography.ui,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shareBannerSub: {
     color: colors.muted,
     fontFamily: typography.ui,
     fontSize: 12,

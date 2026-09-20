@@ -1,6 +1,7 @@
 /* eslint-disable react/no-unknown-property */
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
+import { GLView } from 'expo-gl';
 import * as Haptics from 'expo-haptics';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -19,6 +20,7 @@ import { RoomPictureFrame } from '@/src/components/room/room-picture-frame';
 import { RoomPoster } from '@/src/components/room/room-poster';
 import { RoomWindow } from '@/src/components/room/room-window';
 import { resolveRoomCustomization, resolveRoomOptionId } from '@/src/services/room-customization-access';
+import { registerRoomSnapshotHandler, setLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { colors } from '@/src/theme';
 import type { Book } from '@/src/types/book';
@@ -57,9 +59,13 @@ type SceneProps = {
   onCustomize?: () => void;
   onOpenBook: (bookId: string) => void;
   onSelectBook: (bookId: string) => void;
+  onShare?: () => void;
   isPro: boolean;
   isCustomizing?: boolean;
   onCustomizingChange?: (isCustomizing: boolean) => void;
+  onCanvasReady?: () => void;
+  onFurnitureReady?: () => void;
+  onSceneError?: () => void;
   onSceneReady?: () => void;
 };
 
@@ -203,6 +209,134 @@ function FirstFrameNotifier({ onReady }: { onReady?: () => void }) {
     }
   });
   return null;
+}
+
+function FurnitureReadyNotifier({ onReady }: { onReady?: () => void }) {
+  const hasFired = useRef(false);
+
+  useEffect(() => {
+    if (!hasFired.current) {
+      hasFired.current = true;
+      onReady?.();
+    }
+  }, [onReady]);
+
+  return null;
+}
+
+function RoomSnapshotRegistrar({
+  onSetAmbience,
+}: {
+  onSetAmbience?: (ambience: 'day' | 'night' | null) => void;
+}) {
+  const { gl, scene, camera, size } = useThree();
+
+  useEffect(() => {
+    registerRoomSnapshotHandler(async (options?: { ambience?: 'day' | 'night' }) => {
+      try {
+        const targetAmbience = options?.ambience;
+        if (targetAmbience && onSetAmbience) {
+          onSetAmbience(targetAmbience);
+          // Permite que o React e Three.js renderizem o frame com a iluminação solicitada
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+
+        const orthoCam = camera as OrthographicCamera;
+        // Save current interactive camera state
+        const prevZoom = orthoCam.zoom;
+        const prevPos = orthoCam.position.clone();
+
+        // Frame the entire isometric room cleanly with balanced margins:
+        // Room bounding box span is ~8.6 units.
+        const framingZoom = Math.min(size.width / 9.6, size.height / 13.5);
+        orthoCam.zoom = framingZoom;
+        orthoCam.position.set(6.7, 6.25, 7.4);
+        orthoCam.lookAt(0, 1.25, 0);
+        orthoCam.updateProjectionMatrix();
+
+        // Render scene with the full-room framing
+        gl.render(scene, orthoCam);
+
+        const exgl = (gl as any).getContext?.() ?? gl;
+        let finalUri: string | null = null;
+        if (exgl) {
+          const snapshot = await GLView.takeSnapshotAsync(exgl, { format: 'png', compress: 1.0 });
+          const rawUri = typeof snapshot?.uri === 'string' ? snapshot.uri : null;
+          if (rawUri) {
+            finalUri = rawUri;
+
+            // Crop to a perfect centered 1:1 square if height > width
+            if (snapshot.width && snapshot.height && snapshot.height > snapshot.width) {
+              try {
+                const { manipulateAsync, SaveFormat } = await import('expo-image-manipulator');
+                const side = snapshot.width;
+                const originY = Math.max(0, Math.round((snapshot.height - side) / 2));
+                const cropped = await manipulateAsync(
+                  rawUri,
+                  [{ crop: { originX: 0, originY, width: side, height: side } }],
+                  { format: SaveFormat.PNG }
+                );
+                if (cropped?.uri) {
+                  finalUri = cropped.uri;
+                }
+              } catch (cropErr) {
+                console.warn('Fallback sem crop na imagem da sala:', cropErr);
+              }
+            }
+
+            setLastCapturedRoomUri(finalUri, targetAmbience);
+          }
+        }
+
+        // Restore interactive camera
+        orthoCam.zoom = prevZoom;
+        orthoCam.position.copy(prevPos);
+        orthoCam.lookAt(0, 1.08, 0);
+        orthoCam.updateProjectionMatrix();
+        gl.render(scene, orthoCam);
+
+        if (targetAmbience && onSetAmbience) {
+          onSetAmbience(null);
+        }
+
+        return finalUri;
+      } catch (err) {
+        console.warn('Não foi possível gerar snapshot 3D direto:', err);
+      }
+      return null;
+    });
+
+    return () => {
+      registerRoomSnapshotHandler(null);
+    };
+  }, [gl, scene, camera, size, onSetAmbience]);
+
+  return null;
+}
+
+type SceneAssetBoundaryProps = {
+  children: React.ReactNode;
+  onError?: () => void;
+};
+
+type SceneAssetBoundaryState = {
+  hasError: boolean;
+};
+
+class SceneAssetBoundary extends React.Component<SceneAssetBoundaryProps, SceneAssetBoundaryState> {
+  state: SceneAssetBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): SceneAssetBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError?.();
+  }
+
+  render() {
+    return this.state.hasError ? null : this.props.children;
+  }
 }
 
 function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }) {
@@ -790,6 +924,8 @@ function RoomShell({
   catId,
   posterBook,
   resolvedAmbience,
+  onFurnitureReady,
+  onSceneError,
   onSceneReady,
 }: {
   isLampOn: boolean;
@@ -812,6 +948,8 @@ function RoomShell({
   catId: string;
   posterBook?: Book;
   resolvedAmbience: ResolvedAmbience;
+  onFurnitureReady?: () => void;
+  onSceneError?: () => void;
   onSceneReady?: () => void;
 }) {
   return (
@@ -899,18 +1037,23 @@ function RoomShell({
       {/* Acessórios e interação da mesa de estudo */}
       <DeskDetails isEmpty={isEmptyDesk} onAddBook={onAddBook} />
 
-      <Suspense fallback={null}>
-        <RoomFurniture
-          isLampOn={isLampOn}
-          isNight={isNight}
-          onToggleLamp={onToggleLamp}
-          theme={theme}
-        />
-        <FirstFrameNotifier onReady={onSceneReady} />
-      </Suspense>
+      <SceneAssetBoundary onError={onSceneError}>
+        <Suspense fallback={null}>
+          <RoomFurniture
+            isLampOn={isLampOn}
+            isNight={isNight}
+            onToggleLamp={onToggleLamp}
+            theme={theme}
+          />
+          <FurnitureReadyNotifier onReady={onFurnitureReady} />
+          <FirstFrameNotifier onReady={onSceneReady} />
+        </Suspense>
+      </SceneAssetBoundary>
 
       {/* Gatinho da sala com carregamento sob demanda e disfarce 3D procedural */}
-      <RoomCat catId={catId} onLoadingChange={onCatLoadingChange} />
+      <SceneAssetBoundary onError={onSceneError}>
+        <RoomCat catId={catId} onLoadingChange={onCatLoadingChange} />
+      </SceneAssetBoundary>
 
       {/* Estante de livros profissional e completa com marcenaria artesanal */}
       <Bookcase palette={bookcasePalette} />
@@ -925,6 +1068,8 @@ function RoomGeometry({
   onAddBook,
   onOpenBook,
   onSelectBook,
+  onFurnitureReady,
+  onSceneError,
   onSceneReady,
   rotationRef,
   zoomRef,
@@ -949,7 +1094,8 @@ function RoomGeometry({
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const completingBookId = useLibraryStore((state) => state.completingBookId);
   const finalizeCompletion = useLibraryStore((state) => state.finalizeCompletion);
-  const isLampOn = useLibraryStore((state) => state.isLampOn);
+  const storeLampOn = useLibraryStore((state) => state.isLampOn);
+  const isLampOn = isNight ? true : storeLampOn;
   const toggleLamp = useLibraryStore((state) => state.toggleLamp);
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
@@ -1077,6 +1223,8 @@ function RoomGeometry({
         leftWallWindowStyle={effectiveCustomization.leftWallWindowStyle}
         onAddBook={onAddBook}
         onCatLoadingChange={onCatLoadingChange}
+        onFurnitureReady={onFurnitureReady}
+        onSceneError={onSceneError}
         onSceneReady={onSceneReady}
         onToggleLamp={handleToggleLamp}
         catId={effectiveCustomization.catId}
@@ -1131,8 +1279,10 @@ export function IsometricScene(props: SceneProps) {
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const cycleAmbienceMode = useLibraryStore((state) => state.cycleAmbienceMode);
   const resolvedAmbience = resolveAmbience(ambienceMode);
-  const currentTheme = AMBIENCE_THEMES[resolvedAmbience];
-  const isNight = resolvedAmbience === 'night';
+  const [snapshotAmbienceOverride, setSnapshotAmbienceOverride] = useState<'day' | 'night' | null>(null);
+  const effectiveAmbience = snapshotAmbienceOverride ?? resolvedAmbience;
+  const currentTheme = AMBIENCE_THEMES[effectiveAmbience];
+  const isNight = effectiveAmbience === 'night';
 
   const rotationRef = useRef<RotationState>({ targetY: 0 });
   const zoomRef = useRef<ZoomState>({ current: 1.0, target: 1.0 });
@@ -1292,12 +1442,18 @@ export function IsometricScene(props: SceneProps) {
         <Canvas
           camera={camera}
           frameloop="always"
-          gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            powerPreference: 'high-performance',
+            preserveDrawingBuffer: true,
+          }}
+          onCreated={() => props.onCanvasReady?.()}
           orthographic
           style={styles.canvas}
         >
+          <RoomSnapshotRegistrar onSetAmbience={setSnapshotAmbienceOverride} />
           <color attach="background" args={[currentTheme.bgColor]} />
-          <FirstFrameNotifier onReady={props.onSceneReady} />
           <CameraRig />
           <RoomGeometry
             {...props}
@@ -1305,7 +1461,7 @@ export function IsometricScene(props: SceneProps) {
             isNight={isNight}
             onCatLoadingChange={handleCatLoadingChange}
             onUpdateAnchorPositions={setAnchorPositions}
-            resolvedAmbience={resolvedAmbience}
+            resolvedAmbience={effectiveAmbience}
             rotationRef={rotationRef}
             theme={currentTheme}
             zoomRef={zoomRef}
@@ -1387,7 +1543,7 @@ export function IsometricScene(props: SceneProps) {
             ) : null}
           </View>
 
-          {/* Controles no Topo Direito: Personalizar e Adicionar Livro */}
+          {/* Controles no Topo Direito: Personalizar, Compartilhar e Adicionar Livro */}
           <View style={styles.controlsRight}>
             <Pressable
               accessibilityHint="Abre o modo interativo para personalizar cores e decoração da sala"
@@ -1403,6 +1559,23 @@ export function IsometricScene(props: SceneProps) {
             >
               <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="color-palette-outline" size={20} />
             </Pressable>
+
+            {props.onShare ? (
+              <Pressable
+                accessibilityHint="Compartilhar imagem do refúgio e estatísticas nos Stories ou redes"
+                accessibilityLabel="Compartilhar refúgio"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={props.onShare}
+                style={({ pressed }) => [
+                  styles.iconPillBtn,
+                  isNight && styles.darkPill,
+                  pressed && styles.btnPressed,
+                ]}
+              >
+                <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="share-social-outline" size={19} />
+              </Pressable>
+            ) : null}
 
             {props.onAddBook ? (
               <Pressable

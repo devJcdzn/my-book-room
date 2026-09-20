@@ -1,14 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { BookCover } from '@/src/components/book-cover';
 import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
+import { RoomLoading, type RoomLoadingPhase } from '@/src/components/room/room-loading';
+import { ShareRoomModal } from '@/src/components/room/share-room-modal';
 import { useProAccess } from '@/src/providers/revenuecat-provider';
+import { captureRoomSnapshot, getLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, typography } from '@/src/theme';
 
@@ -18,7 +20,13 @@ const tapFeedback = () => {
 
 export default function RoomScreen() {
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
+  const [isFurnitureReady, setIsFurnitureReady] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const [isLoadingSlow, setIsLoadingSlow] = useState(false);
+  const [sceneVersion, setSceneVersion] = useState(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const books = useLibraryStore((state) => state.books);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
@@ -29,20 +37,44 @@ export default function RoomScreen() {
   const theme = AMBIENCE_THEMES[resolvedAmbience];
   const isNight = resolvedAmbience === 'night';
 
-  // Oculta a Splash Screen nativa assim que a sala 3D estiver com os assets carregados e pronta
   useEffect(() => {
     if (isSceneReady) {
-      void SplashScreen.hideAsync().catch(() => undefined);
+      const timer = setTimeout(() => setShowLoading(false), 320);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isSceneReady]);
 
-  // Fallback de segurança para garantir exibição mesmo em dispositivos lentos
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsSceneReady(true);
-    }, 2500);
+    const timer = setTimeout(() => setIsLoadingSlow(true), 4500);
     return () => clearTimeout(timer);
   }, []);
+
+  const retryScene = () => {
+    setIsCanvasReady(false);
+    setIsFurnitureReady(false);
+    setIsSceneReady(false);
+    setShowLoading(true);
+    setIsLoadingSlow(false);
+    setSceneVersion((version) => version + 1);
+  };
+
+  const handleSceneError = () => {
+    setIsSceneReady(false);
+    setShowLoading(true);
+    setIsLoadingSlow(true);
+  };
+
+  const handleOpenShare = () => {
+    tapFeedback();
+    setIsShareModalOpen(true);
+  };
+
+  const loadingPhase: RoomLoadingPhase = isSceneReady
+    ? 'lighting'
+    : isCanvasReady && !isFurnitureReady
+      ? 'furniture'
+      : 'lighting';
 
   const activeBook = books.find((book) => book.id === activeBookId && book.status === 'reading')
     ?? [...books].reverse().find((book) => book.status === 'reading');
@@ -60,46 +92,39 @@ export default function RoomScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.bgColor }]}>
       <IsometricScene
+        key={sceneVersion}
         isPro={isPro}
         isCustomizing={isCustomizing}
         onAddBook={() => {
           tapFeedback();
           router.navigate('/add-book');
         }}
+        onCanvasReady={() => setIsCanvasReady(true)}
         onCustomizingChange={setIsCustomizing}
+        onFurnitureReady={() => setIsFurnitureReady(true)}
         onOpenBook={openProgress}
+        onSceneError={handleSceneError}
         onSceneReady={() => setIsSceneReady(true)}
         onSelectBook={selectBook}
+        onShare={handleOpenShare}
       />
 
-      {/* Disfarce de Carregamento Inicial (Cold Start) para transição fluida do primeiro render */}
-      {!isSceneReady ? (
+      {showLoading ? (
         <Animated.View
           exiting={FadeOut.duration(380)}
-          pointerEvents="none"
+          pointerEvents={isLoadingSlow && !isSceneReady ? 'auto' : 'none'}
           style={[
             StyleSheet.absoluteFill,
-            styles.disguiseContainer,
+            styles.loadingContainer,
             { backgroundColor: theme.bgColor },
           ]}
         >
-          <View style={styles.disguiseContent}>
-            <View style={[styles.disguiseIconWrap, isNight && styles.darkDisguiseIconWrap]}>
-              <Ionicons
-                color={isNight ? '#FFAE70' : colors.terracotta}
-                name="book"
-                size={30}
-              />
-            </View>
-            <Text style={[styles.disguiseTitle, isNight && styles.darkText]}>
-              Aconchegando seu cantinho...
-            </Text>
-            <View style={styles.disguiseDotsRow}>
-              <View style={[styles.disguiseDot, isNight && styles.darkDisguiseDot]} />
-              <View style={[styles.disguiseDot, isNight && styles.darkDisguiseDot, { opacity: 0.6 }]} />
-              <View style={[styles.disguiseDot, isNight && styles.darkDisguiseDot, { opacity: 0.3 }]} />
-            </View>
-          </View>
+          <RoomLoading
+            ambience={resolvedAmbience}
+            isSlow={isLoadingSlow && !isSceneReady}
+            onRetry={retryScene}
+            phase={loadingPhase}
+          />
         </Animated.View>
       ) : null}
 
@@ -146,12 +171,20 @@ export default function RoomScreen() {
           </Pressable>
         </Animated.View>
       ) : null}
+
+      <ShareRoomModal
+        onCaptureSnapshot={captureRoomSnapshot}
+        onClose={() => setIsShareModalOpen(false)}
+        roomSnapshotUri={getLastCapturedRoomUri()}
+        visible={isShareModalOpen}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  loadingContainer: { zIndex: 100 },
   bottomHintWrap: {
     position: 'absolute',
     right: 0,
@@ -235,57 +268,5 @@ const styles = StyleSheet.create({
   },
   darkSub: {
     color: '#B2B7C8',
-  },
-  disguiseContainer: {
-    zIndex: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disguiseContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-  },
-  disguiseIconWrap: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 8px 24px rgba(53, 42, 36, 0.12)',
-  },
-  darkDisguiseIconWrap: {
-    backgroundColor: 'rgba(26, 28, 40, 0.94)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-  },
-  disguiseTitle: {
-    fontSize: 15,
-    fontFamily: typography.ui,
-    fontWeight: '600',
-    color: colors.ink,
-    letterSpacing: 0.2,
-  },
-  disguiseDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  disguiseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.terracotta,
-  },
-  darkDisguiseDot: {
-    backgroundColor: '#FFAE70',
-  },
-  darkText: {
-    color: '#FAF4EB',
   },
 });

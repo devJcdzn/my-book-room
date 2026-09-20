@@ -1,4 +1,4 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
@@ -43,6 +43,10 @@ export const unstable_settings = { anchor: '(tabs)' };
 export default function RootLayout() {
   const hasHydrated = useLibraryStore((state) => state._hasHydrated);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const onboardingStatus = useLibraryStore((state) => state.onboardingStatus);
+  const { from } = useGlobalSearchParams<{ from?: string }>();
+  const pathname = usePathname();
+  const router = useRouter();
   const isNight = resolveAmbience(ambienceMode) === 'night';
 
   useEffect(() => {
@@ -53,13 +57,18 @@ export default function RootLayout() {
     void initializeRevenueCat();
   }, []);
 
-  // Timer de segurança (3500ms) para garantir ocultação da splash screen mesmo em cenários extremos
   useEffect(() => {
-    const safetyTimer = setTimeout(() => {
+    if (hasHydrated) {
       void SplashScreen.hideAsync().catch(() => undefined);
-    }, 3500);
-    return () => clearTimeout(safetyTimer);
-  }, []);
+    }
+  }, [hasHydrated]);
+
+  useEffect(() => {
+    if (!hasHydrated || pathname === '/onboarding' || (pathname === '/add-book' && from === 'onboarding')) return;
+    if (onboardingStatus === 'not_started' || onboardingStatus === 'in_progress') {
+      router.replace('/onboarding' as Href);
+    }
+  }, [from, hasHydrated, onboardingStatus, pathname, router]);
 
   const theme = useMemo(() => {
     if (isNight) {
@@ -105,6 +114,14 @@ export default function RootLayout() {
             }}
           >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="onboarding"
+            options={{
+              animation: 'fade',
+              gestureEnabled: false,
+              headerShown: false,
+            }}
+          />
           <Stack.Screen
             name="account"
             options={{

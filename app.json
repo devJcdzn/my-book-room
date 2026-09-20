@@ -23,7 +23,13 @@
         "tinted": "./assets/ios-tinted.png"
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Permite escolher fotos para personalizar os quadros da sua sala de leitura.",
+        "NSPhotoLibraryAddUsageDescription": "Permite salvar imagens do seu refúgio de leitura no seu rolo da câmera.",
+        "LSApplicationQueriesSchemes": [
+          "instagram",
+          "instagram-stories"
+        ]
       }
     },
     "android": {
