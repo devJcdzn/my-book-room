@@ -18,6 +18,7 @@
     ],
     "ios": {
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.devjc.bookroom",
       "icon": {
         "light": "./assets/ios-light.png",
@@ -68,7 +69,10 @@
         }
       ],
       "expo-image",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-web-browser",
+      "expo-secure-store",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

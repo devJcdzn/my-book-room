@@ -7,15 +7,34 @@ const isNativeRuntime = process.env.EXPO_OS === 'ios' || process.env.EXPO_OS ===
 
 if (isNativeRuntime) require('react-native-url-polyfill/auto');
 
+const memoryStorage = new Map<string, string>();
+const getSecureStore = () => require('expo-secure-store') as typeof import('expo-secure-store');
+
+const authStorage = {
+  getItem: (key: string) => isNativeRuntime
+    ? getSecureStore().getItemAsync(key)
+    : Promise.resolve(memoryStorage.get(key) ?? null),
+  setItem: async (key: string, value: string) => {
+    if (isNativeRuntime) await getSecureStore().setItemAsync(key, value);
+    else memoryStorage.set(key, value);
+  },
+  removeItem: async (key: string) => {
+    if (isNativeRuntime) await getSecureStore().deleteItemAsync(key);
+    else memoryStorage.delete(key);
+  },
+};
+
 const createSupabaseClient = (): SupabaseClient | undefined => {
   if (!supabaseUrl || !supabasePublishableKey) return undefined;
 
   try {
     return createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
-        autoRefreshToken: false,
+        storage: authStorage,
+        autoRefreshToken: true,
         detectSessionInUrl: false,
-        persistSession: false,
+        persistSession: true,
+        flowType: 'pkce',
       },
     });
   } catch (error) {

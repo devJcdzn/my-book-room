@@ -90,3 +90,25 @@ export const restoreProPurchases = async (): Promise<boolean> => {
     return false;
   }
 };
+
+export const identifyRevenueCatCustomer = async (userId: string): Promise<boolean> => {
+  if (!await initializeRevenueCat()) return false;
+  try {
+    await Purchases.logIn(userId);
+    return true;
+  } catch (error) {
+    logConfigurationError('Não foi possível vincular a conta às compras.', error);
+    return false;
+  }
+};
+
+export const resetRevenueCatCustomer = async (): Promise<boolean> => {
+  if (!await initializeRevenueCat()) return false;
+  try {
+    if (!await Purchases.isAnonymous()) await Purchases.logOut();
+    return true;
+  } catch (error) {
+    logConfigurationError('Não foi possível encerrar a identidade de compras.', error);
+    return false;
+  }
+};

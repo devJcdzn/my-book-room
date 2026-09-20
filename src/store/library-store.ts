@@ -95,7 +95,12 @@ const DEFAULT_PROFILE: Profile = {
 };
 
 const STORAGE_VERSION = 1;
-const STORAGE_KEY = 'bookroom-library-v1';
+const GUEST_STORAGE_KEY = 'bookroom-library-v1';
+
+export type LibraryStorageScope = 'guest' | `user:${string}`;
+
+const storageKeyForScope = (scope: LibraryStorageScope) =>
+  scope === 'guest' ? GUEST_STORAGE_KEY : `bookroom-library-v1:${scope}`;
 
 export type PersistedLibraryState = Pick<
   LibraryState,
@@ -340,6 +345,20 @@ const initialState: LibraryDataState = {
   profile: DEFAULT_PROFILE,
 };
 
+export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
+  snapshot.books.length === 0
+  && snapshot.profile.name === DEFAULT_PROFILE.name
+  && snapshot.profile.bio === DEFAULT_PROFILE.bio
+  && snapshot.profile.bioAttribution === DEFAULT_PROFILE.bioAttribution
+  && snapshot.wallPaletteId === DEFAULT_WALL_PALETTE_ID
+  && snapshot.floorPaletteId === DEFAULT_FLOOR_PALETTE_ID
+  && snapshot.rugPaletteId === DEFAULT_RUG_PALETTE_ID
+  && snapshot.bookcasePaletteId === DEFAULT_BOOKCASE_PALETTE_ID
+  && snapshot.catId === DEFAULT_CAT_ID
+  && snapshot.leftWallItem === DEFAULT_LEFT_WALL_ITEM
+  && snapshot.pictureFramePhotoUri === null
+);
+
 export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   ...initialState,
   setAmbienceMode: (mode) => set({ ambienceMode: mode }),
@@ -465,7 +484,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     };
   }),
 }), {
-  name: STORAGE_KEY,
+  name: GUEST_STORAGE_KEY,
   version: STORAGE_VERSION,
   storage: createJSONStorage(() => storage),
   skipHydration: true,
@@ -480,3 +499,54 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     useLibraryStore.setState({ _hasHydrated: true });
   },
 }));
+
+export const getCurrentLibrarySnapshot = () => createPersistedState(useLibraryStore.getState());
+
+export const readLibraryStorageScope = async (scope: LibraryStorageScope) => {
+  const stored = await storage.getItem(storageKeyForScope(scope));
+  if (!stored) return null;
+  try {
+    const parsed = JSON.parse(stored) as { state?: unknown };
+    return normalizePersistedState(parsed.state);
+  } catch {
+    return null;
+  }
+};
+
+export const overwriteLibraryStorageScope = async (
+  scope: LibraryStorageScope,
+  snapshot: PersistedLibraryState,
+) => {
+  await storage.setItem(storageKeyForScope(scope), JSON.stringify({
+    state: normalizePersistedState(snapshot),
+    version: STORAGE_VERSION,
+  }));
+};
+
+export const replaceLibrarySnapshot = (snapshot: unknown, preservePhoto = false) => {
+  const currentPhoto = useLibraryStore.getState().pictureFramePhotoUri;
+  const normalized = normalizePersistedState(snapshot);
+  useLibraryStore.setState({
+    ...normalized,
+    pictureFramePhotoUri: preservePhoto ? currentPhoto : normalized.pictureFramePhotoUri,
+    completingBookId: undefined,
+    _hasHydrated: true,
+  });
+};
+
+export const switchLibraryStorageScope = async (
+  scope: LibraryStorageScope,
+  fallback?: PersistedLibraryState,
+) => {
+  const name = storageKeyForScope(scope);
+  const stored = await storage.getItem(name);
+  useLibraryStore.persist.setOptions({ name });
+
+  if (stored) {
+    useLibraryStore.setState({ ...initialState, _hasHydrated: false });
+    await useLibraryStore.persist.rehydrate();
+    return;
+  }
+
+  replaceLibrarySnapshot(fallback ?? initialState);
+};

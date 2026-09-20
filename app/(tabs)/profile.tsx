@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { useAuth } from '@/src/providers/auth-provider';
 import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { resolveRoomOptionId } from '@/src/services/room-customization-access';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
@@ -29,6 +30,7 @@ export default function ProfileScreen() {
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
   const { isPro, isPending, restorePurchases } = useProAccess();
+  const { user, syncStatus } = useAuth();
 
   const completed = books.filter((book) => book.status === 'completed').length;
   const totalPagesRead = books.reduce((sum, b) => sum + b.currentPage, 0);
@@ -220,6 +222,27 @@ export default function ProfileScreen() {
           <View style={styles.customizeRight}>
             <Text style={[styles.customizePaletteName, isNight && styles.darkMutedText]}>
               {wallPalette.name}
+            </Text>
+            <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
+          </View>
+        </Pressable>
+
+        <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
+
+        <Pressable
+          accessibilityHint="Abre as opções de conta e backup"
+          accessibilityLabel="Conta e sincronização"
+          accessibilityRole="button"
+          onPress={() => router.navigate('/account' as Href)}
+          style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}
+        >
+          <View style={styles.restoreLeft}>
+            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-outline" size={18} />
+            <Text style={[styles.restoreText, isNight && styles.darkTitle]}>Conta e sincronização</Text>
+          </View>
+          <View style={styles.customizeRight}>
+            <Text style={[styles.restoreStatus, isNight && styles.darkMutedText]}>
+              {user ? (syncStatus === 'synced' ? 'Sincronizado' : 'Conectado') : 'Opcional'}
             </Text>
             <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
           </View>
@@ -502,6 +525,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 40,
+  },
+  accountRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   restoreLeft: {
     flexDirection: 'row',

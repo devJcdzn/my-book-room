@@ -6,6 +6,7 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { AuthProvider } from '@/src/providers/auth-provider';
 import { RevenueCatProvider } from '@/src/providers/revenuecat-provider';
 import { initializeRevenueCat } from '@/src/services/revenuecat';
 import { useLibraryStore } from '@/src/store/library-store';
@@ -91,18 +92,29 @@ export default function RootLayout() {
 
   return (
     <RevenueCatProvider>
-      <ThemeProvider value={theme}>
-        <StatusBar animated style={isNight ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
-            headerShadowVisible: false,
-            headerStyle: { backgroundColor: isNight ? '#181A26' : colors.paper },
-            headerTintColor: isNight ? '#FAF4EB' : colors.ink,
-            headerTitleStyle: { fontWeight: '700', color: isNight ? '#FAF4EB' : colors.ink },
-          }}
-        >
+      <AuthProvider>
+        <ThemeProvider value={theme}>
+          <StatusBar animated style={isNight ? 'light' : 'dark'} />
+          <Stack
+            screenOptions={{
+              contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: isNight ? '#181A26' : colors.paper },
+              headerTintColor: isNight ? '#FAF4EB' : colors.ink,
+              headerTitleStyle: { fontWeight: '700', color: isNight ? '#FAF4EB' : colors.ink },
+            }}
+          >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="account"
+            options={{
+              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+              sheetAllowedDetents: [0.75, 1],
+              sheetGrabberVisible: true,
+              title: 'Conta e sincronização',
+              contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
+            }}
+          />
           <Stack.Screen
             name="add-book"
             options={{
@@ -143,8 +155,9 @@ export default function RootLayout() {
               contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
             }}
           />
-        </Stack>
-      </ThemeProvider>
+          </Stack>
+        </ThemeProvider>
+      </AuthProvider>
     </RevenueCatProvider>
   );
 }

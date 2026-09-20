@@ -14,6 +14,7 @@ type ProAccessContextValue = {
   isPending: boolean;
   requestProAccess: () => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
+  refreshProAccess: () => Promise<boolean>;
 };
 
 const ProAccessContext = createContext<ProAccessContextValue | null>(null);
@@ -23,20 +24,18 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
   const [pendingOperation, setPendingOperation] = useState<'paywall' | 'restore' | null>(null);
   const pendingPromiseRef = useRef<Promise<boolean> | null>(null);
 
+  const refreshProAccess = useCallback(async () => {
+    const hasPro = await hasProEntitlement().catch(() => false);
+    setStatus(hasPro ? 'pro' : 'free');
+    return hasPro;
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
-
-    void hasProEntitlement()
-      .then((hasPro) => {
-        if (isMounted) setStatus(hasPro ? 'pro' : 'free');
-      })
-      .catch(() => {
-        if (isMounted) setStatus('free');
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    void hasProEntitlement().then((hasPro) => {
+      if (isMounted) setStatus(hasPro ? 'pro' : 'free');
+    });
+    return () => { isMounted = false; };
   }, []);
 
   const requestProAccess = useCallback(async () => {
@@ -83,7 +82,8 @@ export function RevenueCatProvider({ children }: { children: React.ReactNode }) 
     isPending: status === 'checking' || pendingOperation !== null,
     requestProAccess,
     restorePurchases,
-  }), [pendingOperation, requestProAccess, restorePurchases, status]);
+    refreshProAccess,
+  }), [pendingOperation, refreshProAccess, requestProAccess, restorePurchases, status]);
 
   return <ProAccessContext.Provider value={value}>{children}</ProAccessContext.Provider>;
 }
