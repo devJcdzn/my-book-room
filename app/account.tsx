@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth, type SyncStatus } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
@@ -28,6 +29,17 @@ export default function AccountScreen() {
     retrySync, signOut, deleteAccount,
   } = useAuth();
   const status = STATUS_COPY[syncStatus];
+
+  if (!ACCOUNT_SYNC_ENABLED) {
+    return (
+      <View style={[styles.disabledScreen, isNight && styles.darkScreen]}>
+        <Stack.Screen options={{ title: 'Conta e sincronização' }} />
+        <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-offline-outline" size={28} />
+        <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Conta desativada nesta versão</Text>
+        <Text selectable style={[styles.body, isNight && styles.darkMuted]}>O Bookroom funciona normalmente como convidado. A sincronização será liberada em uma próxima versão de testes.</Text>
+      </View>
+    );
+  }
 
   const confirmDelete = () => {
     Alert.alert(
@@ -144,6 +156,7 @@ function StatusLine({ label, value, isNight }: { label: string; value: string; i
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream }, darkScreen: { backgroundColor: darkTheme.bg }, content: { padding: 18, paddingBottom: 48, gap: 14 },
+  disabledScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28, backgroundColor: colors.cream },
   hero: { alignItems: 'center', gap: 9, padding: 20, backgroundColor: colors.paper, borderRadius: radii.large, borderCurve: 'continuous' },
   card: { padding: 16, gap: 14, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSubtle, borderRadius: radii.large, borderCurve: 'continuous' }, darkCard: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle },
   iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.terracottaSoft }, darkIconCircle: { backgroundColor: 'rgba(255,174,112,0.14)' },

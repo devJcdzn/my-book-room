@@ -4,6 +4,7 @@ import { router, type Href } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth } from '@/src/providers/auth-provider';
 import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { resolveRoomOptionId } from '@/src/services/room-customization-access';
@@ -227,28 +228,32 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
 
-        <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
+        {ACCOUNT_SYNC_ENABLED ? (
+          <>
+            <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
 
-        <Pressable
-          accessibilityHint="Abre as opções de conta e backup"
-          accessibilityLabel="Conta e sincronização"
-          accessibilityRole="button"
-          onPress={() => router.navigate('/account' as Href)}
-          style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}
-        >
-          <View style={styles.restoreLeft}>
-            <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-outline" size={18} />
-            <Text style={[styles.restoreText, isNight && styles.darkTitle]}>Conta e sincronização</Text>
-          </View>
-          <View style={styles.customizeRight}>
-            <Text style={[styles.restoreStatus, isNight && styles.darkMutedText]}>
-              {user ? (syncStatus === 'synced' ? 'Sincronizado' : 'Conectado') : 'Opcional'}
-            </Text>
-            <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
-          </View>
-        </Pressable>
+            <Pressable
+              accessibilityHint="Abre as opções de conta e backup"
+              accessibilityLabel="Conta e sincronização"
+              accessibilityRole="button"
+              onPress={() => router.navigate('/account' as Href)}
+              style={({ pressed }) => [styles.accountRow, pressed && styles.pressed]}
+            >
+              <View style={styles.restoreLeft}>
+                <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-outline" size={18} />
+                <Text style={[styles.restoreText, isNight && styles.darkTitle]}>Conta e sincronização</Text>
+              </View>
+              <View style={styles.customizeRight}>
+                <Text style={[styles.restoreStatus, isNight && styles.darkMutedText]}>
+                  {user ? (syncStatus === 'synced' ? 'Sincronizado' : 'Conectado') : 'Opcional'}
+                </Text>
+                <Ionicons color={isNight ? darkTheme.textSubtle : colors.mutedLight} name="chevron-forward" size={16} />
+              </View>
+            </Pressable>
+          </>
+        ) : null}
 
-        <View style={[styles.rowDivider, isNight && styles.darkDivider]} />
+        {ACCOUNT_SYNC_ENABLED ? <View style={[styles.rowDivider, isNight && styles.darkDivider]} /> : null}
 
         <Pressable
           accessibilityHint="Confirma compras do Unlimited Furniture nesta conta da loja"

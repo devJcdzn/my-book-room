@@ -7,6 +7,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 
 import { useProAccess } from '@/src/providers/revenuecat-provider';
+import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import {
   fetchLibraryBackup,
   saveLibraryBackup,
@@ -108,7 +109,7 @@ const isCancelledError = (error: unknown) => (
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { refreshProAccess } = useProAccess();
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(Boolean(supabase));
+  const [isLoading, setIsLoading] = useState(ACCOUNT_SYNC_ENABLED && Boolean(supabase));
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -219,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [recordBackup, refreshProAccess]);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!ACCOUNT_SYNC_ENABLED || !supabase) return;
 
     void supabase.auth.getSession().then(({ data }) => {
       if (data.session) void activateSession(data.session);
@@ -244,13 +245,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [activateSession]);
 
   useEffect(() => useLibraryStore.subscribe(() => {
-    if (!syncReadyRef.current || switchingRef.current || !sessionRef.current || pendingConflict) return;
+    if (!ACCOUNT_SYNC_ENABLED || !syncReadyRef.current || switchingRef.current || !sessionRef.current || pendingConflict) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => { void pushCurrentSnapshot(); }, SYNC_DEBOUNCE_MS);
   }), [pendingConflict, pushCurrentSnapshot]);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!ACCOUNT_SYNC_ENABLED || !supabase) return;
     const client = supabase;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -264,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pushCurrentSnapshot]);
 
   const signInWithOAuth = useCallback(async (provider: 'apple' | 'google') => {
-    if (!supabase) throw new Error('A sincronização ainda não está configurada.');
+    if (!ACCOUNT_SYNC_ENABLED || !supabase) throw new Error('A sincronização ainda não está ativada.');
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: REDIRECT_URL, skipBrowserRedirect: true },
@@ -293,7 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithApple = useCallback(() => runAuthentication(async () => {
     if (process.env.EXPO_OS !== 'ios') return signInWithOAuth('apple');
-    if (!supabase) throw new Error('A sincronização ainda não está configurada.');
+    if (!ACCOUNT_SYNC_ENABLED || !supabase) throw new Error('A sincronização ainda não está ativada.');
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -396,7 +397,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     user: session?.user ?? null,
     provider: getProvider(session?.user ?? null),
-    isLoading,
+    isLoading: ACCOUNT_SYNC_ENABLED && isLoading,
     isAuthenticating,
     errorMessage,
     syncStatus,
