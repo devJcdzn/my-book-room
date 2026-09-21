@@ -1,0 +1,27 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Jean Carlos",
+    "categories": ["BOOKS", "LIFESTYLE"],
+    "info": {
+      "en-US": {
+        "title": "Bookroom: 3D Reading Room",
+        "subtitle": "Books, progress and journal",
+        "description": "Make reading a space of your own.\n\nIn Bookroom, your books come to life inside a cozy 3D room. Books you are currently reading stay on the desk, and every finished story finds its place on the shelf.\n\nTRACK YOUR READING\n\n• Find books by title, author, or ISBN\n• Use catalog information or add a book manually\n• Update your current page and follow your progress\n• Save notes, impressions, and ratings from 1 to 5 stars\n\nWATCH YOUR LIBRARY TAKE SHAPE\n\nKeep more than one book on the desk, choose which one is open, and watch the stack change with you. Each completed book transforms your shelf and preserves your reading journey.\n\nCREATE YOUR ATMOSPHERE\n\nSwitch between day, sunset, and night. Personalize walls, flooring, rugs, shelves, windows, and frames. You can even choose the cat resting in your room.\n\nREAD AT YOUR OWN PACE\n\nSee how many books you have finished and how many pages you have read, without mandatory streaks or pressure. Your library, progress, notes, and preferences are stored on your device.\n\nCan’t find a title or the right edition? Add it manually and keep reading.\n\nBuild your room, open a book, and return to reading with calm.",
+        "keywords": ["library,shelf,pages,reader,notes,habit,literature,novel,tracker,organizer,reviews,cozy"],
+        "privacyPolicyUrl": "https://testmybookroom.netlify.app/privacy.html",
+        "supportUrl": "https://testmybookroom.netlify.app/support.html",
+        "marketingUrl": "https://testmybookroom.netlify.app/"
+      },
+      "pt-BR": {
+        "title": "Bookroom: Biblioteca 3D",
+        "subtitle": "Diário e progresso de leitura",
+        "description": "Faça da leitura um espaço seu.\n\nNo Bookroom, seus livros ganham vida dentro de uma sala 3D acolhedora. As leituras em andamento permanecem sobre a mesa; quando você conclui uma história, o volume encontra seu lugar na estante.\n\nACOMPANHE SUAS LEITURAS\n\n• Encontre livros por título, autor ou ISBN\n• Consulte capas e informações do catálogo ou cadastre um livro manualmente\n• Atualize a página atual e acompanhe seu progresso\n• Registre notas, impressões e avaliações de 1 a 5 estrelas\n\nVEJA SEU ACERVO GANHAR FORMA\n\nMantenha mais de uma leitura na mesa, escolha qual livro está aberto e veja a pilha mudar junto com você. Cada conclusão transforma a estante e preserva o caminho percorrido.\n\nCRIE A SUA ATMOSFERA\n\nAlterne entre dia, ocaso e noite. Personalize paredes, piso, tapete, estante, janelas e quadros. Escolha também o gatinho que descansa na sua sala.\n\nLEIA NO SEU RITMO\n\nConsulte quantos livros concluiu e quantas páginas leu, sem sequências obrigatórias ou pressão por metas. Seu acervo, progresso, notas e preferências ficam salvos no dispositivo.\n\nNão encontrou um título ou uma edição com o número correto de páginas? Faça o cadastro manual e continue.\n\nMonte sua sala, abra um livro e volte a ler com calma.",
+        "keywords": ["livros,estante,páginas,leitor,acervo,notas,hábito,literatura,romance,organizador,registro,resenha"],
+        "privacyPolicyUrl": "https://testmybookroom.netlify.app/privacy.html",
+        "supportUrl": "https://testmybookroom.netlify.app/support.html",
+        "marketingUrl": "https://testmybookroom.netlify.app/"
+      }
+    }
+  }
+}
