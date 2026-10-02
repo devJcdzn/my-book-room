@@ -10,6 +10,9 @@ const cachedAmbienceUris: { day?: string | null; night?: string | null } = {};
 
 export const registerRoomSnapshotHandler = (fn: SnapshotFn | null) => {
   activeSnapshotFn = fn;
+  return () => {
+    if (activeSnapshotFn === fn) activeSnapshotFn = null;
+  };
 };
 
 export const setLastCapturedRoomUri = (uri: string | null, ambience?: 'day' | 'night') => {

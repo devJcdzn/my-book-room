@@ -8,7 +8,7 @@ import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth, type SyncStatus } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 
 const STATUS_COPY: Record<SyncStatus, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
   idle: { label: 'Somente neste aparelho', icon: 'phone-portrait-outline' },
@@ -25,7 +25,7 @@ export default function AccountScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const {
     user, provider, isLoading, isAuthenticating, errorMessage, syncStatus, lastSyncedAt,
-    hasConflict, purchasesLinked, signInWithApple, signInWithGoogle, resolveConflict,
+    hasConflict, signInWithApple, signInWithGoogle, resolveConflict,
     retrySync, signOut, deleteAccount,
   } = useAuth();
   const status = STATUS_COPY[syncStatus];
@@ -34,9 +34,9 @@ export default function AccountScreen() {
     return (
       <View style={[styles.disabledScreen, isNight && styles.darkScreen]}>
         <Stack.Screen options={{ title: 'Conta e sincronização' }} />
-        <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-offline-outline" size={28} />
+        <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="cloud-offline-outline" size={28} />
         <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Conta desativada nesta versão</Text>
-        <Text selectable style={[styles.body, isNight && styles.darkMuted]}>O Bookroom funciona normalmente como convidado. A sincronização será liberada em uma próxima versão de testes.</Text>
+        <Text selectable style={[styles.body, isNight && styles.darkMuted]}>O Nookly funciona normalmente como convidado. A sincronização será liberada em uma próxima versão de testes.</Text>
       </View>
     );
   }
@@ -68,22 +68,21 @@ export default function AccountScreen() {
         <>
           <View style={[styles.hero, isNight && styles.darkCard]}>
             <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}>
-              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="cloud-outline" size={25} />
+              <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="cloud-outline" size={25} />
             </View>
-            <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Seu Bookroom, em qualquer aparelho</Text>
-            <Text selectable style={[styles.body, isNight && styles.darkMuted]}>A conta é opcional. Use o Bookroom sem entrar ou conecte uma conta para proteger sua biblioteca.</Text>
+            <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Seu Nookly, em qualquer aparelho</Text>
+            <Text selectable style={[styles.body, isNight && styles.darkMuted]}>A conta é opcional. Use o Nookly sem entrar ou conecte uma conta para proteger sua biblioteca.</Text>
           </View>
           <View style={[styles.card, isNight && styles.darkCard]}>
             <Benefit icon="library-outline" text="Backup da biblioteca e do progresso" isNight={isNight} />
             <Benefit icon="phone-portrait-outline" text="Continuidade entre iPhone e Android" isNight={isNight} />
-            <Benefit icon="bag-check-outline" text="Recuperação do acesso Unlimited" isNight={isNight} />
           </View>
           <View style={styles.actions}>
             {process.env.EXPO_OS === 'ios' ? (
               <AppleAuthentication.AppleAuthenticationButton
                 buttonStyle={isNight ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                cornerRadius={12}
+                cornerRadius={controls.button.borderRadius}
                 onPress={() => { void signInWithApple(); }}
                 style={styles.appleButton}
               />
@@ -98,7 +97,7 @@ export default function AccountScreen() {
         <>
           <View style={[styles.card, isNight && styles.darkCard]}>
             <View style={styles.accountHeader}>
-              <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}><Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="person-outline" size={23} /></View>
+              <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}><Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="person-outline" size={23} /></View>
               <View style={styles.accountIdentity}>
                 <Text selectable style={[styles.accountProvider, isNight && styles.darkTitle]}>Conectado com {provider === 'apple' ? 'Apple' : 'Google'}</Text>
                 {user.email ? <Text selectable style={[styles.email, isNight && styles.darkMuted]}>{user.email}</Text> : null}
@@ -107,14 +106,13 @@ export default function AccountScreen() {
           </View>
           <View style={[styles.card, isNight && styles.darkCard]}>
             <View style={styles.statusRow}>
-              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name={status.icon} size={20} />
+              <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name={status.icon} size={20} />
               <View style={styles.statusCopy}>
                 <Text selectable style={[styles.statusTitle, isNight && styles.darkTitle]}>{status.label}</Text>
                 {lastSyncedAt ? <Text selectable style={[styles.statusDetail, isNight && styles.darkMuted]}>Última sincronização {new Date(lastSyncedAt).toLocaleString('pt-BR')}</Text> : null}
               </View>
             </View>
             <View style={[styles.divider, isNight && styles.darkDivider]} />
-            <StatusLine label="Compras vinculadas" value={purchasesLinked ? 'Sim' : 'Pendente'} isNight={isNight} />
             <StatusLine label="Foto personalizada" value="Somente neste aparelho" isNight={isNight} />
           </View>
           {hasConflict ? (
@@ -127,7 +125,7 @@ export default function AccountScreen() {
               </View>
             </View>
           ) : null}
-          {(syncStatus === 'offline' || syncStatus === 'error' || !purchasesLinked) ? (
+          {(syncStatus === 'offline' || syncStatus === 'error') ? (
             <Pressable style={styles.primaryButton} onPress={() => { void retrySync(); }}><Text style={styles.primaryButtonText}>Tentar novamente</Text></Pressable>
           ) : null}
           {errorMessage ? <Text selectable style={styles.error}>{errorMessage}</Text> : null}
@@ -143,7 +141,7 @@ export default function AccountScreen() {
 }
 
 function Benefit({ icon, text, isNight }: { icon: keyof typeof Ionicons.glyphMap; text: string; isNight: boolean }) {
-  return <View style={styles.benefit}><Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name={icon} size={19} /><Text selectable style={[styles.benefitText, isNight && styles.darkTitle]}>{text}</Text></View>;
+  return <View style={styles.benefit}><Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name={icon} size={19} /><Text selectable style={[styles.benefitText, isNight && styles.darkTitle]}>{text}</Text></View>;
 }
 
 function AuthButton({ icon, label, onPress, isNight }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => Promise<void>; isNight: boolean }) {
@@ -159,14 +157,14 @@ const styles = StyleSheet.create({
   disabledScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28, backgroundColor: colors.cream },
   hero: { alignItems: 'center', gap: 9, padding: 20, backgroundColor: colors.paper, borderRadius: radii.large, borderCurve: 'continuous' },
   card: { padding: 16, gap: 14, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSubtle, borderRadius: radii.large, borderCurve: 'continuous' }, darkCard: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.terracottaSoft }, darkIconCircle: { backgroundColor: 'rgba(255,174,112,0.14)' },
-  title: { color: colors.ink, fontFamily: typography.editorial, fontSize: 23, fontWeight: '600', textAlign: 'center' }, body: { color: colors.muted, fontFamily: typography.ui, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.terracottaSoft }, darkIconCircle: { backgroundColor: 'rgba(229,138,109,0.16)' },
+  title: { color: colors.ink, fontFamily: typography.editorial, textAlign: 'center' }, body: { color: colors.muted, fontFamily: typography.ui, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   benefit: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 12 }, benefitText: { flex: 1, color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '500' },
-  actions: { gap: 10 }, appleButton: { width: '100%', height: 50 }, authButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, borderRadius: 12, borderCurve: 'continuous' }, darkAuthButton: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle }, authButtonText: { color: colors.ink, fontFamily: typography.ui, fontSize: 15, fontWeight: '600' },
+  actions: { gap: 10 }, appleButton: { width: '100%', height: controls.button.minHeight }, authButton: { ...controls.button, flexDirection: 'row', gap: 10, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line }, darkAuthButton: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle }, authButtonText: { ...controls.buttonText, color: colors.ink, fontFamily: typography.ui },
   note: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingHorizontal: 10 }, error: { color: '#B64135', fontFamily: typography.ui, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   accountHeader: { flexDirection: 'row', alignItems: 'center', gap: 13 }, accountIdentity: { flex: 1, gap: 3 }, accountProvider: { color: colors.ink, fontFamily: typography.ui, fontSize: 15, fontWeight: '700' }, email: { color: colors.muted, fontFamily: typography.ui, fontSize: 13 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, statusCopy: { flex: 1, gap: 3 }, statusTitle: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '700' }, statusDetail: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 17 }, statusLine: { minHeight: 30, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }, statusValue: { color: colors.ink, fontFamily: typography.ui, fontSize: 12, fontWeight: '600', textAlign: 'right' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.lineSubtle }, darkDivider: { backgroundColor: darkTheme.borderSubtle }, conflictCard: { borderColor: 'rgba(182,90,61,0.35)' }, choiceRow: { flexDirection: 'row', gap: 10 },
-  primaryButton: { minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 12, borderCurve: 'continuous', backgroundColor: colors.terracotta }, primaryButtonText: { color: '#FFF', fontFamily: typography.ui, fontSize: 14, fontWeight: '700' }, secondaryButton: { minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 12, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.paper }, secondaryButtonText: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '700' },
+  primaryButton: { ...controls.button, flex: 1, backgroundColor: colors.terracotta }, primaryButtonText: { ...controls.buttonText, color: '#FFF', fontFamily: typography.ui }, secondaryButton: { ...controls.button, flex: 1, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.paper }, secondaryButtonText: { ...controls.buttonText, color: colors.ink, fontFamily: typography.ui },
   menuRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, menuText: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '600' }, deleteText: { color: '#B64135', fontFamily: typography.ui, fontSize: 14, fontWeight: '600' }, darkTitle: { color: darkTheme.text }, darkMuted: { color: darkTheme.textMuted },
 });

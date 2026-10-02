@@ -27,7 +27,7 @@ import {
   shareToInstagramOrSystem,
 } from '@/src/services/share-room';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, typography } from '@/src/theme';
+import { controls, colors, darkTheme, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -62,6 +62,7 @@ export function ShareRoomModal({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const books = useLibraryStore((state) => state.books);
+  const deskBookIds = useLibraryStore((state) => state.deskBookIds);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const profile = useLibraryStore((state) => state.profile);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
@@ -124,27 +125,24 @@ export function ShareRoomModal({
 
   const isCardNight = cardTheme === 'night';
   const cardPalette = {
-    bg: isCardNight ? '#141622' : '#FAF6EE',
-    roomBg: isCardNight ? '#0F111A' : '#EDE4D5',
+    bg: isCardNight ? darkTheme.bg : '#FAF6EE',
+    roomBg: isCardNight ? darkTheme.surface : '#EDE4D5',
     border: isCardNight ? 'rgba(255, 255, 255, 0.08)' : 'rgba(50, 37, 31, 0.08)',
     trackBg: isCardNight ? 'rgba(255, 255, 255, 0.10)' : 'rgba(50, 37, 31, 0.08)',
-    pulseBg: isCardNight ? 'rgba(255, 174, 112, 0.12)' : 'rgba(182, 90, 61, 0.08)',
-    text: isCardNight ? '#FAF4EB' : '#221915',
-    muted: isCardNight ? '#989FB3' : '#7C6F64',
-    accent: isCardNight ? '#FFAE70' : '#B65A3D',
+    pulseBg: isCardNight ? 'rgba(182, 90, 61, 0.12)' : 'rgba(182, 90, 61, 0.08)',
+    text: isCardNight ? darkTheme.text : '#221915',
+    muted: isCardNight ? darkTheme.textMuted : '#7C6F64',
+    accent: isCardNight ? darkTheme.accent : '#B65A3D',
     shadow: isCardNight
       ? '0 16px 40px rgba(0, 0, 0, 0.55)'
       : '0 16px 40px rgba(50, 37, 31, 0.09)',
   };
 
   const stats = computeReadingStats(books, profile.name, activeBookId);
-  const activeBook = stats.activeBook;
-  const readingBooks = stats.readingBooks.length > 0
-    ? stats.readingBooks
-    : activeBook
-      ? [activeBook]
-      : [];
-  const displayBooks = readingBooks.slice(0, 2);
+  const deskBooks = deskBookIds
+    .map((bookId) => books.find((book) => book.id === bookId && book.status === 'reading'))
+    .filter((book): book is Book => Boolean(book));
+  const displayBooks = deskBooks.slice(0, 2);
   const cardWidth = Math.min(324, windowWidth - 44);
 
   const runPendingShare = async () => {
@@ -272,10 +270,10 @@ export function ShareRoomModal({
         <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 6 : 20 }]}>
           <View style={styles.headerLeft}>
             <Text selectable style={[styles.headerTitle, { color: modalPalette.text }]}>
-              Compartilhar Refúgio
+              Compartilhar quarto
             </Text>
             <Text selectable style={[styles.headerSubtitle, { color: modalPalette.muted }]}>
-              Stories do Instagram & Redes Sociais
+              Prévia para Stories e outras redes sociais
             </Text>
           </View>
 
@@ -349,14 +347,14 @@ export function ShareRoomModal({
               ]}
             >
               <Ionicons
-                color={cardTheme === 'night' ? '#FFAE70' : modalPalette.muted}
+                color={cardTheme === 'night' ? darkTheme.accent : modalPalette.muted}
                 name="moon-outline"
                 size={14}
               />
               <Text
                 style={[
                   styles.themeToggleLabel,
-                  { color: cardTheme === 'night' ? '#FAF4EB' : modalPalette.muted },
+                  { color: cardTheme === 'night' ? darkTheme.text : modalPalette.muted },
                   cardTheme === 'night' && styles.themeToggleLabelActive,
                 ]}
               >
@@ -387,13 +385,9 @@ export function ShareRoomModal({
                 },
               ]}
             >
-              {/* Topo do Story: Tipografia Editorial Pura */}
             <View style={styles.storyHeader}>
-              <Text selectable style={[styles.storyKicker, { color: cardPalette.accent }]}>
-                REFÚGIO DE LEITURA
-              </Text>
               <Text numberOfLines={1} selectable style={[styles.storyReaderName, { color: cardPalette.text }]}>
-                {stats.readerName}
+                Quarto de {stats.readerName}
               </Text>
             </View>
 
@@ -417,12 +411,12 @@ export function ShareRoomModal({
                     />
                   </View>
                   <Text style={[styles.loadingTitle, { color: cardPalette.text }]}>
-                    {cardTheme === 'night' ? 'Compondo atmosfera noturna...' : 'Renderizando seu refúgio 3D...'}
+                    {cardTheme === 'night' ? 'Preparando o quarto à noite...' : 'Preparando o quarto...'}
                   </Text>
                   <Text style={[styles.loadingSubtitle, { color: cardPalette.muted }]}>
                     {cardTheme === 'night'
-                      ? 'Acendendo a luminária e harmonizando luzes'
-                      : 'Enquadrando estante, mesa e decorações'}
+                      ? 'Acendendo a luminária'
+                      : 'Organizando a cena para compartilhar'}
                   </Text>
                   <ActivityIndicator color={cardPalette.accent} style={{ marginTop: 4 }} size="small" />
                 </View>
@@ -512,9 +506,9 @@ export function ShareRoomModal({
                     </View>
                   );
                 })}
-                {readingBooks.length > 2 ? (
+                {deskBooks.length > 2 ? (
                   <Text style={[styles.extraReadingText, { color: cardPalette.muted }]}>
-                    +{readingBooks.length - 2} outro{readingBooks.length - 2 > 1 ? 's' : ''} em leitura
+                    +{deskBooks.length - 2} outro{deskBooks.length - 2 > 1 ? 's' : ''} na mesa
                   </Text>
                 ) : null}
               </View>
@@ -523,7 +517,10 @@ export function ShareRoomModal({
             {/* Assinatura Tipográfica Minimalista */}
             <View style={styles.storyFooter}>
               <Text selectable style={[styles.storyFooterBrand, { color: cardPalette.muted }]}>
-                BOOKROOM
+                Nookly
+              </Text>
+              <Text selectable style={[styles.storyFooterTagline, { color: cardPalette.muted }]}>
+                Sua biblioteca, no seu ritmo
               </Text>
             </View>
           </View>
@@ -621,30 +618,26 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerLeft: {
-    gap: 2,
+    flex: 1,
+    gap: 3,
+    paddingRight: 12,
   },
   headerTitle: {
     fontFamily: typography.editorial,
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: 23,
+    lineHeight: 29,
   },
   headerSubtitle: {
     fontSize: 13,
+    lineHeight: 18,
   },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
+  closeBtn: { ...controls.iconButton, borderWidth: 1 },
   scrollContent: {
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 8,
     paddingBottom: 18,
-    gap: 12,
+    gap: 16,
   },
 
   // Seletor de Tema do Story (Claro / Noturno)
@@ -657,6 +650,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   themeToggleBtn: {
+    minHeight: controls.iconButton.height,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -670,7 +664,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
   },
   themeToggleBtnActiveNight: {
-    backgroundColor: '#262A3E',
+    backgroundColor: darkTheme.surfaceElevated,
     boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
   },
   themeToggleLabel: {
@@ -696,18 +690,14 @@ const styles = StyleSheet.create({
   },
   storyHeader: {
     alignItems: 'center',
-    gap: 3,
-    paddingTop: 2,
-  },
-  storyKicker: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
+    paddingTop: 3,
+    paddingBottom: 2,
   },
   storyReaderName: {
     fontFamily: typography.editorial,
-    fontSize: 21,
-    fontWeight: '700',
+    fontSize: 22,
+    lineHeight: 28,
+    textAlign: 'center',
   },
 
   // Frame Central da Sala 3D
@@ -743,8 +733,6 @@ const styles = StyleSheet.create({
   },
   loadingTitle: {
     fontFamily: typography.editorial,
-    fontSize: 15,
-    fontWeight: '600',
     textAlign: 'center',
   },
   loadingSubtitle: {
@@ -773,8 +761,6 @@ const styles = StyleSheet.create({
   },
   storyStatNumber: {
     fontFamily: typography.editorial,
-    fontSize: 22,
-    fontWeight: '700',
   },
   storyStatLabel: {
     fontSize: 11,
@@ -822,8 +808,6 @@ const styles = StyleSheet.create({
   storyBookTitle: {
     flex: 1,
     fontFamily: typography.editorial,
-    fontSize: 13,
-    fontWeight: '600',
   },
   storyBookPercent: {
     fontSize: 11,
@@ -848,13 +832,17 @@ const styles = StyleSheet.create({
   storyFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 2,
+    gap: 2,
+    paddingTop: 3,
   },
   storyFooterBrand: {
-    fontSize: 9,
+    fontFamily: typography.editorial,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 2.8,
-    opacity: 0.75,
+  },
+  storyFooterTagline: {
+    fontSize: 9,
+    letterSpacing: 0.2,
   },
 
   // Ações no Final do Scroll
@@ -862,41 +850,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
-  instagramBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#E1306C',
-    height: 50,
-    borderRadius: 25,
-    borderCurve: 'continuous',
-    boxShadow: '0 6px 20px rgba(225, 48, 108, 0.30)',
-  },
-  instagramBtnText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  outlineBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 24,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-  },
-  outlineBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  instagramBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8, backgroundColor: colors.terracotta, boxShadow: '0 4px 12px rgba(140, 63, 43, 0.18)' },
+  instagramBtnText: { ...controls.buttonText, color: colors.white, letterSpacing: 0.2 },
+  outlineBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8, borderWidth: 1, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' },
+  outlineBtnText: { ...controls.buttonText },
   copyTextBtn: {
+    minHeight: controls.iconButton.height,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

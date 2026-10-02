@@ -2,38 +2,30 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import { GLView } from 'expo-gl';
+import { useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AppState, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction, Vector3 } from 'three';
+import { AdditiveBlending, type Group, type OrthographicCamera, setConsoleFunction } from 'three';
 
-import { Bookcase } from '@/src/components/room/bookcase';
-import {
-  CUSTOMIZATION_ANCHORS,
-  RoomCustomizationOverlay,
-  type ScreenAnchorPos,
-} from '@/src/components/room/room-customization-overlay';
+import { useRoomTexture } from '@/src/components/room/use-room-texture';
+
+import { RoomEditorPanel } from '@/src/components/room/room-editor-panel';
+import { shouldHandleRoomCameraGesture, useRoomEditor } from '@/src/store/room-editor-store';
+import { BOOKCASE_ORIGIN, DESK_ORIGIN, transformRoomPoint, type RoomLayout, type RoomPiece } from '@/src/types/room-layout';
 import { preloadCatModels, RoomCat } from '@/src/components/room/room-cat';
-import { RoomFurniture } from '@/src/components/room/room-furniture';
-import { RoomPictureFrame } from '@/src/components/room/room-picture-frame';
-import { RoomPoster } from '@/src/components/room/room-poster';
-import { RoomWindow } from '@/src/components/room/room-window';
-import { resolveRoomCustomization, resolveRoomOptionId } from '@/src/services/room-customization-access';
+import { RoomPieceGroup, RoomFurniture } from '@/src/components/room/room-furniture';
+import { resolveRoomOptionId } from '@/src/services/room-customization-access';
+import { coverUrlForId } from '@/src/services/open-library';
 import { registerRoomSnapshotHandler, setLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
-import { colors } from '@/src/theme';
+import { controls, colors, darkTheme, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 import {
-  getBookcasePalette,
   getFloorPalette,
-  getRugPalette,
   getWallPalette,
-  type BookcasePalette,
   type FloorPalette,
-  type LeftWallItemType,
-  type PictureFrameSize,
-  type RugPalette,
   type WallPalette,
 } from '@/src/types/room-customization';
 
@@ -55,7 +47,6 @@ setConsoleFunction?.((type, message, ...params) => {
 
 type Vector = [number, number, number];
 type SceneProps = {
-  onAddBook: () => void;
   onCustomize?: () => void;
   onOpenBook: (bookId: string) => void;
   onSelectBook: (bookId: string) => void;
@@ -78,7 +69,7 @@ type ZoomState = {
   target: number;
 };
 
-export type ResolvedAmbience = 'day' | 'sunset' | 'night';
+export type ResolvedAmbience = 'day' | 'night';
 
 export const AMBIENCE_THEMES: Record<
   ResolvedAmbience,
@@ -111,25 +102,11 @@ export const AMBIENCE_THEMES: Record<
     dustOpacity: 0.22,
     floorShadowOpacity: 0.52,
   },
-  sunset: {
-    bgColor: '#CBA288',
-    ambientColor: '#FFDFC8',
-    ambientIntensity: 1.2,
-    sunColor: '#FF7E36',
-    sunIntensity: 2.85,
-    sunPosition: [6.0, 3.8, 3.8],
-    lampColor: '#FFAE62',
-    lampIntensity: 2.9,
-    lampDistance: 6.8,
-    coneOpacity: 0.065,
-    dustOpacity: 0.48,
-    floorShadowOpacity: 0.64,
-  },
   night: {
-    bgColor: '#131520',
-    ambientColor: '#36476E', // Luz ambiente lunar suave que preserva a estante e mesa
+    bgColor: darkTheme.bg,
+    ambientColor: '#5C554D',
     ambientIntensity: 0.65,
-    sunColor: '#52689C',
+    sunColor: '#A89B88',
     sunIntensity: 0.85,
     sunPosition: [3.8, 6.2, 4.2],
     lampColor: '#FFA64D',
@@ -144,16 +121,13 @@ export const AMBIENCE_THEMES: Record<
 export function resolveAmbience(mode: AmbienceMode): ResolvedAmbience {
   if (mode !== 'auto') return mode;
   const hour = new Date().getHours();
-  if (hour >= 6 && hour < 18) return 'day';
-  if (hour >= 18 && hour < 20) return 'sunset';
-  return 'night';
+  return hour >= 6 && hour < 18 ? 'day' : 'night';
 }
 
 const AMBIENCE_META: Record<AmbienceMode, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   auto: { label: 'Auto', icon: 'time-outline', color: '#A36845' },
   day: { label: 'Dia', icon: 'sunny', color: '#D97706' },
-  sunset: { label: 'Ocaso', icon: 'partly-sunny', color: '#C05621' },
-  night: { label: 'Noite', icon: 'moon', color: '#818CF8' },
+  night: { label: 'Noite', icon: 'moon', color: darkTheme.accent },
 };
 
 // Rotação horizontal simétrica estável sem oscilação
@@ -161,6 +135,9 @@ const ROTATION_LIMIT = 0.58; // ~33 graus cada lado
 const MIN_ZOOM = 0.75;
 const MAX_ZOOM = 2.4;
 const OPEN_BOOK_POSITION: Vector = [0.10, 1.20, 0.74];
+function useBookCoverTexture(book: Book) {
+  return useRoomTexture(book.coverUrl ?? coverUrlForId(book.coverId));
+}
 
 const bookShape = (id: string) => {
   const score = [...id].reduce((sum, character) => sum + character.charCodeAt(0), 0);
@@ -181,21 +158,29 @@ const deskPosition = (book: Book, index: number): Vector => {
   ];
 };
 
-const shelfPosition = (index: number): Vector => {
+const shelfPosition = (index: number, book?: Book): Vector => {
   const column = index % 4;
   const row = Math.floor(index / 4);
-  return [0.88 + column * 0.38, 0.48 + row * 0.82, -2.61];
+  const height=book?bookShape(book.id).width*.88:.53;
+  return [0.88 + column * 0.38, .215 + height/2 + row * .82, -2.61];
 };
 
-function CameraRig() {
+function CameraRig({ offsetY = 0, width, height, zoom }: { offsetY?: number; width: number; height: number; zoom: number }) {
   const camera = useThree((state) => state.camera as OrthographicCamera);
+  const invalidate = useThree((state) => state.invalidate);
 
   useEffect(() => {
     camera.position.set(6.7, 6.25, 7.4);
     camera.lookAt(0, 1.08, 0);
+    // Three.js cameras update their projection imperatively.
+    // eslint-disable-next-line react-hooks/immutability
+    camera.zoom = zoom;
+    if (offsetY) camera.setViewOffset(width, height, 0, offsetY, width, height);
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     camera.updateMatrixWorld();
-  }, [camera]);
+    invalidate();
+  }, [camera, offsetY, width, height, zoom, invalidate]);
 
   return null;
 }
@@ -232,7 +217,11 @@ function RoomSnapshotRegistrar({
   const { gl, scene, camera, size } = useThree();
 
   useEffect(() => {
-    registerRoomSnapshotHandler(async (options?: { ambience?: 'day' | 'night' }) => {
+    return registerRoomSnapshotHandler(async (options?: { ambience?: 'day' | 'night' }) => {
+      const orthoCam = camera as OrthographicCamera;
+      const prevZoom = orthoCam.zoom;
+      const prevPos = orthoCam.position.clone();
+      const prevRotation = orthoCam.quaternion.clone();
       try {
         const targetAmbience = options?.ambience;
         if (targetAmbience && onSetAmbience) {
@@ -240,11 +229,6 @@ function RoomSnapshotRegistrar({
           // Permite que o React e Three.js renderizem o frame com a iluminação solicitada
           await new Promise((resolve) => setTimeout(resolve, 200));
         }
-
-        const orthoCam = camera as OrthographicCamera;
-        // Save current interactive camera state
-        const prevZoom = orthoCam.zoom;
-        const prevPos = orthoCam.position.clone();
 
         // Frame the entire isometric room cleanly with balanced margins:
         // Room bounding box span is ~8.6 units.
@@ -288,27 +272,19 @@ function RoomSnapshotRegistrar({
           }
         }
 
-        // Restore interactive camera
-        orthoCam.zoom = prevZoom;
-        orthoCam.position.copy(prevPos);
-        orthoCam.lookAt(0, 1.08, 0);
-        orthoCam.updateProjectionMatrix();
-        gl.render(scene, orthoCam);
-
-        if (targetAmbience && onSetAmbience) {
-          onSetAmbience(null);
-        }
-
         return finalUri;
       } catch (err) {
         console.warn('Não foi possível gerar snapshot 3D direto:', err);
+      } finally {
+        orthoCam.zoom = prevZoom;
+        orthoCam.position.copy(prevPos);
+        orthoCam.quaternion.copy(prevRotation);
+        orthoCam.updateProjectionMatrix();
+        onSetAmbience?.(null);
+        gl.render(scene, orthoCam);
       }
       return null;
     });
-
-    return () => {
-      registerRoomSnapshotHandler(null);
-    };
   }, [gl, scene, camera, size, onSetAmbience]);
 
   return null;
@@ -330,7 +306,8 @@ class SceneAssetBoundary extends React.Component<SceneAssetBoundaryProps, SceneA
     return { hasError: true };
   }
 
-  componentDidCatch() {
+  componentDidCatch(error: Error) {
+    console.warn('Não foi possível carregar um asset da sala:', error.message);
     this.props.onError?.();
   }
 
@@ -342,6 +319,7 @@ class SceneAssetBoundary extends React.Component<SceneAssetBoundaryProps, SceneA
 function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }) {
   const shape = bookShape(book.id);
   const color = book.coverColor;
+  const coverTexture = useBookCoverTexture(book);
 
   if (upright) {
     // Dimensões do livro em pé na estante:
@@ -349,8 +327,8 @@ function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }
     // y: altura do livro (~0.57 a 0.70)
     // z: profundidade da estante (~0.31 a 0.38)
     const w = shape.thickness * 1.6;
-    const h = shape.width * 0.82;
-    const d = shape.depth * 0.68;
+    const h = shape.width * 0.88;
+    const d = shape.depth * 0.9;
     const boardThick = 0.014;
     const paperRecess = 0.016;
 
@@ -369,6 +347,19 @@ function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }
           <boxGeometry args={[boardThick, h, d]} />
           <meshStandardMaterial color={color} roughness={0.78} />
         </mesh>
+
+        {coverTexture ? (
+          <>
+            <mesh position={[w / 2 + 0.002, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+              <planeGeometry args={[d * 0.94, h * 0.94]} />
+              <meshStandardMaterial map={coverTexture} roughness={0.82} />
+            </mesh>
+            <mesh position={[-w / 2 - 0.002, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+              <planeGeometry args={[d * 0.94, h * 0.94]} />
+              <meshStandardMaterial map={coverTexture} roughness={0.82} />
+            </mesh>
+          </>
+        ) : null}
 
         {/* Lombada sólida voltada para a sala (+z) */}
         <mesh position={[0, 0, d / 2 - boardThick / 2]}>
@@ -411,9 +402,9 @@ function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }
   }
 
   // Livro deitado na mesa ou empilhado:
-  const w = shape.width;
+  const w = shape.depth;
   const t = shape.thickness;
-  const d = shape.depth;
+  const d = shape.width;
   const boardThick = 0.012;
 
   return (
@@ -430,15 +421,23 @@ function ClosedBook({ book, upright = false }: { book: Book; upright?: boolean }
         <meshStandardMaterial color={color} roughness={0.8} />
       </mesh>
 
-      {/* Moldura nobre em relevo na capa superior */}
-      <mesh position={[0.02, t / 2 + 0.002, 0]}>
-        <boxGeometry args={[w * 0.82, 0.004, d * 0.82]} />
-        <meshStandardMaterial color={color} roughness={0.6} />
-      </mesh>
-      <mesh position={[0.02, t / 2 + 0.004, 0]}>
-        <boxGeometry args={[w * 0.76, 0.004, d * 0.76]} />
-        <meshStandardMaterial color="#E8D5B5" roughness={0.9} />
-      </mesh>
+      {coverTexture ? (
+        <mesh position={[0, t / 2 + 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[w * 0.94, d * 0.94]} />
+          <meshStandardMaterial map={coverTexture} roughness={0.82} />
+        </mesh>
+      ) : (
+        <>
+          <mesh position={[0.02, t / 2 + 0.002, 0]}>
+            <boxGeometry args={[w * 0.82, 0.004, d * 0.82]} />
+            <meshStandardMaterial color={color} roughness={0.6} />
+          </mesh>
+          <mesh position={[0.02, t / 2 + 0.004, 0]}>
+            <boxGeometry args={[w * 0.76, 0.004, d * 0.76]} />
+            <meshStandardMaterial color="#E8D5B5" roughness={0.9} />
+          </mesh>
+        </>
+      )}
 
       {/* Lombada lateral esquerda unindo as capas */}
       <mesh position={[-w / 2 + boardThick / 2, 0, 0]}>
@@ -473,7 +472,7 @@ function OpenBook({ color, onPress }: { color: string; onPress: () => void }) {
   return (
     <group
       ref={group}
-      position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.12, OPEN_BOOK_POSITION[2]]}
+      position={[OPEN_BOOK_POSITION[0], OPEN_BOOK_POSITION[1] - 0.03, OPEN_BOOK_POSITION[2]]}
       rotation={[0, -0.08, 0]}
       scale={[0.86, 0.86, 0.86]}
     >
@@ -586,7 +585,7 @@ function StackedBook({ book, index, onPress }: { book: Book; index: number; onPr
 }
 
 function ShelfBook({ book, index, onPress }: { book: Book; index: number; onPress: () => void }) {
-  const pos = shelfPosition(index);
+  const pos = shelfPosition(index,book);
   return (
     <group position={pos}>
       <ClosedBook book={book} upright />
@@ -598,20 +597,20 @@ function ShelfBook({ book, index, onPress }: { book: Book; index: number; onPres
   );
 }
 
-function MovingBook({ book, end, onComplete }: { book: Book; end: Vector; onComplete: () => void }) {
+function MovingBook({ book, start, end, onComplete }: { book: Book; start: Vector; end: Vector; onComplete: () => void }) {
   const group = useRef<Group>(null);
-  const startedAt = useRef<number>(undefined);
+  const elapsed = useRef(0);
   const completed = useRef(false);
 
-  useFrame(({ clock }) => {
+  useFrame((_, delta) => {
     if (!group.current || completed.current) return;
-    startedAt.current ??= clock.elapsedTime;
-    const progress = Math.min(1, (clock.elapsedTime - startedAt.current) / 0.62);
+    elapsed.current += delta;
+    const progress = Math.min(1, elapsed.current / 0.62);
     const eased = 1 - Math.pow(1 - progress, 3);
     group.current.position.set(
-      OPEN_BOOK_POSITION[0] + (end[0] - OPEN_BOOK_POSITION[0]) * eased,
-      OPEN_BOOK_POSITION[1] + (end[1] - OPEN_BOOK_POSITION[1]) * eased + Math.sin(progress * Math.PI) * 1.05,
-      OPEN_BOOK_POSITION[2] + (end[2] - OPEN_BOOK_POSITION[2]) * eased,
+      start[0] + (end[0] - start[0]) * eased,
+      start[1] + (end[1] - start[1]) * eased + Math.sin(progress * Math.PI) * 1.05,
+      start[2] + (end[2] - start[2]) * eased,
     );
     group.current.rotation.z = eased * Math.PI * 0.5;
     group.current.rotation.y = eased * Math.PI * 0.08;
@@ -621,7 +620,7 @@ function MovingBook({ book, end, onComplete }: { book: Book; end: Vector; onComp
     }
   });
 
-  return <group ref={group} position={OPEN_BOOK_POSITION}><ClosedBook book={book} /></group>;
+  return <group ref={group} position={start}><ClosedBook book={book} /></group>;
 }
 
 function CoffeeMug() {
@@ -714,73 +713,6 @@ function AmbientDust({ isLampOn, opacity }: { isLampOn: boolean; opacity: number
 }
 
 // Sombras projetadas e de contato no piso e tapete (stylized directional shadows)
-function FloorContactShadows({ isNight }: { isNight: boolean }) {
-  const baseOpacity = isNight ? 0.36 : 0.24;
-
-  return (
-    <group>
-      {/* --- SOMBRAS AO NÍVEL DO PISO DE MADEIRA (Y = 0.024) --- */}
-
-      {/* Sombra de oclusão da base da estante de livros (plinto de marcenaria X=1.45, Z=-2.60) */}
-      <mesh position={[1.45, 0.024, -2.60]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[2.26, 0.72]} />
-        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-
-      {/* Sombra de contato suave do gatinho dormindo ao lado da mesa */}
-      <mesh position={[2.10, 0.024, 1.40]} rotation={[-Math.PI / 2, 0, -0.75]}>
-        <circleGeometry args={[0.50, 24]} />
-        <meshBasicMaterial color="#1A0D05" depthWrite={false} opacity={baseOpacity * 1.05} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-
-      {/* Sombra suave e limpa da base da luminária de chão (restaurada para formato circular único) */}
-      <mesh position={[-2.28, 0.024, -1.08]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.54, 24]} />
-        <meshBasicMaterial color="#1E0E06" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-
-      {/* Sombra harmoniosa da planta de chão posicionada ao lado da estante de livros */}
-      <group position={[0.10, 0.024, -2.80]}>
-        {/* Contato sob o vaso */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.34, 28]} />
-          <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 1.15} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-        </mesh>
-        {/* Projeção suave e sutil da copa para trás */}
-        <mesh position={[-0.10, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, -0.4]}>
-          <circleGeometry args={[0.42, 24]} />
-          <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.65} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-        </mesh>
-      </group>
-
-      {/* --- SOMBRAS AO NÍVEL DO TAPETE (Y = 0.060) --- */}
-
-      {/* Sombra principal projetada pelo tampo da mesa sobre o tapete */}
-      <mesh position={[0.22, 0.060, 0.38]} rotation={[-Math.PI / 2, 0, -0.06]}>
-        <planeGeometry args={[2.50, 1.40]} />
-        <meshBasicMaterial color="#221107" depthWrite={false} opacity={baseOpacity * 0.70} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-
-      {/* Sombras de contato suaves dos pés de apoio da mesa */}
-      <mesh position={[-0.18, 0.060, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.20, 1.05]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-      <mesh position={[1.02, 0.060, 0.62]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.20, 1.05]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.75} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-
-      {/* Sombra unificada de contato da banqueta sobre o tapete (sem efeito fantasma duplo) */}
-      <mesh position={[0.42, 0.060, 1.70]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.38, 24]} />
-        <meshBasicMaterial color="#180A04" depthWrite={false} opacity={baseOpacity * 0.85} polygonOffset polygonOffsetFactor={-1.5} polygonOffsetUnits={-1.5} transparent />
-      </mesh>
-    </group>
-  );
-}
-
-// Sombras de contato e projeção sobre o tampo de madeira da mesa
 function DeskContactShadows({
   hasActiveBook,
   hasStackedBooks,
@@ -859,17 +791,11 @@ function DeskContactShadows({
 }
 
 // Acessórios e interação preservados sobre a mesa importada
-function DeskDetails({
-  isEmpty,
-  onAddBook,
-}: {
-  isEmpty: boolean;
-  onAddBook: () => void;
-}) {
+function DeskDetails() {
   return (
     <group position={[0.42, 0, 0.62]}>
       {/* Porta-canetas elegante com caneta e lápis estilizados no fundo à esquerda */}
-      <group position={[-0.78, 1.17, -0.50]}>
+      <group position={[0.92, 1.17, -0.50]}>
         <mesh position={[0, 0.08, 0]}>
           <cylinderGeometry args={[0.085, 0.07, 0.16, 14]} />
           <meshStandardMaterial color="#5E705A" roughness={0.85} />
@@ -886,80 +812,23 @@ function DeskDetails({
 
       <CoffeeMug />
 
-      {/* Quando a mesa estiver limpa/vazia, toque nela abre para adicionar livro */}
-      {isEmpty ? (
-        <mesh
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddBook();
-          }}
-          position={[0, 1.18, 0]}
-        >
-          <boxGeometry args={[2.5, 0.2, 1.4]} />
-          <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-        </mesh>
-      ) : null}
     </group>
   );
 }
 
-function RoomShell({
-  isLampOn,
-  onToggleLamp,
-  theme,
-  isNight,
-  isEmptyDesk,
-  onAddBook,
-  wallPalette,
-  floorPalette,
-  bookcasePalette,
-  rugPalette,
-  onCatLoadingChange,
-  leftWallItem,
-  leftWallWindowStyle,
-  leftWallFrameColor,
-  pictureFrameSize,
-  pictureFrameStyleId,
-  pictureFramePhotoUri,
-  catId,
-  posterBook,
-  resolvedAmbience,
-  onFurnitureReady,
-  onSceneError,
-  onSceneReady,
-}: {
-  isLampOn: boolean;
-  onToggleLamp: () => void;
-  theme: (typeof AMBIENCE_THEMES)[ResolvedAmbience];
-  isNight: boolean;
-  isEmptyDesk: boolean;
-  onAddBook: () => void;
-  wallPalette: WallPalette;
-  floorPalette: FloorPalette;
-  bookcasePalette: BookcasePalette;
-  rugPalette: RugPalette;
-  onCatLoadingChange?: (loading: boolean, catId: string) => void;
-  leftWallItem: LeftWallItemType;
-  leftWallWindowStyle: string;
-  leftWallFrameColor: string;
-  pictureFrameSize: PictureFrameSize;
-  pictureFrameStyleId: string;
-  pictureFramePhotoUri: string | null;
-  catId: string;
-  posterBook?: Book;
-  resolvedAmbience: ResolvedAmbience;
-  onFurnitureReady?: () => void;
-  onSceneError?: () => void;
-  onSceneReady?: () => void;
+function RoomShell({ isLampOn, onToggleLamp, theme, isNight, wallPalette, floorPalette, onCatLoadingChange, catId, onFurnitureReady, onSceneError, onSceneReady, layout }: {
+  isLampOn:boolean; onToggleLamp:()=>void; theme:(typeof AMBIENCE_THEMES)[ResolvedAmbience]; isNight:boolean;
+  wallPalette:WallPalette; floorPalette:FloorPalette; catId:string; layout:RoomLayout;
+  onCatLoadingChange?:(loading:boolean,catId:string)=>void; onFurnitureReady?:()=>void; onSceneError?:()=>void; onSceneReady?:()=>void;
 }) {
   return (
     <>
-      <ambientLight color={theme.ambientColor} intensity={theme.ambientIntensity} />
+      <hemisphereLight color={theme.ambientColor} groundColor={isNight ? "#34303C" : "#94816B"} intensity={theme.ambientIntensity} />
       <directionalLight color={theme.sunColor} intensity={theme.sunIntensity} position={theme.sunPosition} />
 
       {/* Sombra suave de projeção abaixo do diorama */}
       <mesh position={[0, -0.26, 0]}>
-        <boxGeometry args={[7.5, 0.02, 7.7]} />
+        <boxGeometry args={[7.35, 0.02, 7.55]} />
         <meshBasicMaterial color="#160E08" depthWrite={false} opacity={theme.floorShadowOpacity} transparent />
       </mesh>
 
@@ -983,80 +852,48 @@ function RoomShell({
         </mesh>
       ))}
 
-      {/* PAREDES COM ENCONTRO DE CANTO PERFEITO E COR PERSONALIZÁVEL */}
-      {/* Parede traseira: termina exatamente em z = -3.42 e x = -3.60 */}
-      <mesh position={[0, 1.65, -3.34]}>
-        <boxGeometry args={[7.2, 3.5, 0.16]} />
+      {/* Paredes alinhadas às bordas do piso, com o canto preenchido sem folgas. */}
+      {/* Parede traseira: face externa em z = -3.70 e face interna em z = -3.54. */}
+      <mesh position={[0.08, 1.755, -3.62]}>
+        <boxGeometry args={[7.04, 3.5, 0.16]} />
         <meshStandardMaterial color={wallPalette.backWallColor} roughness={1} />
       </mesh>
-      {/* Parede esquerda: começa exatamente em z = -3.42 e vai até o piso frontal z = +3.70 */}
-      <mesh position={[-3.52, 1.65, 0.14]}>
-        <boxGeometry args={[0.16, 3.5, 7.12]} />
+      {/* Parede esquerda: acompanha o piso de z = -3.70 até z = +3.70. */}
+      <mesh position={[-3.52, 1.755, 0]}>
+        <boxGeometry args={[0.16, 3.5, 7.4]} />
         <meshStandardMaterial color={wallPalette.leftWallColor} roughness={1} />
       </mesh>
-      {/* Coluna / acabamento de quina perfeita para emenda impecável */}
-      <mesh position={[-3.52, 1.65, -3.34]}>
-        <boxGeometry args={[0.165, 3.502, 0.165]} />
+      {/* Acabamento ocupa exatamente a junção entre as duas paredes. */}
+      <mesh position={[-3.52, 1.755, -3.62]}>
+        <boxGeometry args={[0.16, 3.5, 0.16]} />
         <meshStandardMaterial color={wallPalette.cornerColor} roughness={1} />
       </mesh>
 
-      {/* Decoração da Parede Esquerda: Janela procedural ou Pôster de leitura emoldurado */}
-      {leftWallItem === 'window' ? (
-        <RoomWindow
-          ambience={resolvedAmbience}
-          styleId={leftWallWindowStyle}
-        />
-      ) : null}
-      {leftWallItem === 'poster' ? (
-        <RoomPoster
-          book={posterBook}
-          frameId={leftWallFrameColor}
-        />
-      ) : null}
-
-      {/* Quadro de Parede Personalizável (Fotos locais, formatos 1:1 e 1:2) */}
-      <RoomPictureFrame
-        photoUriOverride={pictureFramePhotoUri}
-        sizeOverride={pictureFrameSize}
-        styleIdOverride={pictureFrameStyleId}
-      />
-
-      {/* Tapete circular aconchegante */}
-      <mesh position={[0.42, 0.025, 1.05]}>
-        <cylinderGeometry args={[1.85, 1.85, 0.035, 32]} />
-        <meshStandardMaterial color={rugPalette.mainColor} roughness={1} />
-      </mesh>
-      <mesh position={[0.42, 0.048, 1.05]}>
-        <cylinderGeometry args={[1.45, 1.45, 0.012, 32]} />
-        <meshStandardMaterial color={rugPalette.innerColor} roughness={1} />
-      </mesh>
-
-      {/* Sombras projetadas e de contato (piso, plantas e tapete) */}
-      <FloorContactShadows isNight={isNight} />
-
-      {/* Acessórios e interação da mesa de estudo */}
-      <DeskDetails isEmpty={isEmptyDesk} onAddBook={onAddBook} />
+      <FurnitureAttachment piece={layout.pieces.find(p=>p.category==='desk')!} origin={DESK_ORIGIN}>
+        <DeskDetails />
+      </FurnitureAttachment>
 
       <SceneAssetBoundary onError={onSceneError}>
         <Suspense fallback={null}>
           <RoomFurniture
+            layout={layout}
             isLampOn={isLampOn}
             isNight={isNight}
             onToggleLamp={onToggleLamp}
             theme={theme}
           />
-          <FurnitureReadyNotifier onReady={onFurnitureReady} />
+          <FurnitureReadyNotifier key={layout.pieces.map(piece => piece.modelId).join('|')} onReady={onFurnitureReady} />
           <FirstFrameNotifier onReady={onSceneReady} />
         </Suspense>
       </SceneAssetBoundary>
 
       {/* Gatinho da sala com carregamento sob demanda e disfarce 3D procedural */}
       <SceneAssetBoundary onError={onSceneError}>
-        <RoomCat catId={catId} onLoadingChange={onCatLoadingChange} />
+        <RoomPieceGroup piece={layout.pieces.find(p => p.category === 'cat')!}>
+          <RoomCat catId={catId} positioned onLoadingChange={onCatLoadingChange} />
+        </RoomPieceGroup>
       </SceneAssetBoundary>
 
-      {/* Estante de livros profissional e completa com marcenaria artesanal */}
-      <Bookcase palette={bookcasePalette} />
 
       {/* Partículas de poeira dourada */}
       <AmbientDust isLampOn={isLampOn} opacity={theme.dustOpacity} />
@@ -1065,7 +902,6 @@ function RoomShell({
 }
 
 function RoomGeometry({
-  onAddBook,
   onOpenBook,
   onSelectBook,
   onFurnitureReady,
@@ -1076,8 +912,6 @@ function RoomGeometry({
   theme,
   isNight,
   resolvedAmbience,
-  isCustomizing,
-  onUpdateAnchorPositions,
   onCatLoadingChange,
   isPro,
 }: SceneProps & {
@@ -1086,11 +920,10 @@ function RoomGeometry({
   theme: (typeof AMBIENCE_THEMES)[ResolvedAmbience];
   isNight: boolean;
   resolvedAmbience: ResolvedAmbience;
-  isCustomizing?: boolean;
-  onUpdateAnchorPositions?: (anchors: Record<string, ScreenAnchorPos>) => void;
   onCatLoadingChange?: (loading: boolean, catId: string) => void;
 }) {
   const books = useLibraryStore((state) => state.books);
+  const deskBookIds = useLibraryStore((state) => state.deskBookIds);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
   const completingBookId = useLibraryStore((state) => state.completingBookId);
   const finalizeCompletion = useLibraryStore((state) => state.finalizeCompletion);
@@ -1099,53 +932,28 @@ function RoomGeometry({
   const toggleLamp = useLibraryStore((state) => state.toggleLamp);
   const wallPaletteId = useLibraryStore((state) => state.wallPaletteId);
   const floorPaletteId = useLibraryStore((state) => state.floorPaletteId);
-  const bookcasePaletteId = useLibraryStore((state) => state.bookcasePaletteId);
-  const rugPaletteId = useLibraryStore((state) => state.rugPaletteId);
-  const catId = useLibraryStore((state) => state.catId);
-  const leftWallItem = useLibraryStore((state) => state.leftWallItem);
-  const leftWallPosterBookId = useLibraryStore((state) => state.leftWallPosterBookId);
-  const leftWallWindowStyle = useLibraryStore((state) => state.leftWallWindowStyle);
-  const leftWallFrameColor = useLibraryStore((state) => state.leftWallFrameColor);
-  const pictureFrameSize = useLibraryStore((state) => state.pictureFrameSize);
-  const pictureFrameStyleId = useLibraryStore((state) => state.pictureFrameStyleId);
-  const pictureFramePhotoUri = useLibraryStore((state) => state.pictureFramePhotoUri);
-
-  const effectiveCustomization = useMemo(() => resolveRoomCustomization({
-    wallPaletteId,
-    floorPaletteId,
-    rugPaletteId,
-    bookcasePaletteId,
-    catId,
-    leftWallWindowStyle,
-    leftWallFrameColor,
-    pictureFrameStyleId,
-    pictureFramePhotoUri,
-  }, isPro), [
-    bookcasePaletteId,
-    catId,
-    floorPaletteId,
-    leftWallFrameColor,
-    leftWallWindowStyle,
-    pictureFramePhotoUri,
-    pictureFrameStyleId,
-    isPro,
-    rugPaletteId,
-    wallPaletteId,
-  ]);
-
-  const wallPalette = getWallPalette(effectiveCustomization.wallPaletteId);
-  const floorPalette = getFloorPalette(effectiveCustomization.floorPaletteId);
-  const bookcasePalette = getBookcasePalette(effectiveCustomization.bookcasePaletteId);
-  const rugPalette = getRugPalette(effectiveCustomization.rugPaletteId);
+  const catId = useLibraryStore(state=>state.catId);
+  const savedLayout = useLibraryStore(state=>state.roomLayout);
+  const draft = useRoomEditor(state=>state.draft);
+  const cameraMode = useRoomEditor(state=>state.cameraMode);
+  const layout=draft??savedLayout;
+  const desk=layout.pieces.find(p=>p.category==='desk')!;
+  const bookcase=layout.pieces.find(p=>p.category==='bookcase')!;
+  const appearance = useRoomEditor(state => state.appearance);
+  const wallPalette=getWallPalette(appearance?.wallPaletteId ?? wallPaletteId);
+  const floorPalette=getFloorPalette(appearance?.floorPaletteId ?? floorPaletteId);
 
   const roomGroup = useRef<Group>(null);
-  const { camera, size } = useThree();
-  const lastAnchorMap = useRef<Record<string, ScreenAnchorPos>>({});
-  const tempVec = useMemo(() => new Vector3(), []);
 
   // Rotação estritamente horizontal sem desvio de centro, e zoom suave
   useFrame(() => {
     if (!roomGroup.current) return;
+    if (draft) {
+      roomGroup.current.rotation.set(0, cameraMode ? rotationRef.current.targetY : 0, 0);
+      roomGroup.current.scale.setScalar(zoomRef.current.target);
+      roomGroup.current.position.set(0, 0, 0);
+      return;
+    }
     roomGroup.current.rotation.y += (rotationRef.current.targetY - roomGroup.current.rotation.y) * 0.12;
     roomGroup.current.rotation.x = 0;
     roomGroup.current.rotation.z = 0;
@@ -1157,32 +965,6 @@ function RoomGeometry({
 
     // Centro ancorado perfeitamente em (0, 0, 0) sem drift
     roomGroup.current.position.set(0, 0, 0);
-
-    // Atualiza projeção de tela dos âncoras no modo de personalização
-    if (isCustomizing && onUpdateAnchorPositions) {
-      roomGroup.current.updateMatrixWorld(true);
-      const nextMap: Record<string, ScreenAnchorPos> = {};
-      let hasShifted = false;
-
-      for (const anchor of CUSTOMIZATION_ANCHORS) {
-        tempVec.set(...anchor.pos);
-        roomGroup.current.localToWorld(tempVec);
-        tempVec.project(camera);
-        const px = ((tempVec.x + 1) / 2) * size.width;
-        const py = ((-tempVec.y + 1) / 2) * size.height;
-        nextMap[anchor.id] = { x: px, y: py };
-
-        const prev = lastAnchorMap.current[anchor.id];
-        if (!prev || Math.abs(prev.x - px) > 0.5 || Math.abs(prev.y - py) > 0.5) {
-          hasShifted = true;
-        }
-      }
-
-      if (hasShifted) {
-        lastAnchorMap.current = nextMap;
-        onUpdateAnchorPositions(nextMap);
-      }
-    }
   });
 
   const handleToggleLamp = () => {
@@ -1192,52 +974,20 @@ function RoomGeometry({
 
   const activeBook = completingBookId
     ? undefined
-    : books.find((book) => book.id === activeBookId && book.status === 'reading')
-      ?? [...books].reverse().find((book) => book.status === 'reading');
-  const readingBooks = books.filter((book) => book.status === 'reading' && book.id !== activeBook?.id);
+    : books.find((book) => book.id === activeBookId && deskBookIds.includes(book.id) && book.status === 'reading');
+  const readingBooks = deskBookIds
+    .map((bookId) => books.find((book) => book.id === bookId && book.id !== activeBook?.id && book.status === 'reading'))
+    .filter((book): book is Book => Boolean(book));
   const completedBooks = books.filter((book) => book.status === 'completed');
   const movingBook = books.find((book) => book.id === completingBookId);
 
-  const posterBook = useMemo(() => {
-    if (leftWallItem !== 'poster') return undefined;
-    if (leftWallPosterBookId) {
-      const found = books.find((book) => book.id === leftWallPosterBookId);
-      if (found) return found;
-    }
-    return completedBooks[0] ?? readingBooks[0] ?? activeBook ?? books[0];
-  }, [activeBook, books, completedBooks, leftWallItem, leftWallPosterBookId, readingBooks]);
-
-  // Mesa limpa quando 0 livros estiverem em leitura
-  const isEmptyDesk = !activeBook && readingBooks.length === 0;
-
   return (
     <group ref={roomGroup}>
-      <RoomShell
-        bookcasePalette={bookcasePalette}
-        floorPalette={floorPalette}
-        isEmptyDesk={isEmptyDesk}
-        isLampOn={isLampOn}
-        isNight={isNight}
-        leftWallFrameColor={effectiveCustomization.leftWallFrameColor}
-        leftWallItem={leftWallItem}
-        leftWallWindowStyle={effectiveCustomization.leftWallWindowStyle}
-        onAddBook={onAddBook}
-        onCatLoadingChange={onCatLoadingChange}
-        onFurnitureReady={onFurnitureReady}
-        onSceneError={onSceneError}
-        onSceneReady={onSceneReady}
-        onToggleLamp={handleToggleLamp}
-        catId={effectiveCustomization.catId}
-        posterBook={posterBook}
-        pictureFramePhotoUri={effectiveCustomization.pictureFramePhotoUri}
-        pictureFrameSize={pictureFrameSize}
-        pictureFrameStyleId={effectiveCustomization.pictureFrameStyleId}
-        resolvedAmbience={resolvedAmbience}
-        rugPalette={rugPalette}
-        theme={theme}
-        wallPalette={wallPalette}
-      />
+      <RoomShell layout={layout} floorPalette={floorPalette} wallPalette={wallPalette} isLampOn={isLampOn} isNight={isNight}
+        catId={resolveRoomOptionId('cat',appearance?.catId ?? catId,isPro)} onCatLoadingChange={onCatLoadingChange} onFurnitureReady={onFurnitureReady}
+        onSceneError={onSceneError} onSceneReady={onSceneReady} onToggleLamp={handleToggleLamp} theme={theme} />
 
+      <FurnitureAttachment piece={desk} origin={DESK_ORIGIN}>
       {/* Sombras de contato sobre o tampo da mesa */}
       <DeskContactShadows
         hasActiveBook={Boolean(activeBook)}
@@ -1246,24 +996,28 @@ function RoomGeometry({
 
       {/* Livro ativo aberto sobre a mesa (renderizado SOMENTE quando houver livro em leitura) */}
       {activeBook ? (
-        <OpenBook key={activeBook.id} color={activeBook.coverColor} onPress={() => onOpenBook(activeBook.id)} />
+        <OpenBook key={activeBook.id} color={activeBook.coverColor} onPress={() => { if (!draft) onOpenBook(activeBook.id); }} />
       ) : null}
 
       {/* Livros empilhados ao lado na mesa */}
       {readingBooks.map((book, index) => (
-        <StackedBook key={book.id} book={book} index={index} onPress={() => onSelectBook(book.id)} />
+        <StackedBook key={book.id} book={book} index={index} onPress={() => { if (!draft) onSelectBook(book.id); }} />
       ))}
 
+      </FurnitureAttachment>
+      <FurnitureAttachment piece={bookcase} origin={BOOKCASE_ORIGIN}>
       {/* Livros concluídos na estante */}
       {completedBooks.map((book, index) => (
-        <ShelfBook key={book.id} book={book} index={index} onPress={() => onOpenBook(book.id)} />
+        <ShelfBook key={book.id} book={book} index={index} onPress={() => { if (!draft) onOpenBook(book.id); }} />
       ))}
 
+      </FurnitureAttachment>
       {/* Livro flutuando em arco da mesa para a estante após conclusão */}
       {movingBook ? (
         <MovingBook
           book={movingBook}
-          end={shelfPosition(completedBooks.length)}
+          start={transformRoomPoint(OPEN_BOOK_POSITION,desk,DESK_ORIGIN)}
+          end={transformRoomPoint(shelfPosition(completedBooks.length,movingBook),bookcase,BOOKCASE_ORIGIN)}
           onComplete={() => finalizeCompletion(movingBook.id)}
         />
       ) : null}
@@ -1271,10 +1025,14 @@ function RoomGeometry({
   );
 }
 
+function FurnitureAttachment({ piece, origin, children }: { piece:RoomPiece; origin:Vector; children:React.ReactNode }) {
+  return <group position={piece.position} rotation={[0,piece.rotation,0]}><group position={[-origin[0],-origin[1],-origin[2]]}>{children}</group></group>;
+}
+
 export function IsometricScene(props: SceneProps) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const baseZoom = useMemo(() => Math.max(width / 7.2, height / 11.8), [height, width]);
+  const baseZoom = useMemo(() => Math.max(width / 8.8, height / 14.4), [height, width]);
 
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const cycleAmbienceMode = useLibraryStore((state) => state.cycleAmbienceMode);
@@ -1283,10 +1041,32 @@ export function IsometricScene(props: SceneProps) {
   const effectiveAmbience = snapshotAmbienceOverride ?? resolvedAmbience;
   const currentTheme = AMBIENCE_THEMES[effectiveAmbience];
   const isNight = effectiveAmbience === 'night';
+  const profile = useLibraryStore((state) => state.profile);
+  const firstName = profile.name.trim().split(/\s+/)[0];
+  const roomTitle = firstName && firstName !== 'Leitor(a)' ? `Quarto do ${firstName}` : 'Meu quarto';
 
+  const [isActive, setIsActive] = useState(false);
+  useFocusEffect(useCallback(() => {
+    const updateActivity = () => setIsActive(AppState.currentState === 'active');
+    updateActivity();
+    const subscription = AppState.addEventListener('change', updateActivity);
+    return () => {
+      subscription.remove();
+      setIsActive(false);
+    };
+  }, []));
+
+  const invalidateRef = useRef<(frames?: number) => void>(() => {});
   const rotationRef = useRef<RotationState>({ targetY: 0 });
-  const zoomRef = useRef<ZoomState>({ current: 1.0, target: 1.0 });
+  const zoomRef = useRef<ZoomState>({ current: MIN_ZOOM, target: MIN_ZOOM });
 
+  const editorDraft=useRoomEditor(state=>state.draft);
+  const isEditing = Boolean(editorDraft);
+  const [editorPanelHeight, setEditorPanelHeight] = useState(330);
+  const editorViewportHeight = Math.max(120, height - insets.top - 76 - editorPanelHeight);
+  const savedLayout = useLibraryStore(state => state.roomLayout);
+  const modelKey = (editorDraft ?? savedLayout).pieces.map(piece => piece.modelId).join('|');
+  const [loadedModelKey, setLoadedModelKey] = useState<string | null>(null);
   const [hasModified, setHasModified] = useState(false);
   const [panResponder, setPanResponder] = useState<ReturnType<typeof PanResponder.create> | null>(null);
 
@@ -1297,7 +1077,6 @@ export function IsometricScene(props: SceneProps) {
     props.onCustomizingChange?.(value);
   };
 
-  const [anchorPositions, setAnchorPositions] = useState<Record<string, ScreenAnchorPos>>({});
   const isCustomizingRef = useRef(isCustomizing);
 
   const catId = useLibraryStore((state) => state.catId);
@@ -1325,14 +1104,21 @@ export function IsometricScene(props: SceneProps) {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     zoomRef.current.target = MIN_ZOOM;
     rotationRef.current.targetY = 0;
-    setHasModified(true);
+    setHasModified(false);
+    const state = useLibraryStore.getState();
+    useRoomEditor.getState().begin(state.roomLayout, {
+      wallPaletteId: state.wallPaletteId,
+      floorPaletteId: state.floorPaletteId,
+      rugPaletteId: state.rugPaletteId,
+      catId: state.catId,
+    });
     setIsCustomizing(true);
     props.onCustomize?.();
   };
 
   const handleExitCustomization = () => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    zoomRef.current.target = 1.0;
+    zoomRef.current.target = MIN_ZOOM;
     setHasModified(false);
     setIsCustomizing(false);
   };
@@ -1340,22 +1126,27 @@ export function IsometricScene(props: SceneProps) {
   useEffect(() => {
     let initialAngle = 0;
     let initialDistance = 0;
-    let initialZoom = 1.0;
+    let initialZoom = MIN_ZOOM;
 
     const responder = PanResponder.create({
+      onStartShouldSetPanResponderCapture: evt => evt.nativeEvent.touches.length > 1,
       onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        if (useRoomEditor.getState().draft && !useRoomEditor.getState().cameraMode && evt.nativeEvent.touches.length < 2) return false;
         // Se estiver no modo de personalização e o gesto ocorrer no terço inferior da tela (área do seletor), nunca captura
-        if (isCustomizingRef.current && evt.nativeEvent.pageY > height - 260) {
+        if (isCustomizingRef.current && !useRoomEditor.getState().draft && evt.nativeEvent.pageY > height - 260) {
           return false;
         }
-        return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
+        const touches = evt.nativeEvent.touches.length;
+        return shouldHandleRoomCameraGesture(Boolean(useRoomEditor.getState().draft), useRoomEditor.getState().cameraMode, touches, gestureState.dx, gestureState.dy);
       },
       onMoveShouldSetPanResponder: (evt, gestureState) => {
+        if (useRoomEditor.getState().draft && !useRoomEditor.getState().cameraMode && evt.nativeEvent.touches.length < 2) return false;
         // Se estiver no modo de personalização e o gesto ocorrer no terço inferior da tela (área do seletor), nunca captura
-        if (isCustomizingRef.current && evt.nativeEvent.pageY > height - 260) {
+        if (isCustomizingRef.current && !useRoomEditor.getState().draft && evt.nativeEvent.pageY > height - 260) {
           return false;
         }
-        return Math.abs(gestureState.dx) > 6 || Math.abs(gestureState.dy) > 6;
+        const touches = evt.nativeEvent.touches.length;
+        return shouldHandleRoomCameraGesture(Boolean(useRoomEditor.getState().draft), useRoomEditor.getState().cameraMode, touches, gestureState.dx, gestureState.dy);
       },
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
@@ -1373,6 +1164,16 @@ export function IsometricScene(props: SceneProps) {
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
+        invalidateRef.current(2);
+        if (touches.length >= 2 && initialDistance === 0) {
+          initialDistance = Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
+          initialZoom = zoomRef.current.target;
+          return;
+        }
+        if (touches.length < 2 && initialDistance > 0) {
+          initialDistance = 0;
+          initialAngle = rotationRef.current.targetY - gestureState.dx * 0.0048;
+        }
 
         // Pinch-to-zoom com 2 dedos
         if (touches.length >= 2 && initialDistance > 0) {
@@ -1382,7 +1183,10 @@ export function IsometricScene(props: SceneProps) {
           );
           const scale = currentDist / initialDistance;
           zoomRef.current.target = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, initialZoom * scale));
-          setHasModified(true);
+          setHasModified(
+            Math.abs(rotationRef.current.targetY) > 0.04
+              || Math.abs(zoomRef.current.target - MIN_ZOOM) > 0.05
+          );
           return;
         }
 
@@ -1393,7 +1197,7 @@ export function IsometricScene(props: SceneProps) {
         // Limita a rotação simetricamente sem expor o verso ou inverter
         rotationRef.current.targetY = Math.max(-ROTATION_LIMIT, Math.min(ROTATION_LIMIT, nextY));
 
-        if (Math.abs(rotationRef.current.targetY) > 0.04 || Math.abs(zoomRef.current.target - 1.0) > 0.05) {
+        if (Math.abs(rotationRef.current.targetY) > 0.04 || Math.abs(zoomRef.current.target - MIN_ZOOM) > 0.05) {
           setHasModified(true);
         }
       },
@@ -1402,22 +1206,10 @@ export function IsometricScene(props: SceneProps) {
     setPanResponder(responder);
   }, [height]);
 
-  const handleZoomIn = () => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    zoomRef.current.target = Math.min(MAX_ZOOM, zoomRef.current.target + 0.28);
-    setHasModified(true);
-  };
-
-  const handleZoomOut = () => {
-    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    zoomRef.current.target = Math.max(MIN_ZOOM, zoomRef.current.target - 0.28);
-    setHasModified(true);
-  };
-
   const resetCamera = () => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     rotationRef.current.targetY = 0;
-    zoomRef.current.target = 1.0;
+    zoomRef.current.target = MIN_ZOOM;
     setHasModified(false);
   };
 
@@ -1428,10 +1220,10 @@ export function IsometricScene(props: SceneProps) {
 
   const camera = useMemo(() => ({
     position: [6.7, 6.25, 7.4] as Vector,
-    zoom: baseZoom,
+    zoom: isEditing ? Math.min(width / 8.8, editorViewportHeight / 7.2) : baseZoom,
     near: 2,
     far: 32,
-  }), [baseZoom]);
+  }), [baseZoom, isEditing, editorViewportHeight, width]);
 
   const ambienceLabel = ambienceMode === 'auto' ? 'Automático' : AMBIENCE_META[ambienceMode].label;
 
@@ -1441,26 +1233,28 @@ export function IsometricScene(props: SceneProps) {
       <View style={StyleSheet.absoluteFill} {...(panResponder?.panHandlers ?? {})}>
         <Canvas
           camera={camera}
-          frameloop="always"
+          frameloop={!isActive ? 'never' : !editorDraft && loadedModelKey === modelKey ? 'always' : 'demand'}
           gl={{
             antialias: true,
             alpha: true,
             powerPreference: 'high-performance',
             preserveDrawingBuffer: true,
           }}
-          onCreated={() => props.onCanvasReady?.()}
+          onCreated={state => { invalidateRef.current = state.invalidate; props.onCanvasReady?.(); }}
           orthographic
           style={styles.canvas}
         >
           <RoomSnapshotRegistrar onSetAmbience={setSnapshotAmbienceOverride} />
           <color attach="background" args={[currentTheme.bgColor]} />
-          <CameraRig />
+          <CameraRig width={width} height={height} zoom={camera.zoom} offsetY={isEditing ? (editorPanelHeight - insets.top - 76) / 2 : 0} />
           <RoomGeometry
             {...props}
-            isCustomizing={isCustomizing}
+            onFurnitureReady={() => {
+              setLoadedModelKey(modelKey);
+              props.onFurnitureReady?.();
+            }}
             isNight={isNight}
             onCatLoadingChange={handleCatLoadingChange}
-            onUpdateAnchorPositions={setAnchorPositions}
             resolvedAmbience={effectiveAmbience}
             rotationRef={rotationRef}
             theme={currentTheme}
@@ -1469,43 +1263,9 @@ export function IsometricScene(props: SceneProps) {
         </Canvas>
       </View>
 
-      {/* Modo de Personalização com Pins 3D e Tooltips Flutuantes */}
-      {isCustomizing ? (
-        <RoomCustomizationOverlay
-          anchorPositions={anchorPositions}
-          isNight={isNight}
-          loadingCatId={catLoadingId}
-          onExit={handleExitCustomization}
-        />
-      ) : (
-        /* Controles Flutuantes Superiores: Zoom, Ambiência, Restaurar e Adicionar Livro */
-        <View style={[styles.cameraControlsWrap, { top: insets.top + (process.env.EXPO_OS === 'android' ? 12 : 8) }]}>
+      {editorDraft ? <RoomEditorPanel isNight={isNight} loadingCatId={catLoadingId} onHeightChange={setEditorPanelHeight} onClose={handleExitCustomization} /> : (
+        <View style={[styles.cameraControlsWrap, { top: insets.top + 4 }]}>
           <View style={styles.controlsLeft}>
-            <View style={[styles.controlPill, isNight && styles.darkPill]}>
-              <Pressable
-                accessibilityLabel="Aumentar zoom"
-                accessibilityRole="button"
-                hitSlop={6}
-                onPress={handleZoomIn}
-                style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-              >
-                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="add" size={18} />
-              </Pressable>
-
-              <View style={[styles.divider, isNight && styles.dividerDark]} />
-
-              <Pressable
-                accessibilityLabel="Diminuir zoom"
-                accessibilityRole="button"
-                hitSlop={6}
-                onPress={handleZoomOut}
-                style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
-              >
-                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="remove" size={18} />
-              </Pressable>
-            </View>
-
-            {/* Botão de Ambiência (ícone) */}
             <Pressable
               accessibilityHint="Altera a iluminação do quarto entre Dia, Pôr do Sol, Noite ou Automático"
               accessibilityLabel={`Iluminação: ${ambienceLabel}`}
@@ -1513,14 +1273,14 @@ export function IsometricScene(props: SceneProps) {
               hitSlop={6}
               onPress={handleCycleAmbience}
               style={({ pressed }) => [
-                styles.iconPillBtn,
+                styles.headerButton,
                 isNight && styles.darkPill,
                 pressed && styles.btnPressed,
               ]}
             >
               <Ionicons
-                color={isNight && ambienceMode === 'night' ? '#FFAE70' : AMBIENCE_META[ambienceMode].color}
-                name={ambienceMode === 'auto' ? (resolvedAmbience === 'night' ? 'moon' : resolvedAmbience === 'sunset' ? 'partly-sunny' : 'sunny') : AMBIENCE_META[ambienceMode].icon}
+                color={isNight ? darkTheme.accent : AMBIENCE_META[ambienceMode].color}
+                name={AMBIENCE_META[ambienceMode].icon}
                 size={18}
               />
             </Pressable>
@@ -1533,17 +1293,20 @@ export function IsometricScene(props: SceneProps) {
                 hitSlop={6}
                 onPress={resetCamera}
                 style={({ pressed }) => [
-                  styles.iconPillBtn,
+                  styles.headerButton,
                   isNight && styles.darkPill,
                   pressed && styles.btnPressed,
                 ]}
               >
-                <Ionicons color={isNight ? '#F5E8D3' : colors.ink} name="refresh" size={17} />
+                <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="refresh" size={20} />
               </Pressable>
             ) : null}
           </View>
 
-          {/* Controles no Topo Direito: Personalizar, Compartilhar e Adicionar Livro */}
+          <View pointerEvents="none" style={styles.roomTitleWrap}>
+            <Text numberOfLines={1} style={[styles.roomTitle, isNight && styles.roomTitleNight]}>{roomTitle}</Text>
+          </View>
+
           <View style={styles.controlsRight}>
             <Pressable
               accessibilityHint="Abre o modo interativo para personalizar cores e decoração da sala"
@@ -1552,12 +1315,12 @@ export function IsometricScene(props: SceneProps) {
               hitSlop={8}
               onPress={handleEnterCustomization}
               style={({ pressed }) => [
-                styles.iconPillBtn,
+                styles.headerButton,
                 isNight && styles.darkPill,
                 pressed && styles.btnPressed,
               ]}
             >
-              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="color-palette-outline" size={20} />
+              <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="color-palette-outline" size={22} />
             </Pressable>
 
             {props.onShare ? (
@@ -1568,29 +1331,12 @@ export function IsometricScene(props: SceneProps) {
                 hitSlop={8}
                 onPress={props.onShare}
                 style={({ pressed }) => [
-                  styles.iconPillBtn,
+                  styles.headerButton,
                   isNight && styles.darkPill,
                   pressed && styles.btnPressed,
                 ]}
               >
-                <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="share-social-outline" size={19} />
-              </Pressable>
-            ) : null}
-
-            {props.onAddBook ? (
-              <Pressable
-                accessibilityHint="Abre a tela para adicionar novo livro à biblioteca"
-                accessibilityLabel="Adicionar livro"
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={props.onAddBook}
-                style={({ pressed }) => [
-                  styles.iconPillBtn,
-                  isNight && styles.darkPill,
-                  pressed && styles.btnPressed,
-                ]}
-              >
-                <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="add" size={24} />
+                <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="share-social-outline" size={21} />
               </Pressable>
             ) : null}
           </View>
@@ -1627,47 +1373,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  controlPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 19,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
-    borderWidth: 1,
-    borderColor: colors.line,
-    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
-    overflow: 'hidden',
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  divider: {
-    width: 1,
-    height: 18,
-    backgroundColor: colors.line,
-  },
-  iconPillBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(53, 42, 36, 0.12)',
-  },
+  headerButton: { ...controls.iconButton, backgroundColor: colors.paper, borderWidth: 1.25, borderColor: colors.line, boxShadow: '0 2px 8px rgba(53, 42, 36, 0.18)' },
   darkPill: {
-    backgroundColor: 'rgba(26, 28, 40, 0.94)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.45)',
+    backgroundColor: darkTheme.surfaceElevated,
+    borderColor: darkTheme.border,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.55)',
   },
-  dividerDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  roomTitleWrap: {
+    position: 'absolute',
+    left: 104,
+    right: 104,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roomTitle: {
+    color: colors.ink,
+    fontFamily: typography.ui,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  roomTitleNight: {
+    color: darkTheme.text,
   },
   btnPressed: {
     opacity: 0.6,

@@ -6,7 +6,6 @@ import {
   clearRoomSnapshotCache,
   getLastCapturedRoomUri,
   registerRoomSnapshotHandler,
-  setLastCapturedRoomUri,
 } from '../src/services/room-snapshot-service';
 import {
   computeReadingStats,
@@ -67,10 +66,10 @@ test('computeReadingStats seleciona o livro ativo e calcula porcentagem de progr
   assert.equal(statsA.readingBooks[0].id, '1');
   assert.equal(statsA.readingBooks[1].id, '2');
 
-  // Sem especificar id, seleciona o último em leitura
+  // Sem um livro escolhido para a mesa, não presume qual está ativo.
   const statsDefault = computeReadingStats(books, 'Jean');
-  assert.equal(statsDefault.activeBook?.id, '2');
-  assert.equal(statsDefault.activeBookProgress, 25);
+  assert.equal(statsDefault.activeBook, null);
+  assert.equal(statsDefault.activeBookProgress, 0);
   assert.equal(statsDefault.readingBooks.length, 2);
 });
 
@@ -79,11 +78,11 @@ test('formatReadingStatsSummary gera texto descritivo elegante em português', (
   const stats = computeReadingStats([book], 'Jean', 'b-1');
   const summary = formatReadingStatsSummary(stats);
 
-  assert.ok(summary.includes('📚 Meu Refúgio de Leitura no Bookroom'));
+  assert.ok(summary.includes('📚 Quarto de Jean · Nookly'));
   assert.ok(summary.includes('Jean'));
   assert.ok(summary.includes('Memórias Póstumas'));
   assert.ok(summary.includes('50% concluído'));
-  assert.ok(summary.includes('Bookroom ☕✨'));
+  assert.ok(summary.includes('Nookly ☕✨'));
 });
 
 test('room-snapshot-service registra handler e gerencia snapshots', async () => {
@@ -114,6 +113,17 @@ test('room-snapshot-service registra handler e gerencia snapshots', async () => 
   clearRoomSnapshotCache();
   assert.equal(getLastCapturedRoomUri('day'), null);
   assert.equal(getLastCapturedRoomUri('night'), null);
+});
+
+test('cleanup de uma sala antiga não remove a captura da sala remontada', async () => {
+  clearRoomSnapshotCache();
+  const releaseOld = registerRoomSnapshotHandler(async () => 'file:///old.png');
+  const releaseCurrent = registerRoomSnapshotHandler(async () => 'file:///current.png');
+  releaseOld();
+  assert.equal(await captureRoomSnapshot(), 'file:///current.png');
+  releaseCurrent();
+  clearRoomSnapshotCache();
+  assert.equal(await captureRoomSnapshot(), null);
 });
 
 test('shareToInstagramOrSystem e canOpenInstagram tratam ambiente sem expo nativo graciosamente', async () => {

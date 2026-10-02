@@ -1,16 +1,99 @@
-/* eslint-disable @typescript-eslint/no-require-imports, react/no-unknown-property */
-import { useEffect } from 'react';
-import { useLoader } from '@react-three/fiber/native';
-import { AdditiveBlending, DoubleSide, type Object3D } from 'three';
-import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+/* eslint-disable react/no-unknown-property */
+import React, { useEffect, useMemo, useRef } from "react";
+import {
+  useLoader,
+  useThree,
+  type ThreeEvent,
+} from "@react-three/fiber/native";
+import {
+  DataTexture,
+  LinearFilter,
+  Mesh,
+  MeshStandardMaterial,
+  Matrix4,
+  Plane,
+  Vector3,
+  type Group,
+} from "three";
+import {
+  type GLTF,
+  GLTFLoader,
+} from "three/examples/jsm/loaders/GLTFLoader.js";
 
-export const FURNITURE_SOURCES = [
-  require('@/assets/Separate_Assets_glb/Work_Table_06.glb'),
-  require('@/assets/Separate_Assets_glb/Chair_17.glb'),
-  require('@/assets/Separate_Assets_glb/Light_05.glb'),
-  require('@/assets/Separate_Assets_glb/Plants_05.glb'),
-  require('@/assets/Separate_Assets_glb/Plants_15.glb'),
-];
+import { roomModel } from "@/src/components/room/room-models";
+import { retainRoomModel, retainRoomResources } from "@/src/components/room/room-resources";
+import { RoomPictureFrame } from "@/src/components/room/room-picture-frame";
+import { RoomPoster } from "@/src/components/room/room-poster";
+import { RoomWindow } from "@/src/components/room/room-window";
+import { useRoomEditor } from "@/src/store/room-editor-store";
+import { useLibraryStore } from "@/src/store/library-store";
+import {
+  pieceBounds,
+  snapRoomCoordinate,
+  type RoomLayout,
+  type RoomPiece,
+} from "@/src/types/room-layout";
+import {
+  getBookcasePalette,
+  getRugPalette,
+  getWindowStyle,
+  getPictureFrameStyle,
+} from "@/src/types/room-customization";
+
+// One shared 4 KB mask: soft contact shadows without shadow-map render passes.
+const contactShadow = (() => {
+  const size = 32;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const distance = Math.max(
+        Math.abs(((x + 0.5) / size) * 2 - 1),
+        Math.abs(((y + 0.5) / size) * 2 - 1),
+      );
+      const fade = Math.max(0, Math.min(1, (1 - distance) / 0.45));
+      const index = (y * size + x) * 4;
+      data[index] = data[index + 1] = data[index + 2] = 255;
+      data[index + 3] = Math.round(255 * fade * fade * (3 - 2 * fade));
+    }
+  const texture = new DataTexture(data, size, size);
+  texture.minFilter = texture.magFilter = LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+})();
+
+function ContactShadow({
+  piece,
+  isNight,
+}: {
+  piece: RoomPiece;
+  isNight: boolean;
+}) {
+  useEffect(() => retainRoomResources(new Set([contactShadow])), []);
+  const bounds = pieceBounds(piece);
+  const footprint =
+    piece.category === "plant" ? 0.45 : piece.category === "lamp" ? 0.6 : 0.95;
+  const width = (bounds.max[0] - bounds.min[0]) * footprint;
+  const depth = (bounds.max[2] - bounds.min[2]) * footprint;
+  return (
+    <mesh
+      position={[
+        (bounds.min[0] + bounds.max[0]) / 2,
+        0.012,
+        (bounds.min[2] + bounds.max[2]) / 2,
+      ]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <planeGeometry args={[width, depth]} />
+      <meshBasicMaterial
+        map={contactShadow}
+        color="#251A10"
+        transparent
+        opacity={isNight ? 0.16 : 0.1}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
 
 type FurnitureTheme = {
   lampColor: string;
@@ -19,35 +102,19 @@ type FurnitureTheme = {
   coneOpacity: number;
 };
 
-type RoomFurnitureProps = {
-  isLampOn: boolean;
-  isNight: boolean;
-  onToggleLamp: () => void;
-  theme: FurnitureTheme;
-};
-
 type ImageBitmapFactory = typeof globalThis.createImageBitmap;
 
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const BINARY_CHUNK = 0x004e4942;
 
-const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const base64Cache = new Map<number, string>();
+const B64_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const inlinedBufferCache = new WeakMap<ArrayBuffer, ArrayBuffer>();
 
 function fastToBase64(bytes: Uint8Array): string {
   const len = bytes.length;
-  const sampleKey =
-    len ^
-    (bytes[0] || 0) ^
-    ((bytes[Math.floor(len / 2)] || 0) << 8) ^
-    ((bytes[len - 1] || 0) << 16);
-
-  const cached = base64Cache.get(sampleKey);
-  if (cached) return cached;
-
-  let res = '';
+  let res = "";
   const extra = len % 3;
   const mainLen = len - extra;
 
@@ -64,7 +131,7 @@ function fastToBase64(bytes: Uint8Array): string {
 
   if (extra === 1) {
     const b0 = bytes[mainLen];
-    res += B64_CHARS[(b0 >> 2) & 0x3f] + B64_CHARS[(b0 << 4) & 0x3f] + '==';
+    res += B64_CHARS[(b0 >> 2) & 0x3f] + B64_CHARS[(b0 << 4) & 0x3f] + "==";
   } else if (extra === 2) {
     const b0 = bytes[mainLen];
     const b1 = bytes[mainLen + 1];
@@ -72,10 +139,9 @@ function fastToBase64(bytes: Uint8Array): string {
       B64_CHARS[(b0 >> 2) & 0x3f] +
       B64_CHARS[((b0 << 4) | (b1 >> 4)) & 0x3f] +
       B64_CHARS[(b1 << 2) & 0x3f] +
-      '=';
+      "=";
   }
 
-  base64Cache.set(sampleKey, res);
   return res;
 }
 
@@ -84,13 +150,15 @@ function inlineEmbeddedImages(data: ArrayBuffer) {
   if (cachedOutput) return cachedOutput;
 
   const source = new DataView(data);
-  if (source.byteLength < 28 || source.getUint32(0, true) !== GLB_MAGIC) return data;
+  if (source.byteLength < 28 || source.getUint32(0, true) !== GLB_MAGIC)
+    return data;
 
   const jsonLength = source.getUint32(12, true);
   if (source.getUint32(16, true) !== JSON_CHUNK) return data;
 
   const binaryHeaderOffset = 20 + jsonLength;
-  if (source.getUint32(binaryHeaderOffset + 4, true) !== BINARY_CHUNK) return data;
+  if (source.getUint32(binaryHeaderOffset + 4, true) !== BINARY_CHUNK)
+    return data;
 
   const binaryLength = source.getUint32(binaryHeaderOffset, true);
   const binaryOffset = binaryHeaderOffset + 8;
@@ -112,7 +180,7 @@ function inlineEmbeddedImages(data: ArrayBuffer) {
       binaryOffset + (bufferView.byteOffset ?? 0),
       bufferView.byteLength,
     );
-    image.uri = `data:${image.mimeType ?? 'image/png'};base64,${fastToBase64(bytes)}`;
+    image.uri = `data:${image.mimeType ?? "image/png"};base64,${fastToBase64(bytes)}`;
     delete image.bufferView;
     changed = true;
   }
@@ -136,7 +204,10 @@ function inlineEmbeddedImages(data: ArrayBuffer) {
   const outputBinaryHeader = 20 + paddedJsonLength;
   outputView.setUint32(outputBinaryHeader, binaryLength, true);
   outputView.setUint32(outputBinaryHeader + 4, BINARY_CHUNK, true);
-  outputBytes.set(new Uint8Array(data, binaryOffset, binaryLength), outputBinaryHeader + 8);
+  outputBytes.set(
+    new Uint8Array(data, binaryOffset, binaryLength),
+    outputBinaryHeader + 8,
+  );
 
   inlinedBufferCache.set(data, output);
   return output;
@@ -168,100 +239,303 @@ export class NativeGLTFLoader extends GLTFLoader {
   }
 }
 
-function Model({ object }: { object: Object3D }) {
-  useEffect(() => {
-    object.traverse((child) => {
+export function RoomModel({ piece }: { piece: RoomPiece }) {
+  const invalidate = useThree((state) => state.invalidate);
+  const gltf = useLoader(
+    NativeGLTFLoader,
+    roomModel(piece).source as unknown as string,
+  ) as GLTF;
+  useEffect(() => retainRoomModel(gltf.scene), [gltf]);
+  const bookcasePalette = useLibraryStore((state) => state.bookcasePaletteId);
+  const savedRugPalette = useLibraryStore((state) => state.rugPaletteId);
+  const rugPalette =
+    useRoomEditor((state) => state.appearance?.rugPaletteId) ?? savedRugPalette;
+  const windowStyle = useLibraryStore((state) => state.leftWallWindowStyle);
+  const frameStyle = useLibraryStore((state) => state.pictureFrameStyleId);
+  const woodColor = piece.category === "bookcase"
+    ? getBookcasePalette(bookcasePalette).frameColor
+    : piece.category === "window"
+      ? getWindowStyle(windowStyle).frameColor
+      : piece.category === "frame"
+        ? getPictureFrameStyle(frameStyle).frameColor
+        : null;
+  const rugColor = piece.category === "rug" ? getRugPalette(rugPalette).mainColor : "";
+  const object = useMemo(() => {
+    const cloned = gltf.scene.clone(true);
+    const colors = { oak: "#B88B58", walnut: "#60402C", sage: "#809375" };
+    cloned.traverse((child) => {
       child.frustumCulled = false;
+      if (!(child instanceof Mesh)) return;
+      const cloneMaterial = (original: MeshStandardMaterial) => {
+        const material = original.clone();
+        if (material.name.endsWith("_wood")) {
+          if (piece.finish !== "original")
+            material.color.set(colors[piece.finish]);
+          else if (woodColor) material.color.set(woodColor);
+        }
+        if (piece.category === "rug" && material.name.endsWith("_fabric"))
+          material.color.set(
+            piece.finish === "original"
+              ? rugColor
+              : colors[piece.finish],
+          );
+        if (
+          piece.finish !== "original" &&
+          (material.name.endsWith("_ceramic") ||
+            (piece.category === "lamp" && material.name.endsWith("_metal")) ||
+            (piece.category !== "lamp" && material.name.endsWith("_fabric")))
+        )
+          material.color.set(colors[piece.finish]);
+        return material;
+      };
+      child.material = Array.isArray(child.material)
+        ? child.material.map((m) => cloneMaterial(m as MeshStandardMaterial))
+        : cloneMaterial(child.material as MeshStandardMaterial);
     });
-  }, [object]);
-
-  return <primitive object={object} />;
+    return cloned;
+  }, [
+    gltf,
+    piece.category,
+    piece.finish,
+    woodColor,
+    rugColor,
+  ]);
+  useEffect(() => {
+    invalidate(2);
+  }, [object, invalidate]);
+  useEffect(
+    () => () => {
+      object.traverse((child) => {
+        if (child instanceof Mesh)
+          for (const material of Array.isArray(child.material)
+            ? child.material
+            : [child.material])
+            material.dispose();
+      });
+    },
+    [object],
+  );
+  return <primitive object={object} dispose={null} />;
 }
 
-export function RoomFurniture({ isLampOn, isNight, onToggleLamp, theme }: RoomFurnitureProps) {
-  const models = useLoader(NativeGLTFLoader, FURNITURE_SOURCES as unknown as string[]) as GLTF[];
-  const [table, chair, lamp, deskPlant, floorPlant] = models;
+export function RoomPieceGroup({
+  piece,
+  children,
+}: {
+  piece: RoomPiece;
+  children: React.ReactNode;
+}) {
+  const group = useRef<Group>(null);
+  const drag = useRef<Vector3 | null>(null);
+  const editing = useRoomEditor((state) => Boolean(state.draft));
+  const selected = useRoomEditor((state) => state.selectedId === piece.id);
+  const invalid = useRoomEditor(
+    (state) => state.invalid && state.selectedId === piece.id,
+  );
+  const bounds = pieceBounds(piece);
+  const width = bounds.max[0] - bounds.min[0],
+    height = bounds.max[1] - bounds.min[1],
+    depth = bounds.max[2] - bounds.min[2];
+  const pointOnSurface = (event: ThreeEvent<PointerEvent>) => {
+    const parent = group.current?.parent;
+    if (!parent) return null;
+    parent.updateWorldMatrix(true, false);
+    const ray = event.ray
+      .clone()
+      .applyMatrix4(new Matrix4().copy(parent.matrixWorld).invert());
+    const plane =
+      piece.surface === "back-wall"
+        ? new Plane(new Vector3(0, 0, 1), 3.53)
+        : piece.surface === "left-wall"
+          ? new Plane(new Vector3(1, 0, 0), 3.43)
+          : new Plane(new Vector3(0, 1, 0), 0);
+    return ray.intersectPlane(plane, new Vector3());
+  };
+  return (
+    <group
+      ref={group}
+      position={piece.position}
+      rotation={[0, piece.rotation, 0]}
+    >
+      {children}
+      {editing ? (
+        <mesh
+          position={[
+            (bounds.min[0] + bounds.max[0]) / 2,
+            (bounds.min[1] + bounds.max[1]) / 2,
+            (bounds.min[2] + bounds.max[2]) / 2,
+          ]}
+          onPointerDown={(event) => {
+            if (useRoomEditor.getState().cameraMode) return;
+            event.stopPropagation();
+            useRoomEditor.getState().select(piece.id);
+            if (piece.surface === "desk") return;
+            const point = pointOnSurface(event);
+            if (!point) return;
+            useRoomEditor.getState().beginMove();
+            drag.current = point.sub(new Vector3(...piece.position));
+            (
+              event.target as unknown as {
+                setPointerCapture: (id: number) => void;
+              }
+            ).setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (!drag.current) return;
+            event.stopPropagation();
+            const point = pointOnSurface(event);
+            if (!point) return;
+            point.sub(drag.current);
+            const position: [number, number, number] =
+              piece.surface === "back-wall"
+                ? [
+                    snapRoomCoordinate(point.x),
+                    snapRoomCoordinate(point.y),
+                    -3.53,
+                  ]
+                : piece.surface === "left-wall"
+                  ? [
+                      -3.43,
+                      snapRoomCoordinate(point.y),
+                      snapRoomCoordinate(point.z),
+                    ]
+                  : [
+                      snapRoomCoordinate(point.x),
+                      piece.position[1],
+                      snapRoomCoordinate(point.z),
+                    ];
+            useRoomEditor.getState().update({ ...piece, position });
+          }}
+          onPointerUp={(event) => {
+            drag.current = null;
+            useRoomEditor.getState().endMove();
+            (
+              event.target as unknown as {
+                releasePointerCapture: (id: number) => void;
+              }
+            ).releasePointerCapture(event.pointerId);
+          }}
+          onLostPointerCapture={() => {
+            drag.current = null;
+            useRoomEditor.getState().endMove();
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <boxGeometry args={[width, height, Math.max(depth, 0.12)]} />
+          <meshBasicMaterial
+            color={invalid ? "#BF493B" : "#6B8E71"}
+            transparent
+            opacity={selected ? 0.16 : 0}
+            depthWrite={false}
+          />
+        </mesh>
+      ) : null}
+    </group>
+  );
+}
 
+export function RoomFurniture({
+  layout,
+  isLampOn,
+  onToggleLamp,
+  theme,
+  isNight,
+}: {
+  layout: RoomLayout;
+  isLampOn: boolean;
+  isNight: boolean;
+  onToggleLamp: () => void;
+  theme: FurnitureTheme;
+}) {
+  const editing = useRoomEditor((state) => Boolean(state.draft));
+  const books = useLibraryStore((state) => state.books);
+  const photo = useLibraryStore((state) => state.pictureFramePhotoUri);
+  const posterBookId = useLibraryStore((state) => state.leftWallPosterBookId);
   return (
     <>
-      <group position={[0.42, 0, 0.62]} scale={[2, 1.5, 2.05]}>
-        <Model object={table.scene} />
-      </group>
-
-      <group position={[0.42, 0, 1.75]} rotation={[0, Math.PI, 0]} scale={1.65}>
-        <Model object={chair.scene} />
-      </group>
-
-      <group position={[-0.56, 1.17, 0.12]} scale={1.05}>
-        <Model object={deskPlant.scene} />
-      </group>
-
-      {/* Planta de chão posicionada ao lado da estante de livros (não colada, harmoniosa) */}
-      <group position={[0.10, 0, -2.80]} rotation={[0, -0.4, 0]} scale={1.35}>
-        <Model object={floorPlant.scene} />
-      </group>
-
-      <group position={[-2.28, 0, -1.08]}>
-        <group scale={1.95}>
-          <Model object={lamp.scene} />
-        </group>
-
-        <mesh position={[0, 2.35, 0]}>
-          <sphereGeometry args={[0.09, 10, 10]} />
-          <meshBasicMaterial color={isLampOn ? '#FFF7DE' : '#5E4E42'} />
-        </mesh>
-
-        {isLampOn ? (
-          <>
-            <pointLight
-              color={theme.lampColor}
-              distance={theme.lampDistance}
-              intensity={theme.lampIntensity}
-              position={[0.35, 2.15, 0.35]}
-            />
-            <pointLight
-              color="#FF9E48"
-              distance={8.2}
-              intensity={theme.lampIntensity * 0.42}
-              position={[0.9, 1.7, 0.8]}
-            />
-
-            <mesh position={[0, 1.15, 0]}>
-              <cylinderGeometry args={[0.16, 1.48, 2.15, 24, 1, true]} />
-              <meshBasicMaterial
-                blending={AdditiveBlending}
-                color="#FF9636"
-                depthWrite={false}
-                opacity={theme.coneOpacity}
-                side={DoubleSide}
-                transparent
-              />
-            </mesh>
-
-            <mesh position={[0.2, 0.02, 0.15]} rotation={[-Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[1.55, 24]} />
-              <meshBasicMaterial
-                blending={AdditiveBlending}
-                color="#FFA245"
-                depthWrite={false}
-                opacity={isNight ? 0.32 : 0.14}
-                transparent
-              />
-            </mesh>
-          </>
-        ) : null}
-
-        <mesh
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleLamp();
-          }}
-          position={[0, 1.35, 0]}
-        >
-          <cylinderGeometry args={[0.55, 0.55, 2.8, 8]} />
-          <meshBasicMaterial depthWrite={false} opacity={0} transparent />
-        </mesh>
-      </group>
+      {layout.pieces
+        .filter((p) => p.surface !== "desk" && p.category !== "cat")
+        .map((piece) => (
+          <RoomPieceGroup key={piece.id} piece={piece}>
+            <group
+              scale={
+                piece.category === "frame" && piece.aspect === "portrait"
+                  ? [0.8, 1.45, 1]
+                  : 1
+              }
+            >
+              <RoomModel piece={piece} />
+            </group>
+            {piece.surface === "floor" && piece.category !== "rug" ? (
+              <ContactShadow piece={piece} isNight={isNight} />
+            ) : null}
+            {piece.category === "desk"
+              ? layout.pieces
+                  .filter((p) => p.surface === "desk")
+                  .map((p) => (
+                    <RoomPieceGroup key={p.id} piece={p}>
+                      <RoomModel piece={p} />
+                    </RoomPieceGroup>
+                  ))
+              : null}
+            {piece.category === "window" ? (
+              <RoomWindow contentOnly ambience={isNight ? "night" : "day"} />
+            ) : null}
+            {piece.category === "frame" ? (
+              <group scale={piece.aspect === "portrait" ? [0.8, 1.45, 1] : 1}>
+                {piece.bookId ? (
+                  <RoomPoster
+                    contentOnly
+                    book={
+                      books.find(
+                        (b) => b.id === (piece.bookId ?? posterBookId),
+                      ) ?? books[0]
+                    }
+                  />
+                ) : (
+                  <RoomPictureFrame
+                    contentOnly
+                    photoUriOverride={
+                      piece.photoUri ?? (piece.id === "frame" ? photo : null)
+                    }
+                  />
+                )}
+              </group>
+            ) : null}
+            {piece.category === "lamp" ? (
+              <>
+                {isLampOn ? (
+                  <pointLight
+                    color={theme.lampColor}
+                    distance={theme.lampDistance}
+                    intensity={theme.lampIntensity}
+                    position={[0, 2.1, 0.15]}
+                  />
+                ) : null}
+                <mesh position={[0, 2.12, 0]}>
+                  <sphereGeometry args={[0.075, 10, 10]} />
+                  <meshBasicMaterial color={isLampOn ? "#FFF0CC" : "#6D5B47"} />
+                </mesh>
+                {!editing ? (
+                  <mesh
+                    position={[0, 1.25, 0]}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleLamp();
+                    }}
+                  >
+                    <cylinderGeometry args={[0.48, 0.48, 2.5, 8]} />
+                    <meshBasicMaterial
+                      transparent
+                      opacity={0}
+                      depthWrite={false}
+                    />
+                  </mesh>
+                ) : null}
+              </>
+            ) : null}
+          </RoomPieceGroup>
+        ))}
     </>
   );
 }

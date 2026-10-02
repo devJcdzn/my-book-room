@@ -1,6 +1,7 @@
 {
   "expo": {
-    "name": "Bookroom",
+    "name": "Nookly",
+    "description": "Sua biblioteca, no seu ritmo",
     "slug": "my-book-room",
     "version": "1.1.2",
     "orientation": "portrait",
@@ -32,7 +33,8 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FDF7E9",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
@@ -40,6 +42,19 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-font",
+        {
+          "fonts": ["./assets/fonts/PlayfairDisplay-Regular.ttf"],
+          "android": {
+            "fonts": [{
+              "fontFamily": "Playfair Display",
+              "fontDefinitions": [{ "path": "./assets/fonts/PlayfairDisplay-Regular.ttf", "weight": 400 }]
+            }]
+          },
+          "ios": { "fonts": ["./assets/fonts/PlayfairDisplay-Regular.ttf"] }
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -49,7 +64,7 @@
           "backgroundColor": "#FDF7E9",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#131520"
+            "backgroundColor": "#FDF7E9"
           }
         }
       ],

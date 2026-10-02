@@ -5,10 +5,9 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
-import { useProAccess } from '@/src/providers/revenuecat-provider';
-import { isFreeRoomOption, resolveRoomOptionId } from '@/src/services/room-customization-access';
+import { resolveRoomOptionId } from '@/src/services/room-customization-access';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import {
   FLOOR_PALETTES,
   FloorPalette,
@@ -30,45 +29,22 @@ export default function CustomizeRoomScreen() {
   const setRugPaletteId = useLibraryStore((state) => state.setRugPaletteId);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
-  const { isPro, isPending: isProPending, requestProAccess } = useProAccess();
+  const effectiveWallPaletteId = resolveRoomOptionId('walls', wallPaletteId);
+  const effectiveFloorPaletteId = resolveRoomOptionId('flooring', floorPaletteId);
+  const effectiveRugPaletteId = resolveRoomOptionId('rug', rugPaletteId);
 
-  const effectiveWallPaletteId = resolveRoomOptionId('walls', wallPaletteId, isPro);
-  const effectiveFloorPaletteId = resolveRoomOptionId('flooring', floorPaletteId, isPro);
-  const effectiveRugPaletteId = resolveRoomOptionId('rug', rugPaletteId, isPro);
-
-  const handleSelectWallPalette = async (palette: WallPalette) => {
-    if (!isPro && !isFreeRoomOption('walls', palette.id)) {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const unlocked = await requestProAccess();
-      if (!unlocked) return;
-      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+  const handleSelectWallPalette = (palette: WallPalette) => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setWallPaletteId(palette.id);
   };
 
-  const handleSelectFloorPalette = async (palette: FloorPalette) => {
-    if (!isPro && !isFreeRoomOption('flooring', palette.id)) {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const unlocked = await requestProAccess();
-      if (!unlocked) return;
-      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+  const handleSelectFloorPalette = (palette: FloorPalette) => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setFloorPaletteId(palette.id);
   };
 
-  const handleSelectRugPalette = async (palette: RugPalette) => {
-    if (!isPro && !isFreeRoomOption('rug', palette.id)) {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const unlocked = await requestProAccess();
-      if (!unlocked) return;
-      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+  const handleSelectRugPalette = (palette: RugPalette) => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRugPaletteId(palette.id);
   };
 
@@ -107,48 +83,10 @@ export default function CustomizeRoomScreen() {
             pressed && styles.closeBtnPressed,
           ]}
         >
-          <Ionicons color={isNight ? '#FAF4EB' : colors.ink} name="close" size={20} />
+          <Ionicons color={isNight ? darkTheme.text : colors.ink} name="close" size={20} />
         </Pressable>
       </View>
-
-      {/* Banner de Apresentação do Unlimited quando na versão Free */}
-      {!isPro ? (
-        <Pressable
-          accessibilityHint="Abre o Bookroom Unlimited para desbloquear toda a coleção"
-          accessibilityLabel="Conhecer o Bookroom Unlimited"
-          accessibilityRole="button"
-          disabled={isProPending}
-          onPress={async () => {
-            if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            const unlocked = await requestProAccess();
-            if (unlocked && process.env.EXPO_OS === 'ios') {
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-          }}
-          style={({ pressed }) => [
-            styles.unlimitedScreenBanner,
-            isNight && styles.darkUnlimitedScreenBanner,
-            pressed && styles.cardPressed,
-          ]}
-        >
-          <View style={styles.unlimitedScreenBannerLeft}>
-            <View style={[styles.unlimitedBannerIconCircle, isNight && styles.darkUnlimitedBannerIconCircle]}>
-              <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="sparkles" size={14} />
-            </View>
-            <View style={styles.unlimitedBannerTextGroup}>
-              <Text style={[styles.unlimitedBannerTitle, isNight && styles.darkTitle]}>
-                Coleção Completa Unlimited
-              </Text>
-              <Text style={[styles.unlimitedBannerSubtitle, isNight && styles.darkMutedText]}>
-                Desbloqueie todas as paredes, pisos e tapetes
-              </Text>
-            </View>
-          </View>
-          <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="chevron-forward" size={16} />
-        </Pressable>
-      ) : null}
-
-      {/* Seletor de categorias fluido com chips confortáveis */}
+{/* Seletor de categorias fluido com chips confortáveis */}
       <View style={styles.categoryScrollWrap}>
         <ScrollView
           contentContainerStyle={styles.categoryBar}
@@ -170,7 +108,7 @@ export default function CustomizeRoomScreen() {
             <Ionicons
               color={
                 activeTab === 'walls'
-                  ? (isNight ? '#FFAE70' : colors.terracotta)
+                  ? (isNight ? darkTheme.accent : colors.terracotta)
                   : (isNight ? darkTheme.textMuted : colors.muted)
               }
               name="color-palette-outline"
@@ -202,7 +140,7 @@ export default function CustomizeRoomScreen() {
             <Ionicons
               color={
                 activeTab === 'flooring'
-                  ? (isNight ? '#FFAE70' : colors.terracotta)
+                  ? (isNight ? darkTheme.accent : colors.terracotta)
                   : (isNight ? darkTheme.textMuted : colors.muted)
               }
               name="grid-outline"
@@ -234,7 +172,7 @@ export default function CustomizeRoomScreen() {
             <Ionicons
               color={
                 activeTab === 'rug'
-                  ? (isNight ? '#FFAE70' : colors.terracotta)
+                  ? (isNight ? darkTheme.accent : colors.terracotta)
                   : (isNight ? darkTheme.textMuted : colors.muted)
               }
               name="disc-outline"
@@ -263,15 +201,13 @@ export default function CustomizeRoomScreen() {
           <View style={styles.palettesGrid}>
             {WALL_PALETTES.map((palette) => {
               const isSelected = palette.id === effectiveWallPaletteId;
-              const isLocked = !isPro && !isFreeRoomOption('walls', palette.id);
 
               return (
                 <Pressable
                   key={palette.id}
-                  accessibilityHint={`Aplica esta tonalidade nas paredes do quarto${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
-                  accessibilityLabel={`Tom de parede: ${palette.name}${isLocked ? ' (bloqueado)' : ''}`}
+                  accessibilityHint={`Aplica esta tonalidade nas paredes do quarto`}
+                  accessibilityLabel={`Tom de parede: ${palette.name}`}
                   accessibilityRole="button"
-                  disabled={isProPending}
                   onPress={() => handleSelectWallPalette(palette)}
                   style={({ pressed }) => [
                     styles.paletteCard,
@@ -316,13 +252,6 @@ export default function CustomizeRoomScreen() {
                       <Text numberOfLines={1} selectable style={[styles.paletteSubtitle, isNight && styles.darkMutedText]}>
                         {palette.subtitle}
                       </Text>
-                      {isLocked ? (
-                        <View style={[styles.cardLockedTag, isNight && styles.darkCardLockedTag]}>
-                          <Text style={[styles.cardLockedTagText, isNight && styles.darkCardLockedTagText]}>
-                            Unlimited
-                          </Text>
-                        </View>
-                      ) : null}
                     </View>
                   </View>
 
@@ -332,18 +261,8 @@ export default function CustomizeRoomScreen() {
                       styles.checkCircle,
                       isNight && styles.darkCheckCircle,
                       isSelected && (isNight ? styles.checkCircleActiveNight : styles.checkCircleActive),
-                      isLocked && (isNight ? styles.checkCircleLockedNight : styles.checkCircleLocked),
                     ]}
                   >
-                    {isLocked ? (
-                      <Ionicons color={isNight ? '#FFAE70' : '#D48842'} name="lock-closed" size={12} />
-                    ) : isSelected ? (
-                      <Ionicons
-                        color={isNight ? '#131520' : colors.white}
-                        name="checkmark"
-                        size={14}
-                      />
-                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -362,15 +281,13 @@ export default function CustomizeRoomScreen() {
           <View style={styles.palettesGrid}>
             {FLOOR_PALETTES.map((palette) => {
               const isSelected = palette.id === effectiveFloorPaletteId;
-              const isLocked = !isPro && !isFreeRoomOption('flooring', palette.id);
 
               return (
                 <Pressable
                   key={palette.id}
-                  accessibilityHint={`Aplica esta madeira no piso do quarto${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
-                  accessibilityLabel={`Piso de madeira: ${palette.name}${isLocked ? ' (bloqueado)' : ''}`}
+                  accessibilityHint={`Aplica esta madeira no piso do quarto`}
+                  accessibilityLabel={`Piso de madeira: ${palette.name}`}
                   accessibilityRole="button"
-                  disabled={isProPending}
                   onPress={() => handleSelectFloorPalette(palette)}
                   style={({ pressed }) => [
                     styles.paletteCard,
@@ -406,13 +323,6 @@ export default function CustomizeRoomScreen() {
                       <Text numberOfLines={1} selectable style={[styles.paletteSubtitle, isNight && styles.darkMutedText]}>
                         {palette.subtitle}
                       </Text>
-                      {isLocked ? (
-                        <View style={[styles.cardLockedTag, isNight && styles.darkCardLockedTag]}>
-                          <Text style={[styles.cardLockedTagText, isNight && styles.darkCardLockedTagText]}>
-                            Unlimited
-                          </Text>
-                        </View>
-                      ) : null}
                     </View>
                   </View>
 
@@ -422,18 +332,8 @@ export default function CustomizeRoomScreen() {
                       styles.checkCircle,
                       isNight && styles.darkCheckCircle,
                       isSelected && (isNight ? styles.checkCircleActiveNight : styles.checkCircleActive),
-                      isLocked && (isNight ? styles.checkCircleLockedNight : styles.checkCircleLocked),
                     ]}
                   >
-                    {isLocked ? (
-                      <Ionicons color={isNight ? '#FFAE70' : '#D48842'} name="lock-closed" size={12} />
-                    ) : isSelected ? (
-                      <Ionicons
-                        color={isNight ? '#131520' : colors.white}
-                        name="checkmark"
-                        size={14}
-                      />
-                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -452,15 +352,13 @@ export default function CustomizeRoomScreen() {
           <View style={styles.palettesGrid}>
             {RUG_PALETTES.map((palette) => {
               const isSelected = palette.id === effectiveRugPaletteId;
-              const isLocked = !isPro && !isFreeRoomOption('rug', palette.id);
 
               return (
                 <Pressable
                   key={palette.id}
-                  accessibilityHint={`Aplica esta cor ao tapete circular do quarto${isLocked ? '. Requer Unlimited Furniture.' : ''}`}
-                  accessibilityLabel={`Estilo de tapete: ${palette.name}${isLocked ? ' (bloqueado)' : ''}`}
+                  accessibilityHint={`Aplica esta cor ao tapete circular do quarto`}
+                  accessibilityLabel={`Estilo de tapete: ${palette.name}`}
                   accessibilityRole="button"
-                  disabled={isProPending}
                   onPress={() => handleSelectRugPalette(palette)}
                   style={({ pressed }) => [
                     styles.paletteCard,
@@ -499,13 +397,6 @@ export default function CustomizeRoomScreen() {
                       <Text numberOfLines={1} selectable style={[styles.paletteSubtitle, isNight && styles.darkMutedText]}>
                         {palette.subtitle}
                       </Text>
-                      {isLocked ? (
-                        <View style={[styles.cardLockedTag, isNight && styles.darkCardLockedTag]}>
-                          <Text style={[styles.cardLockedTagText, isNight && styles.darkCardLockedTagText]}>
-                            Unlimited
-                          </Text>
-                        </View>
-                      ) : null}
                     </View>
                   </View>
 
@@ -515,18 +406,8 @@ export default function CustomizeRoomScreen() {
                       styles.checkCircle,
                       isNight && styles.darkCheckCircle,
                       isSelected && (isNight ? styles.checkCircleActiveNight : styles.checkCircleActive),
-                      isLocked && (isNight ? styles.checkCircleLockedNight : styles.checkCircleLocked),
                     ]}
                   >
-                    {isLocked ? (
-                      <Ionicons color={isNight ? '#FFAE70' : '#D48842'} name="lock-closed" size={12} />
-                    ) : isSelected ? (
-                      <Ionicons
-                        color={isNight ? '#131520' : colors.white}
-                        name="checkmark"
-                        size={14}
-                      />
-                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -566,8 +447,6 @@ const styles = StyleSheet.create({
   title: {
     color: colors.ink,
     fontFamily: typography.editorial,
-    fontSize: 22,
-    fontWeight: '600',
     lineHeight: 26,
   },
   subtitle: {
@@ -575,14 +454,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.ui,
     fontSize: 13,
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
+  closeBtn: { ...controls.iconButton, backgroundColor: 'rgba(0, 0, 0, 0.05)' },
   darkCloseBtn: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -614,7 +486,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   darkCategoryChip: {
-    backgroundColor: '#181A26',
+    backgroundColor: darkTheme.surface,
     borderColor: darkTheme.borderSubtle,
   },
   categoryChipActive: {
@@ -623,8 +495,8 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 6px rgba(182, 90, 61, 0.12)',
   },
   categoryChipActiveNight: {
-    backgroundColor: '#262A3C',
-    borderColor: '#FFAE70',
+    backgroundColor: darkTheme.surfaceElevated,
+    borderColor: darkTheme.accent,
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
   },
   categoryChipText: {
@@ -638,7 +510,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   categoryChipTextActiveNight: {
-    color: '#FFAE70',
+    color: darkTheme.accent,
     fontWeight: '600',
   },
   categoryChipTextDisabled: {
@@ -704,8 +576,8 @@ const styles = StyleSheet.create({
     boxShadow: '0 3px 10px rgba(182, 90, 61, 0.12)',
   },
   paletteCardSelectedNight: {
-    borderColor: '#FFAE70',
-    backgroundColor: '#202434',
+    borderColor: darkTheme.accent,
+    backgroundColor: darkTheme.surfaceElevated,
     boxShadow: '0 3px 10px rgba(0, 0, 0, 0.4)',
   },
   cardPressed: {
@@ -780,7 +652,7 @@ const styles = StyleSheet.create({
     color: colors.terracotta,
   },
   paletteNameActiveNight: {
-    color: '#FFAE70',
+    color: darkTheme.accent,
   },
   paletteSubtitle: {
     color: colors.muted,
@@ -791,27 +663,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  cardLockedTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    backgroundColor: 'rgba(212, 136, 66, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 136, 66, 0.28)',
-  },
-  darkCardLockedTag: {
-    backgroundColor: 'rgba(255, 174, 112, 0.14)',
-    borderColor: 'rgba(255, 174, 112, 0.32)',
-  },
-  cardLockedTagText: {
-    fontFamily: typography.ui,
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.terracotta,
-  },
-  darkCardLockedTagText: {
-    color: '#FFAE70',
   },
   checkCircle: {
     width: 24,
@@ -830,67 +681,8 @@ const styles = StyleSheet.create({
     borderColor: colors.terracotta,
   },
   checkCircleActiveNight: {
-    backgroundColor: '#FFAE70',
-    borderColor: '#FFAE70',
-  },
-  checkCircleLocked: {
-    backgroundColor: 'rgba(212, 136, 66, 0.10)',
-    borderColor: 'rgba(212, 136, 66, 0.35)',
-  },
-  checkCircleLockedNight: {
-    backgroundColor: 'rgba(255, 174, 112, 0.14)',
-    borderColor: 'rgba(255, 174, 112, 0.35)',
-  },
-  unlimitedScreenBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: radii.medium,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(189, 107, 77, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(189, 107, 77, 0.22)',
-    marginBottom: 16,
-  },
-  darkUnlimitedScreenBanner: {
-    backgroundColor: 'rgba(255, 174, 112, 0.10)',
-    borderColor: 'rgba(255, 174, 112, 0.24)',
-  },
-  unlimitedScreenBannerLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  unlimitedBannerIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(189, 107, 77, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(189, 107, 77, 0.28)',
-  },
-  darkUnlimitedBannerIconCircle: {
-    backgroundColor: 'rgba(255, 174, 112, 0.16)',
-    borderColor: 'rgba(255, 174, 112, 0.32)',
-  },
-  unlimitedBannerTextGroup: {
-    flex: 1,
-    gap: 2,
-  },
-  unlimitedBannerTitle: {
-    fontFamily: typography.ui,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  unlimitedBannerSubtitle: {
-    fontFamily: typography.ui,
-    fontSize: 11.5,
-    color: colors.muted,
+    backgroundColor: darkTheme.accent,
+    borderColor: darkTheme.accent,
   },
   comingSoonWrap: {
     alignItems: 'center',
@@ -902,8 +694,6 @@ const styles = StyleSheet.create({
   comingSoonTitle: {
     color: colors.ink,
     fontFamily: typography.editorial,
-    fontSize: 18,
-    fontWeight: '600',
     textAlign: 'center',
   },
   comingSoonDesc: {

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { PrimaryButton } from '@/src/components/primary-button';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -121,31 +121,23 @@ const styles = StyleSheet.create({
   container: { gap: 14 },
   headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   titleBlock: { flex: 1, gap: 2 },
-  title: { color: colors.ink, fontFamily: typography.editorial, fontSize: 18, fontWeight: '600', lineHeight: 22 },
+  title: { color: colors.ink, fontFamily: typography.editorial, lineHeight: 22 },
   author: { color: colors.muted, fontSize: 13 },
   progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pagesReadLabel: { color: colors.muted, fontSize: 13, fontWeight: '500' },
   percent: { color: colors.terracotta, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  darkPercent: { color: '#FFAE70' },
+  darkPercent: { color: darkTheme.accent },
   track: { height: 6, overflow: 'hidden', borderRadius: 3, backgroundColor: colors.softFill },
-  darkTrack: { backgroundColor: '#25293A' },
+  darkTrack: { backgroundColor: darkTheme.surfaceElevated },
   fill: { height: '100%', borderRadius: 3, backgroundColor: colors.terracotta },
-  darkFill: { backgroundColor: '#FFAE70' },
+  darkFill: { backgroundColor: darkTheme.accent },
   pageRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepButton: {
-    minWidth: 50,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.small,
-    borderCurve: 'continuous',
-    backgroundColor: colors.softFill,
-  },
+  stepButton: { ...controls.iconButton, backgroundColor: colors.softFill },
   darkStepButton: { backgroundColor: darkTheme.surfaceElevated },
   pressed: { opacity: 0.7 },
   stepLabel: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   pageInputWrap: {
-    minHeight: 44,
+    minHeight: 58,
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,15 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.softFill,
   },
   darkPageInputWrap: { backgroundColor: darkTheme.surfaceElevated },
-  pageInput: {
-    minWidth: 40,
-    color: colors.ink,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'right',
-    fontVariant: ['tabular-nums'],
-    paddingVertical: 0,
-  },
+  pageInput: { ...controls.pageValue, color: colors.ink },
   pageTotal: { color: colors.muted, fontSize: 14, fontVariant: ['tabular-nums'] },
   completed: { color: colors.sage, fontSize: 14, fontWeight: '600', textAlign: 'center', paddingVertical: 4 },
   darkText: { color: darkTheme.text },

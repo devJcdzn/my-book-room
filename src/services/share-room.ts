@@ -26,11 +26,7 @@ export const computeReadingStats = (
     return acc + Math.min(b.currentPage || 0, b.totalPages || 0);
   }, 0);
 
-  const activeBook =
-    books.find((b) => b.id === activeBookId && b.status === 'reading') ??
-    readingBooks[readingBooks.length - 1] ??
-    books[0] ??
-    null;
+  const activeBook = books.find((b) => b.id === activeBookId && b.status === 'reading') ?? null;
 
   let activeBookProgress = 0;
   if (activeBook && activeBook.totalPages > 0) {
@@ -58,9 +54,9 @@ export const computeReadingStats = (
 
 export const formatReadingStatsSummary = (stats: ReadingStats): string => {
   const lines = [
-    `📚 Meu Refúgio de Leitura no Bookroom`,
+    `📚 Quarto de ${stats.readerName} · Nookly`,
     ``,
-    `👤 Leitor(a): ${stats.readerName}`,
+    `👤 ${stats.readerName}`,
     `📄 ${stats.totalPagesRead.toLocaleString('pt-BR')} páginas lidas`,
     `✨ ${stats.completedCount} ${stats.completedCount === 1 ? 'livro concluído' : 'livros concluídos'}`,
   ];
@@ -71,7 +67,7 @@ export const formatReadingStatsSummary = (stats: ReadingStats): string => {
     );
   }
 
-  lines.push(``, `Construa seu hábito de leitura no Bookroom ☕✨`);
+  lines.push(``, `Construa seu hábito de leitura no Nookly ☕✨`);
 
   return lines.join('\n');
 };
@@ -84,7 +80,7 @@ export const shareToInstagramOrSystem = async ({
   message?: string;
 }): Promise<boolean> => {
   try {
-    const title = 'Meu Refúgio de Leitura • Bookroom';
+    const title = 'Quarto no Nookly';
 
     if (imageUri) {
       const Sharing = await import('expo-sharing');
@@ -93,7 +89,7 @@ export const shareToInstagramOrSystem = async ({
       }
 
       await Sharing.shareAsync(imageUri, {
-        dialogTitle: 'Compartilhar Refúgio de Leitura',
+        dialogTitle: 'Compartilhar quarto',
         UTI: 'public.png',
       });
       return true;
@@ -101,7 +97,7 @@ export const shareToInstagramOrSystem = async ({
 
     const { Share } = await import('react-native');
     const result = await Share.share({ message: message ?? '', title }, {
-      dialogTitle: 'Compartilhar Refúgio de Leitura',
+      dialogTitle: 'Compartilhar quarto',
       subject: title,
     });
     return result.action === Share.sharedAction;

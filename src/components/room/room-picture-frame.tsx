@@ -1,53 +1,13 @@
 /* eslint-disable react/no-unknown-property */
-import React, { useEffect, useState } from 'react';
-import { Texture, TextureLoader } from 'three';
+import React from 'react';
+
+import { useRoomTexture } from '@/src/components/room/use-room-texture';
 
 import { useLibraryStore } from '@/src/store/library-store';
 import {
   getPictureFrameStyle,
   type PictureFrameSize,
 } from '@/src/types/room-customization';
-
-const pictureTextureCache = new Map<string, Texture>();
-
-function usePictureTexture(uri?: string | null): Texture | null {
-  const cachedTexture = uri ? pictureTextureCache.get(uri) ?? null : null;
-  const [texture, setTexture] = useState<Texture | null>(() => {
-    if (!uri) return null;
-    return pictureTextureCache.get(uri) ?? null;
-  });
-
-  useEffect(() => {
-    if (!uri || cachedTexture) return;
-
-    const cached = pictureTextureCache.get(uri);
-    if (cached) return;
-
-    let isCancelled = false;
-    const loader = new TextureLoader();
-
-    loader.load(
-      uri,
-      (loaded) => {
-        if (isCancelled) return;
-        loaded.needsUpdate = true;
-        pictureTextureCache.set(uri, loaded);
-        setTexture(loaded);
-      },
-      undefined,
-      (err) => {
-        console.warn('Erro ao carregar textura do quadro:', err);
-        if (!isCancelled) setTexture(null);
-      }
-    );
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [cachedTexture, uri]);
-
-  return cachedTexture ?? (uri ? texture : null);
-}
 
 // Arte procedural aconchegante para quando o usuário não tiver foto definida
 function DefaultCozyArt({ width, height }: { width: number; height: number }) {
@@ -93,12 +53,14 @@ function DefaultCozyArt({ width, height }: { width: number; height: number }) {
 }
 
 type RoomPictureFrameProps = {
+  contentOnly?: boolean;
   sizeOverride?: PictureFrameSize;
   styleIdOverride?: string;
   photoUriOverride?: string | null;
 };
 
 export function RoomPictureFrame({
+  contentOnly = false,
   sizeOverride,
   styleIdOverride,
   photoUriOverride,
@@ -112,11 +74,15 @@ export function RoomPictureFrame({
   const photoUri = photoUriOverride !== undefined ? photoUriOverride : storePhotoUri;
 
   const style = getPictureFrameStyle(styleId);
-  const userTexture = usePictureTexture(photoUri);
+  const userTexture = useRoomTexture(photoUri);
 
-  if (size === 'none') {
+  if (!contentOnly && size === 'none') {
     return null;
   }
+
+  if (contentOnly) return userTexture ? (
+    <mesh position={[0, 0, .065]}><planeGeometry args={[.80, .80]} /><meshStandardMaterial map={userTexture} roughness={.82} /></mesh>
+  ) : <group position={[0,0,.065]}><DefaultCozyArt width={.80} height={.80} /></group>;
 
   // Dimensões do Quadro conforme proporção:
   // 1:1 (Quadrado clássico da sala) vs 2:1 (Retrato vertical expandido)
@@ -134,9 +100,9 @@ export function RoomPictureFrame({
   const artWidth = isOneToOne ? 0.82 : 0.66;
   const artHeight = isOneToOne ? 0.82 : 1.30;
 
-  // Centro da arte na parede de fundo (face frontal da parede traseira em z = -3.26)
+  // Centro da arte na face interna da parede traseira em z = -3.54
   return (
-    <group position={[-1.85, 1.95, -3.255]}>
+    <group position={[-1.85, 1.95, -3.535]}>
       {/* 1. Fundo Traseiro Protetor (MDF / Backboard) */}
       <mesh position={[0, 0, 0.002]}>
         <planeGeometry args={[matWidth, matHeight]} />

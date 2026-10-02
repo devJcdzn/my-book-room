@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors, radii } from '@/src/theme';
+import { controls, colors } from '@/src/theme';
 
 type Props = ComponentProps<typeof Pressable> & {
   label: string;
@@ -33,10 +33,10 @@ export function PrimaryButton({ label, loading = false, tone = 'primary', disabl
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, borderRadius: radii.medium, borderCurve: 'continuous' },
+  base: { ...controls.button },
   primary: { backgroundColor: colors.terracotta },
   secondary: { backgroundColor: colors.sageSoft },
-  label: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  label: { ...controls.buttonText, color: colors.white },
   secondaryLabel: { color: colors.ink },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },

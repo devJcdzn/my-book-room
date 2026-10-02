@@ -1,58 +1,18 @@
 /* eslint-disable react/no-unknown-property */
-import React, { useEffect, useState } from 'react';
-import { Texture, TextureLoader } from 'three';
+import React from 'react';
+
+import { useRoomTexture } from '@/src/components/room/use-room-texture';
 
 import type { Book } from '@/src/types/book';
 import { getPosterFrame } from '@/src/types/room-customization';
 
-// Cache em memória de texturas de pôsteres para acesso instantâneo (0 ms) sem re-download
-const posterTextureCache = new Map<string, Texture>();
-
-function usePosterTexture(url?: string): Texture | null {
-  const cachedTexture = url ? posterTextureCache.get(url) ?? null : null;
-  const [texture, setTexture] = useState<Texture | null>(() => {
-    if (!url) return null;
-    return posterTextureCache.get(url) ?? null;
-  });
-
-  useEffect(() => {
-    if (!url || cachedTexture) return;
-
-    const cached = posterTextureCache.get(url);
-    if (cached) return;
-
-    let isCancelled = false;
-    const loader = new TextureLoader();
-
-    loader.load(
-      url,
-      (loaded) => {
-        if (isCancelled) return;
-        loaded.needsUpdate = true;
-        posterTextureCache.set(url, loaded);
-        setTexture(loaded);
-      },
-      undefined,
-      () => {
-        // Em caso de falha de rede/offline, mantém a arte editorial procedural
-        if (!isCancelled) setTexture(null);
-      },
-    );
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [cachedTexture, url]);
-
-  return cachedTexture ?? (url ? texture : null);
-}
-
 type RoomPosterProps = {
+  contentOnly?: boolean;
   book?: Book;
   frameId?: string;
 };
 
-export function RoomPoster({ book, frameId }: RoomPosterProps) {
+export function RoomPoster({ book, frameId, contentOnly = false }: RoomPosterProps) {
   const frameOption = getPosterFrame(frameId);
 
   // Otimização de Performance: Prefere a versão de resolução média (-M.jpg ~15 KB)
@@ -61,9 +21,13 @@ export function RoomPoster({ book, frameId }: RoomPosterProps) {
     ? `https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg`
     : book?.coverUrl;
 
-  const coverTexture = usePosterTexture(optimizedCoverUrl);
+  const coverTexture = useRoomTexture(optimizedCoverUrl);
 
   const bookColor = book?.coverColor ?? '#8C3D2B';
+
+  if (contentOnly) return (
+    <mesh position={[0,0,.065]}><planeGeometry args={[.53,.80]} /><meshStandardMaterial map={coverTexture} color={coverTexture?'#FFFFFF':bookColor} roughness={.8} /></mesh>
+  );
 
   return (
     // Posicionado na parede esquerda (x = -3.43) e rotacionado 90° para olhar para +x (interior da sala)

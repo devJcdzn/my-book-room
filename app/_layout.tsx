@@ -1,16 +1,14 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { AuthProvider } from '@/src/providers/auth-provider';
-import { RevenueCatProvider } from '@/src/providers/revenuecat-provider';
-import { initializeRevenueCat } from '@/src/services/revenuecat';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors } from '@/src/theme';
+import { colors, darkTheme, typography } from '@/src/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({
@@ -44,17 +42,15 @@ export default function RootLayout() {
   const hasHydrated = useLibraryStore((state) => state._hasHydrated);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const onboardingStatus = useLibraryStore((state) => state.onboardingStatus);
+  const activeReadingTimer = useLibraryStore((state) => state.activeReadingTimer);
   const { from } = useGlobalSearchParams<{ from?: string }>();
   const pathname = usePathname();
   const router = useRouter();
   const isNight = resolveAmbience(ambienceMode) === 'night';
+  const restoredReadingTimer = useRef(false);
 
   useEffect(() => {
     void useLibraryStore.persist.rehydrate();
-  }, []);
-
-  useEffect(() => {
-    void initializeRevenueCat();
   }, []);
 
   useEffect(() => {
@@ -64,11 +60,23 @@ export default function RootLayout() {
   }, [hasHydrated]);
 
   useEffect(() => {
-    if (!hasHydrated || pathname === '/onboarding' || (pathname === '/add-book' && from === 'onboarding')) return;
+    if (
+      !hasHydrated ||
+      pathname === '/onboarding' ||
+      (from === 'onboarding' && (pathname === '/add-book' || pathname === '/books/catalog'))
+    ) return;
     if (onboardingStatus === 'not_started' || onboardingStatus === 'in_progress') {
       router.replace('/onboarding' as Href);
     }
   }, [from, hasHydrated, onboardingStatus, pathname, router]);
+
+  useEffect(() => {
+    const onboardingComplete = onboardingStatus === 'completed' || onboardingStatus === 'skipped';
+    const isHomeRoute = pathname === '/' || pathname === '/index' || pathname.startsWith('/(tabs)');
+    if (!hasHydrated || !onboardingComplete || !activeReadingTimer || restoredReadingTimer.current || !isHomeRoute) return;
+    restoredReadingTimer.current = true;
+    router.replace('/reading-timer' as Href);
+  }, [activeReadingTimer, hasHydrated, onboardingStatus, pathname, router]);
 
   const theme = useMemo(() => {
     if (isNight) {
@@ -76,11 +84,11 @@ export default function RootLayout() {
         ...DarkTheme,
         colors: {
           ...DarkTheme.colors,
-          primary: '#FFAE70',
-          background: '#131520',
-          card: '#181A26',
-          text: '#FAF4EB',
-          border: '#2C3044',
+          primary: darkTheme.accent,
+          background: darkTheme.bg,
+          card: darkTheme.surface,
+          text: darkTheme.text,
+          border: darkTheme.border,
         },
       };
     }
@@ -100,81 +108,91 @@ export default function RootLayout() {
   if (!hasHydrated) return null;
 
   return (
-    <RevenueCatProvider>
-      <AuthProvider>
-        <ThemeProvider value={theme}>
-          <StatusBar animated style={isNight ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
-              headerShadowVisible: false,
-              headerStyle: { backgroundColor: isNight ? '#181A26' : colors.paper },
-              headerTintColor: isNight ? '#FAF4EB' : colors.ink,
-              headerTitleStyle: { fontWeight: '700', color: isNight ? '#FAF4EB' : colors.ink },
-            }}
-          >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="onboarding"
-            options={{
-              animation: 'fade',
-              gestureEnabled: false,
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="account"
-            options={{
-              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-              sheetAllowedDetents: [0.75, 1],
-              sheetGrabberVisible: true,
-              title: 'Conta e sincronização',
-              contentStyle: { backgroundColor: isNight ? '#131520' : colors.cream },
-            }}
-          />
-          <Stack.Screen
-            name="add-book"
-            options={{
-              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-              sheetAllowedDetents: [0.75, 1],
-              sheetGrabberVisible: true,
-              headerShown: false,
-              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.cream },
-            }}
-          />
-          <Stack.Screen
-            name="book-progress"
-            options={{
-              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-              sheetAllowedDetents: [0.65, 0.95],
-              sheetGrabberVisible: true,
-              headerShown: false,
-              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-            }}
-          />
-          <Stack.Screen
-            name="edit-profile"
-            options={{
-              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-              sheetAllowedDetents: [0.65, 0.95],
-              sheetGrabberVisible: true,
-              headerShown: false,
-              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-            }}
-          />
-          <Stack.Screen
-            name="customize-room"
-            options={{
-              presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
-              sheetAllowedDetents: [0.55, 0.85],
-              sheetGrabberVisible: true,
-              headerShown: false,
-              contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? '#131520' : colors.paper },
-            }}
-          />
-          </Stack>
-        </ThemeProvider>
-      </AuthProvider>
-    </RevenueCatProvider>
+    <AuthProvider>
+      <ThemeProvider value={theme}>
+        <StatusBar animated style={isNight ? 'light' : 'dark'} />
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: isNight ? darkTheme.surface : colors.paper },
+            headerTintColor: isNight ? darkTheme.text : colors.ink,
+            headerTitleStyle: { fontWeight: '700', color: isNight ? darkTheme.text : colors.ink },
+          }}
+        >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="onboarding"
+          options={{
+            animation: 'fade',
+            gestureEnabled: false,
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="account"
+          options={{
+            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            title: 'Conta e sincronização',
+            contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
+          }}
+        />
+        <Stack.Screen
+          name="add-book"
+          options={{
+            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? darkTheme.bg : colors.cream },
+          }}
+        />
+        <Stack.Screen
+          name="book-progress"
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+            headerShown: false,
+            contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.terracotta },
+          }}
+        />
+        <Stack.Screen name="reading-timer" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="reading-session" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen
+          name="edit-profile"
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+            title: 'Editar perfil',
+            headerShown: true,
+            headerBackButtonDisplayMode: 'minimal',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
+            headerTintColor: isNight ? darkTheme.text : colors.ink,
+            headerTitleStyle: {
+              color: isNight ? darkTheme.text : colors.ink,
+              fontFamily: typography.editorial,
+              fontSize: 21,
+            },
+            contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
+          }}
+        />
+        <Stack.Screen
+          name="customize-room"
+          options={{
+            presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
+            sheetAllowedDetents: [0.55, 0.85],
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { height: '100%', width: '100%', flex: 1, backgroundColor: isNight ? darkTheme.bg : colors.paper },
+          }}
+        />
+        </Stack>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

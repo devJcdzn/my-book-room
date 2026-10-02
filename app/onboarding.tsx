@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton } from '@/src/components/primary-button';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore, type AmbienceMode } from '@/src/store/library-store';
-import { colors, darkTheme, radii, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 
 const TOTAL_STEPS = 4;
 
@@ -67,12 +67,6 @@ const AMBIENCE_OPTIONS: {
     icon: 'sunny-outline',
   },
   {
-    id: 'sunset',
-    label: 'Pôr do sol',
-    description: 'Luz dourada e tons acolhedores para desacelerar.',
-    icon: 'partly-sunny-outline',
-  },
-  {
     id: 'night',
     label: 'Noite',
     description: 'Imersão calma com a luminária acesa na sala.',
@@ -114,10 +108,10 @@ export default function OnboardingScreen() {
     surface: isNight ? darkTheme.surface : colors.paper,
     surfaceSelected: isNight ? darkTheme.surfaceElevated : '#FFFFFF',
     text: isNight ? darkTheme.text : colors.ink,
-    textSoft: isNight ? '#D1D6E2' : colors.inkSoft,
+    textSoft: isNight ? darkTheme.textMuted : colors.inkSoft,
     muted: isNight ? darkTheme.textMuted : colors.muted,
     border: isNight ? darkTheme.border : colors.line,
-    accent: isNight ? '#FFAE70' : colors.terracotta,
+    accent: isNight ? darkTheme.accent : colors.terracotta,
   };
 
   useEffect(() => {
@@ -154,7 +148,7 @@ export default function OnboardingScreen() {
       router.replace('/');
     } else {
       tapFeedback();
-      router.push({ pathname: '/add-book', params: { from: 'onboarding' } });
+      router.push({ pathname: '/books/catalog', params: { from: 'onboarding' } });
     }
   };
 
@@ -204,7 +198,7 @@ export default function OnboardingScreen() {
             Sua sala está pronta
           </Text>
           <Text selectable style={[styles.readySubtitle, { color: palette.muted }]}>
-            Seu refúgio de leitura foi criado. Bem-vindo ao Bookroom!
+            Seu refúgio de leitura foi criado. Bem-vindo ao Nookly!
           </Text>
         </Animated.View>
       </View>
@@ -514,7 +508,7 @@ export default function OnboardingScreen() {
                       hitSlop={10}
                       onPress={() => {
                         tapFeedback();
-                        router.push({ pathname: '/add-book', params: { from: 'onboarding' } });
+                        router.push({ pathname: '/books/catalog', params: { from: 'onboarding' } });
                       }}
                       style={styles.switchBookBtn}
                     >
@@ -562,7 +556,7 @@ export default function OnboardingScreen() {
                       accessibilityRole="button"
                       onPress={() => {
                         tapFeedback();
-                        router.push({ pathname: '/add-book', params: { from: 'onboarding' } });
+                        router.push({ pathname: '/books/catalog', params: { from: 'onboarding' } });
                       }}
                       style={({ pressed }) => [
                         styles.catalogOutlineBtn,
@@ -662,8 +656,6 @@ const styles = StyleSheet.create({
   },
   readyTitle: {
     fontFamily: typography.editorial,
-    fontSize: 32,
-    fontWeight: '600',
     lineHeight: 38,
     textAlign: 'center',
   },
@@ -681,19 +673,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 8,
   },
-  navButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
+  navButton: { ...controls.iconButton },
   navButtonPlaceholder: {
-    width: 36,
-    height: 36,
+    width: controls.iconButton.width,
+    height: controls.iconButton.height,
   },
   skipButton: {
-    minWidth: 36,
-    minHeight: 36,
+    minWidth: controls.iconButton.width,
+    minHeight: controls.iconButton.height,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
@@ -723,8 +710,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.editorial,
-    fontSize: 30,
-    fontWeight: '600',
     lineHeight: 36,
     letterSpacing: -0.4,
   },
@@ -796,19 +781,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: radii.medium,
-    borderCurve: 'continuous',
-    paddingHorizontal: 16,
-    minHeight: 52,
+    borderRadius: controls.input.borderRadius,
+    paddingHorizontal: controls.input.paddingHorizontal,
+    minHeight: controls.input.minHeight,
   },
   input: {
     flex: 1,
-    fontSize: 17,
-    paddingVertical: 12,
+    fontSize: controls.input.fontSize,
+    paddingVertical: controls.input.paddingVertical,
   },
-  clearBtn: {
-    padding: 4,
-  },
+  clearBtn: { ...controls.iconButton },
   helperCaption: {
     fontSize: 13,
     lineHeight: 18,
@@ -888,8 +870,6 @@ const styles = StyleSheet.create({
   },
   activeBookTitle: {
     fontFamily: typography.editorial,
-    fontSize: 17,
-    fontWeight: '600',
     lineHeight: 21,
   },
   activeBookAuthor: {
@@ -945,28 +925,15 @@ const styles = StyleSheet.create({
   },
   starterTitle: {
     fontFamily: typography.editorial,
-    fontSize: 15,
-    fontWeight: '600',
   },
   starterAuthor: {
     fontSize: 12,
   },
-  catalogOutlineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderWidth: 1,
-    borderRadius: radii.medium,
-    borderCurve: 'continuous',
-    marginTop: 2,
-  },
-  catalogOutlineText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  catalogOutlineBtn: { ...controls.button, flexDirection: 'row', gap: 8, borderWidth: 1, marginTop: 2 },
+  catalogOutlineText: { ...controls.buttonText },
   skipTextButton: {
+    minHeight: controls.iconButton.height,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 4,
   },

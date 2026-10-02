@@ -190,6 +190,104 @@ test('ISBN usa edição exata e substitui a mediana quando há páginas', async 
   assert.equal(urls.length, 2);
 });
 
+test('carrega sinopse da obra e dados bibliográficos da edição pelas chaves salvas', async () => {
+  const urls: string[] = [];
+  const client = createOpenLibraryClient({
+    fetcher: async (url) => {
+      urls.push(url);
+      return url.endsWith('/works/OL1W.json')
+        ? jsonResponse({
+          description: { value: '  Uma história sobre livros.  ' },
+          first_publish_date: '1998',
+          subjects: ['Fantasia', 'Aventura'],
+        })
+        : jsonResponse({
+          number_of_pages: 312,
+          publishers: ['Editora Exemplo'],
+          publish_date: '2024',
+          isbn_13: ['978-0-439-55493-0'],
+        });
+    },
+    minIntervalMs: 0,
+  });
+
+  const details = await client.getBookDetails({
+    workKey: '/works/OL1W',
+    editionKey: '/books/OL10M',
+    title: 'Livro',
+    author: 'Autora',
+  });
+  assert.deepEqual(details, {
+    description: 'Uma história sobre livros.',
+    firstPublishDate: '1998',
+    subjects: ['Fantasia', 'Aventura'],
+    publishers: ['Editora Exemplo'],
+    publishDate: '2024',
+    editionPageCount: 312,
+    isbn: '9780439554930',
+  });
+  assert.deepEqual(urls, [
+    'https://openlibrary.org/works/OL1W.json',
+    'https://openlibrary.org/books/OL10M.json',
+  ]);
+});
+
+test('livro manual resolve primeiro ISBN exato e busca os dados da edição correspondente', async () => {
+  const urls: string[] = [];
+  const client = createOpenLibraryClient({
+    fetcher: async (url) => {
+      urls.push(url);
+      if (url.includes('/search.json?')) return jsonResponse({ docs: [{
+        key: '/works/OL1W',
+        title: 'Livro',
+        isbn: ['9780439554930'],
+        editions: { docs: [{ key: '/books/OL10M', isbn: ['978-0-439-55493-0'] }] },
+      }] });
+      if (url.endsWith('/works/OL1W.json')) return jsonResponse({ description: 'Sinopse' });
+      return jsonResponse({ publishers: ['Editora'] });
+    },
+    minIntervalMs: 0,
+  });
+
+  const details = await client.getBookDetails({
+    isbn: '978-0-439-55493-0',
+    title: 'Livro',
+    author: 'Autora',
+  });
+  assert.equal(details?.description, 'Sinopse');
+  assert.equal(details?.publishers[0], 'Editora');
+  assert.match(urls[0] ?? '', /isbn%3A9780439554930/);
+  assert.ok(urls.includes('https://openlibrary.org/books/OL10M.json'));
+});
+
+test('livro manual sem ISBN exige título e autor exatos e recusa correspondências ambíguas', async () => {
+  const exactClient = createOpenLibraryClient({
+    fetcher: async (url) => url.includes('/search.json?')
+      ? jsonResponse({ docs: [
+        { key: '/works/OL1W', title: 'O Coração', author_name: ['Ana Silva'] },
+        { key: '/works/OL2W', title: 'O Coração Azul', author_name: ['Ana Silva'] },
+      ] })
+      : jsonResponse({ subjects: ['Romance'] }),
+    minIntervalMs: 0,
+  });
+  const details = await exactClient.getBookDetails({ title: 'O Coração', author: 'Ana Sílva' });
+  assert.deepEqual(details?.subjects, ['Romance']);
+
+  let calls = 0;
+  const ambiguousClient = createOpenLibraryClient({
+    fetcher: async () => {
+      calls += 1;
+      return jsonResponse({ docs: [
+        { key: '/works/OL1W', title: 'O Coração', author_name: ['Ana Silva'] },
+        { key: '/works/OL2W', title: 'O Coração', author_name: ['Ana Silva'] },
+      ] });
+    },
+    minIntervalMs: 0,
+  });
+  assert.equal(await ambiguousClient.getBookDetails({ title: 'O Coração', author: 'Ana Silva' }), undefined);
+  assert.equal(calls, 1);
+});
+
 test('edição ausente preserva mediana em vez de bloquear a busca', async () => {
   const client = createOpenLibraryClient({
     fetcher: async (url) => url.includes('/books/')

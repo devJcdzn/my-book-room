@@ -6,17 +6,12 @@ import type { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import {
   fetchLibraryBackup,
   saveLibraryBackup,
   type RemoteLibraryBackup,
 } from '@/src/services/library-sync';
-import {
-  identifyRevenueCatCustomer,
-  resetRevenueCatCustomer,
-} from '@/src/services/revenuecat';
 import { supabase } from '@/src/services/supabase';
 import {
   createPersistedState,
@@ -50,7 +45,6 @@ type AuthContextValue = {
   syncStatus: SyncStatus;
   lastSyncedAt: string | null;
   hasConflict: boolean;
-  purchasesLinked: boolean;
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   resolveConflict: (choice: ConflictChoice) => Promise<void>;
@@ -107,7 +101,6 @@ const isCancelledError = (error: unknown) => (
 );
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { refreshProAccess } = useProAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(ACCOUNT_SYNC_ENABLED && Boolean(supabase));
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -115,7 +108,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
-  const [purchasesLinked, setPurchasesLinked] = useState(false);
   const sessionRef = useRef<Session | null>(null);
   const metadataRef = useRef<SyncMetadata | null>(null);
   const syncReadyRef = useRef(false);
@@ -212,12 +204,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setErrorMessage('Sua conta foi conectada, mas a sincronização não pôde ser concluída agora.');
     }
 
-    const linked = await identifyRevenueCatCustomer(nextSession.user.id);
-    setPurchasesLinked(linked);
-    if (linked) await refreshProAccess();
     switchingRef.current = false;
     setIsLoading(false);
-  }, [recordBackup, refreshProAccess]);
+  }, [recordBackup]);
 
   useEffect(() => {
     if (!ACCOUNT_SYNC_ENABLED || !supabase) return;
@@ -236,8 +225,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setSyncStatus('idle');
         setLastSyncedAt(null);
-        setPurchasesLinked(false);
-        void resetRevenueCatCustomer();
         void switchLibraryStorageScope('guest');
       }
     });
@@ -349,18 +336,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     await pushCurrentSnapshot();
     syncReadyRef.current = false;
-    await resetRevenueCatCustomer();
     await supabase.auth.signOut();
     sessionRef.current = null;
     metadataRef.current = null;
     setSession(null);
     setPendingConflict(null);
-    setPurchasesLinked(false);
     setSyncStatus('idle');
     setLastSyncedAt(null);
     await switchLibraryStorageScope('guest');
-    await refreshProAccess();
-  }, [pushCurrentSnapshot, refreshProAccess]);
+  }, [pushCurrentSnapshot]);
 
   const deleteAccount = useCallback(async () => {
     if (!supabase || !sessionRef.current) return;
@@ -370,29 +354,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
     await SecureStore.deleteItemAsync(metadataKey(sessionRef.current.user.id));
     syncReadyRef.current = false;
-    await resetRevenueCatCustomer();
     await supabase.auth.signOut({ scope: 'local' });
     sessionRef.current = null;
     setSession(null);
     setPendingConflict(null);
-    setPurchasesLinked(false);
     setSyncStatus('idle');
     setLastSyncedAt(null);
     await switchLibraryStorageScope('guest', snapshot);
     replaceLibrarySnapshot(snapshot);
-    await refreshProAccess();
-  }, [refreshProAccess]);
+  }, []);
 
   const retrySync = useCallback(async () => {
     if (!sessionRef.current) return;
     if (!syncReadyRef.current) await activateSession(sessionRef.current);
     else await pushCurrentSnapshot();
-    if (!purchasesLinked) {
-      const linked = await identifyRevenueCatCustomer(sessionRef.current.user.id);
-      setPurchasesLinked(linked);
-      if (linked) await refreshProAccess();
-    }
-  }, [activateSession, purchasesLinked, pushCurrentSnapshot, refreshProAccess]);
+  }, [activateSession, pushCurrentSnapshot]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user: session?.user ?? null,
@@ -403,7 +379,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     syncStatus,
     lastSyncedAt,
     hasConflict: Boolean(pendingConflict),
-    purchasesLinked,
     signInWithApple,
     signInWithGoogle,
     resolveConflict,
@@ -412,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     deleteAccount,
   }), [
     deleteAccount, errorMessage, isAuthenticating, isLoading, lastSyncedAt, pendingConflict,
-    purchasesLinked, resolveConflict, retrySync, session, signInWithApple, signInWithGoogle,
+    resolveConflict, retrySync, session, signInWithApple, signInWithGoogle,
     signOut, syncStatus,
   ]);
 

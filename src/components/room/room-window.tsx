@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unknown-property */
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Color,
   Float32BufferAttribute,
@@ -11,14 +11,15 @@ import {
 import { getWindowStyle } from '@/src/types/room-customization';
 
 type RoomWindowProps = {
+  contentOnly?: boolean;
   styleId?: string;
   isNight?: boolean;
-  ambience?: 'day' | 'sunset' | 'night';
-  ambienceMode?: 'auto' | 'day' | 'sunset' | 'night';
+  ambience?: 'day' | 'night';
+  ambienceMode?: 'auto' | 'day' | 'night';
 };
 
 // Cria malha com degradê suave de céu usando interpolação de cores por vértice na GPU
-function createSkyGradientGeometry(mode: 'day' | 'sunset' | 'night'): PlaneGeometry {
+function createSkyGradientGeometry(mode: 'day' | 'night'): PlaneGeometry {
   const geom = new PlaneGeometry(1.26, 1.38, 1, 3);
   const colors: number[] = [];
 
@@ -32,16 +33,11 @@ function createSkyGradientGeometry(mode: 'day' | 'sunset' | 'night'): PlaneGeome
     hexMidHigh = '#3B8EE8'; // Azul celeste radiante
     hexMidLow = '#72B5F8'; // Azul luminoso
     hexHorizon = '#D4EBFF'; // Névoa clara e luminosa do horizonte
-  } else if (mode === 'sunset') {
-    hexTop = '#320E3E'; // Crepúsculo anil/violeta
-    hexMidHigh = '#8E1E4A'; // Carmesim/magenta quente
-    hexMidLow = '#E64A19'; // Laranja intenso de pôr do sol
-    hexHorizon = '#FFB300'; // Dourado radiante na linha do horizonte
   } else {
-    hexTop = '#03050C'; // Noite escura profunda
-    hexMidHigh = '#080F22'; // Azul anil escuro
-    hexMidLow = '#111832'; // Azul meia-noite
-    hexHorizon = '#1A244A'; // Horizonte suave com atmosfera estrelada
+    hexTop = '#090909';
+    hexMidHigh = '#111111';
+    hexMidLow = '#191919';
+    hexHorizon = '#252525';
   }
 
   const cTop = new Color(hexTop);
@@ -72,6 +68,7 @@ function createMountainShape(peaks: [number, number][], minY = -0.69, minX = -0.
 }
 
 export function RoomWindow({
+  contentOnly = false,
   styleId,
   isNight: _isNight,
   ambience,
@@ -81,15 +78,11 @@ export function RoomWindow({
 
   // Determina atmosfera exterior para o cenário da janela
   const hour = new Date().getHours();
-  const effectiveMode: 'day' | 'sunset' | 'night' =
+  const effectiveMode: 'day' | 'night' =
     ambience ??
     (ambienceMode !== 'auto'
       ? ambienceMode
-      : hour >= 6 && hour < 18
-        ? 'day'
-        : hour >= 18 && hour < 20
-          ? 'sunset'
-          : 'night');
+      : hour >= 6 && hour < 18 ? 'day' : 'night');
 
   const skyGeometry = useMemo(() => createSkyGradientGeometry(effectiveMode), [effectiveMode]);
 
@@ -121,39 +114,38 @@ export function RoomWindow({
   const distantMountainGeometry = useMemo(() => new ShapeGeometry(distantMountainsShape), [distantMountainsShape]);
   const nearMountainGeometry = useMemo(() => new ShapeGeometry(nearMountainsShape), [nearMountainsShape]);
 
+  // These geometries are mesh props, not JSX children owned by R3F.
+  useEffect(() => () => skyGeometry.dispose(), [skyGeometry]);
+  useEffect(() => () => {
+    distantMountainGeometry.dispose();
+    nearMountainGeometry.dispose();
+  }, [distantMountainGeometry, nearMountainGeometry]);
+
   // Cores do relevo e cortinas de acordo com a ambiência
   const distantMountainColor =
     effectiveMode === 'day'
       ? '#4A7870' // Verde-azulado montanhoso distante com névoa
-      : effectiveMode === 'sunset'
-        ? '#44152D' // Violeta/carmesim escuro do pôr do sol
-        : '#0B1220'; // Silhueta noturna escura
+      : '#111111';
 
   const nearMountainColor =
     effectiveMode === 'day'
       ? '#275E31' // Verde florestal alpino
-      : effectiveMode === 'sunset'
-        ? '#280E14' // Silhueta castanho-avermelhada crepuscular
-        : '#060A12'; // Silhueta escura noturna
+      : '#090909';
 
   const pineTreeColor =
     effectiveMode === 'day'
       ? '#1A4524'
-      : effectiveMode === 'sunset'
-        ? '#1A0A0E'
-        : '#03060B';
+      : '#080808';
 
   const curtainColor =
     effectiveMode === 'day'
       ? '#F7F2EA' // Linho marfim macio e acolhedor
-      : effectiveMode === 'sunset'
-        ? '#EBD7C4' // Linho aquecido pelo ocaso
-        : '#2E364A'; // Linho escuro acolhedor noturno
+      : '#2D2A27';
 
   return (
     // Posicionada na face da parede esquerda (x = -3.435), rotacionada 90° para olhar para +x (interior da sala)
     // Todas as peças possuem z local estritamente positivo (>= 0.005) para NUNCA haver oclusão pela parede
-    <group position={[-3.435, 2.05, 0.55]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={contentOnly ? [0,-.046,0] : [-3.435, 2.05, 0.55]} rotation={contentOnly ? [0,0,0] : [0, Math.PI / 2, 0]} scale={contentOnly ? [1.12,1.15,1] : 1}>
       {/* ========================================================================= */}
       {/* 1. FUNDO DO CÉU (Degradê atmosférico suave, delimitado em 1.26 x 1.38)      */}
       {/* ========================================================================= */}
@@ -211,55 +203,13 @@ export function RoomWindow({
         </group>
       )}
 
-      {/* --- OCASO / PÔR DO SOL --- */}
-      {effectiveMode === 'sunset' && (
-        <group position={[0, 0.04, 0]}>
-          {/* Sol poente dourado descendo entre as montanhas */}
-          <mesh position={[0.14, -0.02, 0.006]}>
-            <circleGeometry args={[0.30, 24]} />
-            <meshBasicMaterial color="#FF8C00" depthWrite={false} opacity={0.45} transparent />
-          </mesh>
-          <mesh position={[0.14, -0.02, 0.007]}>
-            <circleGeometry args={[0.18, 28]} />
-            <meshBasicMaterial color="#FFF4A8" />
-          </mesh>
-
-          {/* Nuvens crepusculares douradas e coral */}
-          <group position={[-0.24, 0.36, 0.008]}>
-            <mesh position={[-0.09, 0, 0]}>
-              <circleGeometry args={[0.12, 18]} />
-              <meshBasicMaterial color="#FFC7A6" depthWrite={false} opacity={0.88} transparent />
-            </mesh>
-            <mesh position={[0.09, 0, 0]}>
-              <circleGeometry args={[0.11, 18]} />
-              <meshBasicMaterial color="#FFC7A6" depthWrite={false} opacity={0.88} transparent />
-            </mesh>
-            <mesh position={[0, 0.05, 0]}>
-              <circleGeometry args={[0.13, 18]} />
-              <meshBasicMaterial color="#FFB58E" depthWrite={false} opacity={0.88} transparent />
-            </mesh>
-          </group>
-
-          <group position={[0.24, 0.20, 0.008]}>
-            <mesh position={[-0.07, 0, 0]}>
-              <circleGeometry args={[0.09, 16]} />
-              <meshBasicMaterial color="#FFA378" depthWrite={false} opacity={0.78} transparent />
-            </mesh>
-            <mesh position={[0.07, 0, 0]}>
-              <circleGeometry args={[0.08, 16]} />
-              <meshBasicMaterial color="#FFA378" depthWrite={false} opacity={0.78} transparent />
-            </mesh>
-          </group>
-        </group>
-      )}
-
       {/* --- NOITE ESTRELADA --- */}
       {effectiveMode === 'night' && (
         <group position={[0, 0.04, 0]}>
           {/* Brilho celestial e Lua crescente dourada */}
           <mesh position={[0.26, 0.38, 0.006]}>
             <circleGeometry args={[0.22, 24]} />
-            <meshBasicMaterial color="#4E659A" depthWrite={false} opacity={0.32} transparent />
+            <meshBasicMaterial color="#6B6255" depthWrite={false} opacity={0.32} transparent />
           </mesh>
           <mesh position={[0.26, 0.38, 0.007]}>
             <circleGeometry args={[0.13, 24]} />
@@ -268,7 +218,7 @@ export function RoomWindow({
           {/* Recorte preciso da lua crescente */}
           <mesh position={[0.22, 0.41, 0.008]}>
             <circleGeometry args={[0.115, 24]} />
-            <meshBasicMaterial color="#080F22" />
+            <meshBasicMaterial color="#111111" />
           </mesh>
 
           {/* 14 estrelas cintilantes pontilhadas pelo céu */}
@@ -348,6 +298,7 @@ export function RoomWindow({
         </group>
       ))}
 
+      {!contentOnly ? <>
       {/* ========================================================================= */}
       {/* 3. VIDROS COM BRILHO SUTIL E 4 VIDRAÇAS ESPAÇOSAS (Double-Hung Sash)      */}
       {/* ========================================================================= */}
@@ -606,6 +557,7 @@ export function RoomWindow({
           </mesh>
         </group>
       </group>
+      </> : null}
     </group>
   );
 }

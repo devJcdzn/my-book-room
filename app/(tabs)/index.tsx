@@ -1,25 +1,37 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { use, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { BookCover } from '@/src/components/book-cover';
+import { TabBarContext } from '@/src/context/tab-bar-context';
+import { useRoomEditor } from '@/src/store/room-editor-store';
+import { ReadingWeekCalendar } from '@/src/components/reading-week-calendar';
 import { AMBIENCE_THEMES, IsometricScene, resolveAmbience } from '@/src/components/room/isometric-scene';
 import { RoomLoading, type RoomLoadingPhase } from '@/src/components/room/room-loading';
 import { ShareRoomModal } from '@/src/components/room/share-room-modal';
-import { useProAccess } from '@/src/providers/revenuecat-provider';
 import { captureRoomSnapshot, getLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
-import { useLibraryStore } from '@/src/store/library-store';
-import { colors, typography } from '@/src/theme';
+import { READING_DESK_CAPACITY, useLibraryStore } from '@/src/store/library-store';
+import { colors, darkTheme } from '@/src/theme';
+import type { Book } from '@/src/types/book';
 
 const tapFeedback = () => {
   if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 };
 
 export default function RoomScreen() {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const isOrganizing = useRoomEditor(state => Boolean(state.draft));
+  const { setIsTabBarHidden } = use(TabBarContext);
+  useEffect(() => {
+    setIsTabBarHidden(isOrganizing);
+    return () => setIsTabBarHidden(false);
+  }, [isOrganizing, setIsTabBarHidden]);
   const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [isFurnitureReady, setIsFurnitureReady] = useState(false);
   const [isSceneReady, setIsSceneReady] = useState(false);
@@ -28,27 +40,19 @@ export default function RoomScreen() {
   const [sceneVersion, setSceneVersion] = useState(0);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const books = useLibraryStore((state) => state.books);
+  const deskBookIds = useLibraryStore((state) => state.deskBookIds);
+  const readingDays = useLibraryStore((state) => state.readingDays);
   const activeBookId = useLibraryStore((state) => state.activeBookId);
-  const selectActiveBook = useLibraryStore((state) => state.selectActiveBook);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
-  const { isPro } = useProAccess();
 
   const resolvedAmbience = resolveAmbience(ambienceMode);
   const theme = AMBIENCE_THEMES[resolvedAmbience];
-  const isNight = resolvedAmbience === 'night';
 
   useEffect(() => {
-    if (isSceneReady) {
-      const timer = setTimeout(() => setShowLoading(false), 320);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [isSceneReady]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoadingSlow(true), 4500);
+    if (isSceneReady) return;
+    const timer = setTimeout(() => setIsLoadingSlow(true), 12000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isSceneReady, sceneVersion]);
 
   const retryScene = () => {
     setIsCanvasReady(false);
@@ -70,14 +74,20 @@ export default function RoomScreen() {
     setIsShareModalOpen(true);
   };
 
-  const loadingPhase: RoomLoadingPhase = isSceneReady
-    ? 'lighting'
-    : isCanvasReady && !isFurnitureReady
+  const loadingPhase: RoomLoadingPhase = !isCanvasReady
+    ? 'library'
+    : !isFurnitureReady
       ? 'furniture'
       : 'lighting';
 
-  const activeBook = books.find((book) => book.id === activeBookId && book.status === 'reading')
-    ?? [...books].reverse().find((book) => book.status === 'reading');
+  const activeBook = books.find((book) => book.id === activeBookId && book.status === 'reading');
+  const deskBooks = deskBookIds
+    .map((bookId) => books.find((book) => book.id === bookId && book.status === 'reading'))
+    .filter((book): book is Book => Boolean(book));
+  const dockAvailableWidth = width - insets.left - insets.right - 32;
+  const dockSlotWidth = Math.min(72, Math.max(52, (dockAvailableWidth - 64) / READING_DESK_CAPACITY));
+  const dockSlotHeight = dockSlotWidth * 1.39;
+  const dockWidth = Math.min(dockAvailableWidth, dockSlotWidth * READING_DESK_CAPACITY + 56);
 
   const openProgress = (bookId: string) => {
     tapFeedback();
@@ -85,26 +95,24 @@ export default function RoomScreen() {
   };
 
   const selectBook = (bookId: string) => {
-    tapFeedback();
-    selectActiveBook(bookId);
+    openProgress(bookId);
   };
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bgColor }]}>
       <IsometricScene
         key={sceneVersion}
-        isPro={isPro}
+        isPro={false}
         isCustomizing={isCustomizing}
-        onAddBook={() => {
-          tapFeedback();
-          router.navigate('/add-book');
-        }}
         onCanvasReady={() => setIsCanvasReady(true)}
         onCustomizingChange={setIsCustomizing}
         onFurnitureReady={() => setIsFurnitureReady(true)}
         onOpenBook={openProgress}
         onSceneError={handleSceneError}
-        onSceneReady={() => setIsSceneReady(true)}
+        onSceneReady={() => {
+          setIsSceneReady(true);
+          setShowLoading(false);
+        }}
         onSelectBook={selectBook}
         onShare={handleOpenShare}
       />
@@ -128,47 +136,67 @@ export default function RoomScreen() {
         </Animated.View>
       ) : null}
 
-      {/* Dica inicial se não houver livros */}
-      {!isCustomizing && books.length === 0 ? (
-        <Animated.View
-          entering={FadeIn.delay(350).duration(300)}
-          exiting={FadeOut.duration(180)}
-          pointerEvents="none"
-          style={styles.bottomHintWrap}
-        >
-          <Text selectable style={[styles.hintPill, isNight && styles.darkHintPill]}>
-            Toque na mesa ou no + para começar uma leitura
-          </Text>
-        </Animated.View>
-      ) : !isCustomizing && activeBook ? (
-        /* Card flutuante compacto com o livro aberto na mesa */
+      {!isCustomizing ? <ReadingWeekCalendar isNight={resolvedAmbience === 'night'} readingDays={readingDays} /> : null}
+
+      {!isCustomizing ? (
+        /* A mesa comporta três livros iniciados, incluindo os espaços vazios. */
         <Animated.View
           entering={FadeIn.duration(260)}
           exiting={FadeOut.duration(180)}
-          style={styles.activeBookWidgetWrap}
+          style={[styles.recentReadingDockWrap, { left: insets.left + 16, right: insets.right + 16 }]}
         >
-          <Pressable
-            accessibilityHint="Abre o progresso do livro ativo"
-            accessibilityLabel={`Livro na mesa: ${activeBook.title}, página ${activeBook.currentPage} de ${activeBook.totalPages}`}
-            accessibilityRole="button"
-            onPress={() => openProgress(activeBook.id)}
-            style={({ pressed }) => [
-              styles.activeWidget,
-              isNight && styles.darkWidget,
-              pressed && styles.widgetPressed,
-            ]}
-          >
-            <BookCover color={activeBook.coverColor} coverUrl={activeBook.coverUrl} style={styles.widgetCover} />
-            <View style={styles.widgetInfo}>
-              <Text numberOfLines={1} style={[styles.widgetTitle, isNight && styles.darkTitle]}>
-                {activeBook.title}
-              </Text>
-              <Text style={[styles.widgetSub, isNight && styles.darkSub]}>
-                pág. {activeBook.currentPage} de {activeBook.totalPages} · {Math.round((activeBook.currentPage / activeBook.totalPages) * 100)}%
-              </Text>
-            </View>
-            <Ionicons color={colors.terracotta} name="chevron-forward" size={18} />
-          </Pressable>
+          <View style={[styles.recentReadingDock, resolvedAmbience === 'night' ? styles.nightReadingDock : styles.dayReadingDock, { width: dockWidth }]}>
+            <ScrollView
+              contentContainerStyle={styles.recentReadingCovers}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {deskBooks.map((book) => {
+                const isActive = book.id === activeBook?.id;
+                return (
+                  <Pressable
+                    key={book.id}
+                    accessibilityHint="Abre os detalhes do livro"
+                    accessibilityLabel={`${book.title}${isActive ? ', livro atual na mesa' : ', na mesa'}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    onPress={() => openProgress(book.id)}
+                    style={({ pressed }) => [
+                      styles.dockCoverFrame,
+                      { width: dockSlotWidth, height: dockSlotHeight },
+                      isActive && {
+                        borderColor: resolvedAmbience === 'night' ? darkTheme.accent : colors.terracotta,
+                      },
+                      pressed && styles.dockCoverPressed,
+                    ]}
+                  >
+                    <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.dockCover} />
+                  </Pressable>
+                );
+              })}
+              {Array.from({ length: Math.max(0, READING_DESK_CAPACITY - deskBooks.length) }, (_, slot) => (
+                <Pressable
+                  key={`add-book-${slot}`}
+                  accessibilityHint="Abre a Biblioteca. Só começar a leitura coloca o livro na mesa."
+                  accessibilityLabel="Abrir biblioteca"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    tapFeedback();
+                    router.navigate('/books');
+                  }}
+                  style={({ pressed }) => [
+                    styles.dockAddSlot,
+                    resolvedAmbience === 'night' && styles.nightDockAddSlot,
+                    { width: dockSlotWidth, height: dockSlotHeight },
+                    pressed && styles.dockCoverPressed,
+                  ]}
+                >
+                  <Ionicons color={resolvedAmbience === 'night' ? darkTheme.textMuted : '#8E6F4C'} name="add" size={20} />
+                </Pressable>
+              ))}
+            </ScrollView>
+            <View style={[styles.shelfEdge, resolvedAmbience === 'night' ? styles.nightShelfEdge : styles.dayShelfEdge]} />
+          </View>
         </Animated.View>
       ) : null}
 
@@ -185,88 +213,80 @@ export default function RoomScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   loadingContainer: { zIndex: 100 },
-  bottomHintWrap: {
+  recentReadingDockWrap: {
     position: 'absolute',
-    right: 0,
-    bottom: 104,
-    left: 0,
+    bottom: 98,
+    left: 12,
+    right: 12,
     alignItems: 'center',
   },
-  hintPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    overflow: 'hidden',
-    borderRadius: 16,
+  recentReadingDock: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderRadius: 14,
     borderCurve: 'continuous',
-    color: colors.ink,
-    fontSize: 13,
-    fontWeight: '700',
-    backgroundColor: 'rgba(255, 249, 240, 0.92)',
-    boxShadow: '0 4px 12px rgba(53, 42, 36, 0.12)',
-  },
-  darkHintPill: {
-    backgroundColor: 'rgba(35, 38, 52, 0.94)',
-    color: '#F5E8D3',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
-  },
-  activeBookWidgetWrap: {
-    position: 'absolute',
-    bottom: 100,
-    left: 18,
-    right: 18,
-  },
-  activeWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    paddingRight: 14,
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    backgroundColor: 'rgba(255, 249, 240, 0.94)',
     borderWidth: 1,
-    borderColor: colors.line,
-    boxShadow: '0 4px 14px rgba(53, 42, 36, 0.12)',
   },
-  darkWidget: {
-    backgroundColor: 'rgba(32, 35, 48, 0.94)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
+  dayReadingDock: {
+    backgroundColor: '#DCC7A7',
+    borderColor: 'rgba(96, 67, 38, 0.16)',
+    boxShadow: '0 2px 8px rgba(73, 50, 29, 0.16)',
   },
-  darkPill: {
-    backgroundColor: 'rgba(32, 35, 48, 0.94)',
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35)',
+  nightReadingDock: {
+    backgroundColor: '#292621',
+    borderColor: 'rgba(243, 240, 235, 0.12)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
   },
-  widgetPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.99 }],
+  recentReadingCovers: {
+    minWidth: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  widgetCover: {
-    width: 26,
-    height: 38,
+  dockCoverFrame: {
+    width: 56,
+    height: 78,
+    padding: 2,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: 6,
+    borderCurve: 'continuous',
+  },
+  dockCoverPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.96 }],
+  },
+  dockAddSlot: {
+    width: 56,
+    height: 78,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 67, 38, 0.24)',
+    borderRadius: 6,
+    borderCurve: 'continuous',
+    backgroundColor: 'transparent',
+  },
+  nightDockAddSlot: {
+    borderColor: 'rgba(243, 240, 235, 0.24)',
+  },
+  dockCover: {
+    width: '100%',
+    height: '100%',
     borderRadius: 3,
     borderCurve: 'continuous',
+    overflow: 'hidden',
   },
-  widgetInfo: {
-    flex: 1,
-    gap: 2,
+  shelfEdge: {
+    height: 3,
+    marginTop: 5,
+    borderRadius: 1,
   },
-  widgetTitle: {
-    color: colors.ink,
-    fontFamily: typography.editorial,
-    fontSize: 14,
-    fontWeight: '600',
+  dayShelfEdge: {
+    backgroundColor: '#A68341',
   },
-  darkTitle: {
-    color: '#FAF4EB',
-  },
-  widgetSub: {
-    color: colors.muted,
-    fontSize: 12,
-    fontVariant: ['tabular-nums'],
-  },
-  darkSub: {
-    color: '#B2B7C8',
+  nightShelfEdge: {
+    backgroundColor: '#4A4034',
   },
 });

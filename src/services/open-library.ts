@@ -31,6 +31,7 @@ type SearchDocument = {
   key?: string;
   title?: string;
   author_name?: string[];
+  isbn?: string[];
   cover_i?: number;
   number_of_pages_median?: number;
   first_publish_year?: number;
@@ -44,6 +45,40 @@ type SearchDocument = {
       number_of_pages?: number;
     }[];
   };
+};
+
+type OpenLibraryDescription = string | { value?: string };
+
+type WorkDetailsResponse = {
+  description?: OpenLibraryDescription;
+  first_publish_date?: string;
+  subjects?: string[];
+};
+
+type EditionDetailsResponse = {
+  number_of_pages?: number;
+  publishers?: string[];
+  publish_date?: string;
+  isbn_10?: string[];
+  isbn_13?: string[];
+};
+
+export type OpenLibraryBookDetails = {
+  description?: string;
+  firstPublishDate?: string;
+  subjects: string[];
+  publishers: string[];
+  publishDate?: string;
+  editionPageCount?: number;
+  isbn?: string;
+};
+
+export type BookDetailsLookup = {
+  workKey?: string;
+  editionKey?: string;
+  isbn?: string;
+  title: string;
+  author: string;
 };
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -77,6 +112,25 @@ const positivePageCount = (value: unknown) =>
   typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 99_999
     ? value
     : undefined;
+
+const cleanTextList = (values: unknown, limit = 8) => Array.isArray(values)
+  ? values.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim())
+    .slice(0, limit)
+  : [];
+
+const descriptionText = (value: OpenLibraryDescription | undefined) => {
+  const description = typeof value === 'string' ? value : value?.value;
+  return typeof description === 'string' ? description.trim() || undefined : undefined;
+};
+
+const cleanText = (value: unknown) => typeof value === 'string' ? value.trim() || undefined : undefined;
+
+const normalizeMatchText = (value: string) => value.normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
 
 const cleanKey = (key: string | undefined, prefix: 'works' | 'books') => {
   if (!key) return undefined;
@@ -292,6 +346,79 @@ export const createOpenLibraryClient = ({
     return positivePageCount(response.number_of_pages);
   };
 
+  const getBookDetails = async (
+    book: BookDetailsLookup,
+    signal?: AbortSignal,
+  ): Promise<OpenLibraryBookDetails | undefined> => {
+    let workKey = cleanKey(book.workKey, 'works');
+    let editionKey = cleanKey(book.editionKey, 'books');
+
+    if (!workKey && !editionKey) {
+      const isbn = book.isbn && isValidIsbn(book.isbn) ? normalizeIsbn(book.isbn) : undefined;
+      const query = isbn
+        ? `isbn:${isbn}`
+        : `title:${JSON.stringify(book.title.trim())} AND author:${JSON.stringify(book.author.trim())}`;
+      const params = new URLSearchParams({
+        q: query,
+        lang: 'pt',
+        limit: String(PAGE_SIZE),
+        fields: 'key,title,author_name,isbn,edition_key,editions,editions.key,editions.isbn,editions.language,editions.number_of_pages',
+      });
+      const search = await requestJson<{ docs?: SearchDocument[] }>(
+        `${API_URL}/search.json?${params}`,
+        SEARCH_TTL,
+        signal,
+      );
+      const matches = (search.docs ?? []).filter((document) => {
+        if (isbn) {
+          return document.isbn?.some((value) => normalizeIsbn(value) === isbn)
+            || document.editions?.docs?.some((edition) =>
+              edition.isbn?.some((value) => normalizeIsbn(value) === isbn));
+        }
+        return normalizeMatchText(document.title ?? '') === normalizeMatchText(book.title)
+          && document.author_name?.some((author) =>
+            normalizeMatchText(author) === normalizeMatchText(book.author));
+      });
+      const uniqueMatchesByWork = new Map<string, SearchDocument>();
+      matches.forEach((document) => {
+        const key = cleanKey(document.key, 'works');
+        if (key) uniqueMatchesByWork.set(key, document);
+      });
+      const uniqueMatches = [...uniqueMatchesByWork.values()];
+      if (uniqueMatches.length !== 1) return undefined;
+
+      const match = uniqueMatches[0];
+      workKey = cleanKey(match.key, 'works');
+      const matchedEdition = isbn
+        ? match.editions?.docs?.find((edition) =>
+          edition.isbn?.some((value) => normalizeIsbn(value) === isbn))
+        : undefined;
+      const portugueseEdition = match.editions?.docs?.find((edition) => edition.language?.includes('por'));
+      editionKey = cleanKey(isbn
+        ? matchedEdition?.key
+        : portugueseEdition?.key ?? match.edition_key?.[0], 'books');
+    }
+
+    const work = workKey
+      ? await requestJson<WorkDetailsResponse>(`${API_URL}${workKey}.json`, SEARCH_TTL, signal)
+      : undefined;
+    const edition = editionKey
+      ? await requestJson<EditionDetailsResponse>(`${API_URL}${editionKey}.json`, SEARCH_TTL, signal)
+      : undefined;
+    const isbn = [edition?.isbn_13?.[0], edition?.isbn_10?.[0], book.isbn]
+      .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+    return {
+      description: descriptionText(work?.description),
+      firstPublishDate: cleanText(work?.first_publish_date),
+      subjects: cleanTextList(work?.subjects),
+      publishers: cleanTextList(edition?.publishers, 3),
+      publishDate: cleanText(edition?.publish_date),
+      editionPageCount: positivePageCount(edition?.number_of_pages),
+      isbn: isbn ? normalizeIsbn(isbn) : undefined,
+    };
+  };
+
   const searchBooks = async (query: string, page = 1, signal?: AbortSignal): Promise<BookSearchPage> => {
     const trimmed = query.trim();
     const normalizedIsbn = normalizeIsbn(trimmed);
@@ -360,7 +487,7 @@ export const createOpenLibraryClient = ({
     };
   };
 
-  return { searchBooks, trendingBooks };
+  return { searchBooks, trendingBooks, getBookDetails };
 };
 
 export const openLibraryClient = createOpenLibraryClient();

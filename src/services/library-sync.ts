@@ -17,7 +17,7 @@ export const createCloudLibrarySnapshot = (
   snapshot: PersistedLibraryState,
 ): CloudLibrarySnapshot => {
   const { pictureFramePhotoUri: _localPhoto, ...cloudSnapshot } = snapshot;
-  return cloudSnapshot;
+  return { ...cloudSnapshot, roomLayout:cloudSnapshot.roomLayout ? {...cloudSnapshot.roomLayout,pieces:cloudSnapshot.roomLayout.pieces.map(({photoUri:_photo,...piece})=>piece)} : undefined };
 };
 
 export const normalizeCloudLibrarySnapshot = (

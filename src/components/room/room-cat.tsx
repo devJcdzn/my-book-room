@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports, react/no-unknown-property */
 import * as Haptics from 'expo-haptics';
-import React, { Suspense, useCallback, useEffect, useRef } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber/native';
 import { type Group } from 'three';
 import { type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { NativeGLTFLoader } from '@/src/components/room/room-furniture';
+import { retainRoomModel } from '@/src/components/room/room-resources';
+import { useRoomEditor } from '@/src/store/room-editor-store';
 import { useLibraryStore } from '@/src/store/library-store';
 import { getCatOption } from '@/src/types/room-customization';
 
@@ -126,15 +128,18 @@ export function CatLoadingDisguise({ catId }: { catId: string }) {
 function CatModel({ catId, onLoaded }: { catId: string; onLoaded?: () => void }) {
   const source = CAT_SOURCES[catId] ?? CAT_SOURCES['catnap-orange'];
   const gltf = useLoader(NativeGLTFLoader, source as unknown as string) as GLTF;
+  useEffect(() => retainRoomModel(gltf.scene), [gltf]);
   const groupRef = useRef<Group>(null);
+  const object = useMemo(() => {
+    const cloned = gltf.scene.clone(true);
+    cloned.traverse((child) => { child.frustumCulled = false; });
+    return cloned;
+  }, [gltf]);
 
   useEffect(() => {
     loadedCats.add(catId);
     onLoaded?.();
-    gltf.scene.traverse((child) => {
-      child.frustumCulled = false;
-    });
-  }, [catId, gltf, onLoaded]);
+  }, [catId, onLoaded]);
 
   useFrame((_, delta) => {
     if (groupRef.current && groupRef.current.scale.x < 0.60) {
@@ -145,17 +150,18 @@ function CatModel({ catId, onLoaded }: { catId: string; onLoaded?: () => void })
 
   return (
     <group ref={groupRef} position={[0, 0.445 * 0.60, 0]} scale={0.48}>
-      <primitive object={gltf.scene} />
+      <primitive object={object} dispose={null} />
     </group>
   );
 }
 
 type RoomCatProps = {
   catId?: string;
+  positioned?: boolean;
   onLoadingChange?: (loading: boolean, catId: string) => void;
 };
 
-export function RoomCat({ catId: catIdOverride, onLoadingChange }: RoomCatProps) {
+export function RoomCat({ catId: catIdOverride, onLoadingChange, positioned = false }: RoomCatProps) {
   const storeCatId = useLibraryStore((state) => state.catId);
   const catId = catIdOverride ?? storeCatId;
 
@@ -175,10 +181,10 @@ export function RoomCat({ catId: catIdOverride, onLoadingChange }: RoomCatProps)
   return (
     <group
       onClick={() => {
-        if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!useRoomEditor.getState().draft && process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }}
-      position={[2.10, 0.02, 1.40]}
-      rotation={[0, -0.75, 0]}
+      position={positioned ? [0, 0, 0] : [2.10, 0.02, 1.40]}
+      rotation={positioned ? [0, 0, 0] : [0, -0.75, 0]}
     >
       <Suspense fallback={<CatLoadingDisguise catId={catId} />}>
         <CatModel catId={catId} onLoaded={handleLoaded} />

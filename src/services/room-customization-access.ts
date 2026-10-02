@@ -2,7 +2,6 @@ import {
   DEFAULT_BOOKCASE_PALETTE_ID,
   DEFAULT_CAT_ID,
   DEFAULT_FLOOR_PALETTE_ID,
-  DEFAULT_PICTURE_FRAME_STYLE_ID,
   DEFAULT_POSTER_FRAME_ID,
   DEFAULT_RUG_PALETTE_ID,
   DEFAULT_WALL_PALETTE_ID,
@@ -21,6 +20,8 @@ export const FREE_ROOM_CUSTOMIZATION_IDS = {
 
 export type RoomCustomizationCategory = keyof typeof FREE_ROOM_CUSTOMIZATION_IDS;
 
+export const ROOM_CUSTOMIZATION_SALES_ENABLED = false;
+
 const DEFAULT_ROOM_CUSTOMIZATION_IDS: Record<RoomCustomizationCategory, string> = {
   walls: DEFAULT_WALL_PALETTE_ID,
   flooring: DEFAULT_FLOOR_PALETTE_ID,
@@ -34,11 +35,17 @@ const DEFAULT_ROOM_CUSTOMIZATION_IDS: Record<RoomCustomizationCategory, string> 
 export const isFreeRoomOption = (category: RoomCustomizationCategory, id: string) =>
   FREE_ROOM_CUSTOMIZATION_IDS[category].some((optionId) => optionId === id);
 
+export const isRoomCustomizationLocked = (
+  category: RoomCustomizationCategory,
+  id: string,
+  isPro = false,
+) => ROOM_CUSTOMIZATION_SALES_ENABLED && !isPro && !isFreeRoomOption(category, id);
+
 export const resolveRoomOptionId = (
   category: RoomCustomizationCategory,
   id: string,
-  isPro: boolean,
-) => (isPro || isFreeRoomOption(category, id) ? id : DEFAULT_ROOM_CUSTOMIZATION_IDS[category]);
+  isPro = false,
+) => (isRoomCustomizationLocked(category, id, isPro) ? DEFAULT_ROOM_CUSTOMIZATION_IDS[category] : id);
 
 export type RoomCustomizationSnapshot = {
   wallPaletteId: string;
@@ -54,7 +61,7 @@ export type RoomCustomizationSnapshot = {
 
 export const resolveRoomCustomization = (
   customization: RoomCustomizationSnapshot,
-  isPro: boolean,
+  isPro = false,
 ): RoomCustomizationSnapshot => ({
   wallPaletteId: resolveRoomOptionId('walls', customization.wallPaletteId, isPro),
   floorPaletteId: resolveRoomOptionId('flooring', customization.floorPaletteId, isPro),
@@ -63,8 +70,8 @@ export const resolveRoomCustomization = (
   catId: resolveRoomOptionId('cat', customization.catId, isPro),
   leftWallWindowStyle: resolveRoomOptionId('window', customization.leftWallWindowStyle, isPro),
   leftWallFrameColor: resolveRoomOptionId('frame', customization.leftWallFrameColor, isPro),
-  pictureFrameStyleId: isPro || isFreeRoomOption('frame', customization.pictureFrameStyleId)
-    ? customization.pictureFrameStyleId
-    : DEFAULT_PICTURE_FRAME_STYLE_ID,
-  pictureFramePhotoUri: isPro ? customization.pictureFramePhotoUri : null,
+  pictureFrameStyleId: resolveRoomOptionId('frame', customization.pictureFrameStyleId, isPro),
+  pictureFramePhotoUri: isRoomCustomizationLocked('frame', customization.pictureFrameStyleId, isPro)
+    ? null
+    : customization.pictureFramePhotoUri,
 });

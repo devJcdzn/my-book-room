@@ -47,7 +47,52 @@ test('restauração da nuvem preserva a foto deste aparelho', () => {
   assert.equal(restored.pictureFramePhotoUri, 'file:///device/current.jpg');
 });
 
+test('snapshot de nuvem sincroniza entradas do diário junto com os livros', () => {
+  const withDiary = createPersistedState({
+    profile: snapshot.profile,
+    books: [{
+      id: 'manual-1', source: 'manual', title: 'Livro', author: 'Autora', coverColor: '#336699',
+      totalPages: 100, currentPage: 20, status: 'reading',
+      readingEntries: [{ id: 'entry-1', text: 'Uma ideia.', createdAt: '2026-09-28T10:00:00.000Z', page: 20, isFavorite: true }],
+    }, {
+      id: 'manual-2', source: 'manual', title: 'Para ler', author: 'Outra autora', coverColor: '#996633',
+      totalPages: 120, currentPage: 0, status: 'want-to-read', shelfId: 'want-to-read-weekend',
+    }],
+    activeBookId: 'manual-1',
+    isLampOn: snapshot.isLampOn,
+    ambienceMode: snapshot.ambienceMode,
+    wallPaletteId: snapshot.wallPaletteId,
+    floorPaletteId: snapshot.floorPaletteId,
+    rugPaletteId: snapshot.rugPaletteId,
+    bookcasePaletteId: snapshot.bookcasePaletteId,
+    catId: snapshot.catId,
+    leftWallItem: snapshot.leftWallItem,
+    leftWallWindowStyle: snapshot.leftWallWindowStyle,
+    leftWallFrameColor: snapshot.leftWallFrameColor,
+    pictureFrameSize: snapshot.pictureFrameSize,
+    pictureFrameStyleId: snapshot.pictureFrameStyleId,
+    pictureFramePhotoUri: snapshot.pictureFramePhotoUri,
+    readingDays: ['2026-09-29'],
+    wantToReadShelves: ['want-to-read-default', 'want-to-read-weekend'],
+    readingShelves: ['reading-default', 'reading-window'],
+    completedShelves: ['completed-default'],
+    shelfNames: { 'reading-window': 'Janela de leitura' },
+    libraryBackgroundId: 'sage',
+  });
+  const cloud = createCloudLibrarySnapshot(withDiary);
+  const restored = normalizeCloudLibrarySnapshot(cloud, null);
+  assert.deepEqual(restored.books[0]?.readingEntries, withDiary.books[0]?.readingEntries);
+  assert.deepEqual(restored.readingDays, ['2026-09-29']);
+  assert.deepEqual(restored.wantToReadShelves, ['want-to-read-default', 'want-to-read-weekend']);
+  assert.equal(restored.books[1]?.status, 'want-to-read');
+  assert.equal(restored.books[1]?.shelfId, 'want-to-read-weekend');
+  assert.deepEqual(restored.readingShelves, ['reading-default', 'reading-window']);
+  assert.deepEqual(restored.completedShelves, ['completed-default']);
+  assert.deepEqual(restored.shelfNames, { 'reading-window': 'Janela de leitura' });
+  assert.equal(restored.libraryBackgroundId, 'sage');
+});
+
 test('biblioteca com foto local não é considerada vazia', () => {
   assert.equal(isDefaultLibrarySnapshot(snapshot), false);
-  assert.equal(isDefaultLibrarySnapshot({ ...snapshot, pictureFramePhotoUri: null }), true);
+  assert.equal(isDefaultLibrarySnapshot({ ...snapshot, pictureFramePhotoUri: null, roomLayout: undefined }), true);
 });

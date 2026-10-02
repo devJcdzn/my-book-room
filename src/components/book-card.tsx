@@ -7,7 +7,7 @@ import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 import { BookCover } from '@/src/components/book-cover';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, radii, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -45,7 +45,9 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
 
   const handleSelectActive = () => {
     triggerHaptic();
-    selectActiveBook(book.id);
+    if (!selectActiveBook(book.id)) {
+      Alert.alert('Mesa cheia', 'A mesa comporta até três livros. Remova um livro da mesa antes de começar outro.');
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -125,7 +127,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
                 <Text selectable style={[styles.completedText, isNight && styles.darkCompletedText]}>Concluído</Text>
                 {book.rating ? (
                   <View style={styles.ratingInline}>
-                    <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="star" size={12} />
+                    <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="star" size={12} />
                     <Text style={[styles.ratingText, isNight && styles.darkTitle]}>{book.rating}</Text>
                   </View>
                 ) : null}
@@ -134,7 +136,7 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
               <View style={styles.badgeRow}>
                 {isActiveOnDesk ? (
                   <View style={[styles.activeBadge, isNight && styles.darkActiveBadge]}>
-                    <Ionicons color={isNight ? '#FFAE70' : colors.terracotta} name="book-outline" size={13} />
+                    <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="book-outline" size={13} />
                     <Text selectable style={[styles.activeBadgeText, isNight && styles.darkActiveBadgeText]}>Aberto na mesa</Text>
                   </View>
                 ) : (
@@ -273,8 +275,6 @@ const styles = StyleSheet.create({
   title: {
     color: colors.ink,
     fontFamily: typography.editorial,
-    fontSize: 16,
-    fontWeight: '600',
     lineHeight: 20,
   },
   author: {
@@ -282,9 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
   },
-  deleteButton: {
-    padding: 4,
-  },
+  deleteButton: { ...controls.iconButton },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -386,9 +384,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   stepBtn: {
+    minWidth: controls.iconButton.width,
+    minHeight: controls.iconButton.height,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.small,
+    borderRadius: controls.button.borderRadius,
     borderCurve: 'continuous',
     backgroundColor: '#EDE5D8',
     borderWidth: 1,
@@ -405,6 +406,8 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   finishBtn: {
+    minHeight: controls.iconButton.height,
+    justifyContent: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -453,19 +456,19 @@ const styles = StyleSheet.create({
     color: '#78C296',
   },
   darkActiveBadge: {
-    backgroundColor: 'rgba(255, 174, 112, 0.18)',
+    backgroundColor: 'rgba(182, 90, 61, 0.18)',
   },
   darkActiveBadgeText: {
-    color: '#FFAE70',
+    color: darkTheme.accent,
   },
   darkInactiveBadge: {
     backgroundColor: darkTheme.surfaceElevated,
   },
   darkPercentText: {
-    color: '#FFAE70',
+    color: darkTheme.accent,
   },
   darkProgressBarBg: {
-    backgroundColor: '#2C3044',
+    backgroundColor: darkTheme.border,
   },
   darkStepBtn: {
     backgroundColor: darkTheme.surfaceElevated,
