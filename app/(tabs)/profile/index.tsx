@@ -1,3 +1,5 @@
+import { AuthActions } from '@/src/components/auth-actions';
+import { ProfileAvatar } from '@/src/components/profile-avatar';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -10,8 +12,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { ShareRoomModal } from '@/src/components/room/share-room-modal';
 import AmbienceModePicker from '@/src/components/ambience-mode-picker';
-import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
-import { useAuth } from '@/src/providers/auth-provider';
 import { captureRoomSnapshot, getLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import { type AmbienceMode, useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
@@ -23,14 +23,12 @@ export default function ProfileScreen() {
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const setAmbienceMode = useLibraryStore((state) => state.setAmbienceMode);
   const restartOnboarding = useLibraryStore((state) => state.restartOnboarding);
-  const { user, syncStatus } = useAuth();
 
   const completedBooks = books.filter((book) => book.status === 'completed').length;
   const totalPagesRead = books.reduce((sum, book) => sum + book.currentPage, 0);
   const noteCount = books.reduce((sum, book) => sum + (book.readingEntries?.length ?? 0), 0);
   const isNight = resolveAmbience(ambienceMode) === 'night';
   const pageBackground = isNight ? darkTheme.bg : colors.cream;
-  const avatarInitial = profile.name.trim().charAt(0).toUpperCase() || 'L';
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const handleSelectAmbience = (mode: string | number) => {
@@ -69,9 +67,7 @@ export default function ProfileScreen() {
         <View style={styles.body}>
           <View style={[styles.profileCard, isNight && styles.nightCard]}>
             <View style={styles.profileRow}>
-              <View accessibilityLabel="Monograma do leitor" style={[styles.avatar, isNight && styles.darkAvatar]}>
-                <Text selectable style={[styles.avatarText, isNight && styles.darkAccentText]}>{avatarInitial}</Text>
-              </View>
+              <ProfileAvatar avatar={profile.avatar} name={profile.name} />
               <View style={styles.profileInfo}>
                 <Text numberOfLines={2} selectable style={[styles.name, isNight && styles.darkTitle]}>{profile.name}</Text>
               </View>
@@ -89,6 +85,8 @@ export default function ProfileScreen() {
               </View>
             ) : null}
           </View>
+
+          <AuthActions isNight={isNight} />
 
           <View style={[styles.journeySection, isNight && styles.journeySectionNight]}>
             <View style={styles.journeyHeading}>
@@ -180,31 +178,7 @@ export default function ProfileScreen() {
               <Ionicons color={isNight ? darkTheme.accent : colors.terracottaDark} name="chevron-forward" size={18} />
             </Pressable>
 
-            {ACCOUNT_SYNC_ENABLED ? (
-              <>
-                <View style={[styles.settingDivider, isNight && styles.darkDivider]} />
-                <Pressable
-                  accessibilityHint="Abre as opções de conta e backup"
-                  accessibilityLabel="Conta e sincronização"
-                  accessibilityRole="button"
-                  onPress={() => router.navigate('/account' as Href)}
-                  style={({ pressed }) => [styles.settingLink, pressed && styles.pressed]}
-                >
-                  <View style={styles.settingLinkCopy}>
-                    <View style={styles.settingLinkIcon}>
-                      <Ionicons color={isNight ? darkTheme.accent : colors.terracottaDark} name="cloud-outline" size={20} />
-                    </View>
-                    <Text style={[styles.settingLinkTitle, isNight && styles.darkTitle]}>Conta e sincronização</Text>
-                  </View>
-                  <View style={styles.settingStatus}>
-                    <Text style={[styles.statusText, isNight && styles.darkMutedText]}>
-                      {user ? (syncStatus === 'synced' ? 'Sincronizado' : 'Conectado') : 'Opcional'}
-                    </Text>
-                    <Ionicons color={isNight ? darkTheme.accent : colors.terracottaDark} name="chevron-forward" size={17} />
-                  </View>
-                </Pressable>
-              </>
-            ) : null}
+
           </View>
 
           <Text style={[styles.footer, isNight && styles.darkMutedText]}>Nookly · Sua biblioteca, no seu ritmo</Text>
@@ -307,8 +281,6 @@ const styles = StyleSheet.create({
   settingLinkText: { flex: 1, gap: 3 },
   settingLinkTitle: { color: colors.inkSoft, fontFamily: typography.ui, fontSize: 15, fontWeight: '700' },
   settingLinkDescription: { color: colors.muted, fontFamily: typography.ui, fontSize: 13, lineHeight: 18 },
-  settingStatus: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statusText: { color: colors.inkSoft, fontFamily: typography.ui, fontSize: 10 },
   footer: { alignSelf: 'center', color: colors.muted, fontFamily: typography.ui, fontSize: 12, textAlign: 'center', paddingVertical: 8 },
   darkTitle: { color: darkTheme.text },
   darkMutedText: { color: darkTheme.textMuted },

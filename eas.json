@@ -6,17 +6,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
+      }
     },
     "beta-android": {
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_BETA_UNLOCK_ALL": "true"
+        "EXPO_PUBLIC_BETA_UNLOCK_ALL": "true",
+        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
       },
       "android": {
         "buildType": "apk"
@@ -24,7 +31,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
+      }
     }
   },
   "submit": {

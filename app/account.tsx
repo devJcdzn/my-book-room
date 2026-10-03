@@ -1,138 +1,154 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AuthActions } from '@/src/components/auth-actions';
+import { PrimaryButton } from '@/src/components/primary-button';
+import { ProfileAvatar } from '@/src/components/profile-avatar';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
 import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth, type SyncStatus } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
-import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
+import { colors, darkTheme, radii, typography } from '@/src/theme';
 
-const STATUS_COPY: Record<SyncStatus, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  idle: { label: 'Somente neste aparelho', icon: 'phone-portrait-outline' },
-  syncing: { label: 'Sincronizando…', icon: 'sync-outline' },
-  synced: { label: 'Sincronizado', icon: 'cloud-done-outline' },
-  offline: { label: 'Aguardando conexão', icon: 'cloud-offline-outline' },
-  conflict: { label: 'Escolha necessária', icon: 'git-compare-outline' },
-  error: { label: 'Não foi possível sincronizar', icon: 'alert-circle-outline' },
+const STATUS_COPY: Record<SyncStatus, { title: string; description: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  idle: { title: 'Sua sala neste aparelho', description: 'Suas alterações ficam salvas aqui enquanto preparamos o envio para sua conta.', icon: 'phone-portrait-outline' },
+  syncing: { title: 'Salvando sua sala…', description: 'Estamos guardando suas últimas alterações e fotos na sua conta.', icon: 'cloud-upload-outline' },
+  synced: { title: 'Sua sala está salva', description: 'Sua sala, livros, leituras e fotos estão salvos para você continuar em outro aparelho.', icon: 'cloud-done-outline' },
+  offline: { title: 'Aguardando conexão', description: 'Continue usando sua sala. Enviaremos suas alterações quando a conexão voltar.', icon: 'cloud-offline-outline' },
+  conflict: { title: 'Qual sala deseja manter?', description: 'Encontramos alterações neste aparelho e na sua conta. Escolha abaixo qual versão usar.', icon: 'git-compare-outline' },
+  error: { title: 'O envio não foi concluído', description: 'Suas alterações continuam neste aparelho. Tente novamente para salvá-las na sua conta.', icon: 'alert-circle-outline' },
 };
 
+type AccountAction = 'retry' | 'cloud' | 'device' | 'signout' | 'delete';
+
 export default function AccountScreen() {
-  const ambienceMode = useLibraryStore((state) => state.ambienceMode);
+  const profile = useLibraryStore(state => state.profile);
+  const ambienceMode = useLibraryStore(state => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
-  const [isDeleting, setIsDeleting] = useState(false);
-  const {
-    user, provider, isLoading, isAuthenticating, errorMessage, syncStatus, lastSyncedAt,
-    hasConflict, signInWithApple, signInWithGoogle, resolveConflict,
-    retrySync, signOut, deleteAccount,
-  } = useAuth();
+  const [action, setAction] = useState<AccountAction | null>(null);
+  const actionInProgress = useRef(false);
+  const { user, provider, errorMessage, syncStatus, lastSyncedAt, hasConflict, resolveConflict,
+    retrySync, signOut, deleteAccount, isLoading, isAuthenticating } = useAuth();
+  const busy = Boolean(action) || isLoading || isAuthenticating;
   const status = STATUS_COPY[syncStatus];
+  const accent = isNight ? darkTheme.accent : colors.terracotta;
+  const muted = isNight ? darkTheme.textMuted : colors.muted;
+  const destructive = isNight ? '#EE9B8D' : '#B64135';
+  const saved = syncStatus === 'synced';
+  const statusColor = saved ? (isNight ? '#B5C6A4' : colors.sage) : accent;
+  const updatedAt = lastSyncedAt ? new Date(lastSyncedAt) : null;
+  const updatedLabel = updatedAt && !Number.isNaN(updatedAt.getTime())
+    ? `${updatedAt.toDateString() === new Date().toDateString() ? 'Hoje' : updatedAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}, às ${updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+    : null;
 
-  if (!ACCOUNT_SYNC_ENABLED) {
-    return (
-      <View style={[styles.disabledScreen, isNight && styles.darkScreen]}>
-        <Stack.Screen options={{ title: 'Conta e sincronização' }} />
-        <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="cloud-offline-outline" size={28} />
-        <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Conta desativada nesta versão</Text>
-        <Text selectable style={[styles.body, isNight && styles.darkMuted]}>O Nookly funciona normalmente como convidado. A sincronização será liberada em uma próxima versão de testes.</Text>
-      </View>
-    );
-  }
-
-  const confirmDelete = () => {
-    Alert.alert(
-      'Excluir conta?',
-      'O backup na nuvem será apagado. Sua biblioteca continuará disponível somente neste aparelho.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir conta',
-          style: 'destructive',
-          onPress: () => {
-            setIsDeleting(true);
-            void deleteAccount()
-              .catch(() => Alert.alert('Não foi possível excluir', 'Tente novamente quando estiver conectado.'))
-              .finally(() => setIsDeleting(false));
-          },
-        },
-      ],
-    );
+  const runAction = async (kind: AccountAction, operation: () => Promise<void>) => {
+    if (actionInProgress.current || isLoading || isAuthenticating) return;
+    actionInProgress.current = true;
+    setAction(kind);
+    try {
+      await operation();
+    } catch (error) {
+      console.warn('Não foi possível concluir a ação da conta.', error);
+      Alert.alert(kind === 'delete' ? 'Não foi possível excluir' : 'Não foi possível concluir', 'Tente novamente em alguns instantes.');
+    } finally {
+      actionInProgress.current = false;
+      setAction(null);
+    }
   };
+
+  const confirmDelete = () => Alert.alert(
+    'Excluir sua conta?',
+    'Sua conta e tudo que está salvo nela serão apagados. Sua sala, biblioteca e fotos atuais continuarão neste aparelho.',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir conta', style: 'destructive', onPress: () => { void runAction('delete', deleteAccount); } },
+    ],
+  );
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} style={[styles.screen, isNight && styles.darkScreen]}>
-      <Stack.Screen options={{ title: 'Conta e sincronização' }} />
-      {!user ? (
+      <Stack.Screen options={{ title: 'Sua conta', headerTitleStyle: { fontFamily: typography.editorial, fontSize: 22, fontWeight: '400' } }} />
+      {!ACCOUNT_SYNC_ENABLED ? (
+        <View style={[styles.hero, isNight && styles.darkCard]}>
+          <Ionicons color={accent} name="phone-portrait-outline" size={28} />
+          <Text style={[styles.title, isNight && styles.darkTitle]}>Seu cantinho, neste aparelho</Text>
+          <Text style={[styles.body, styles.centered, isNight && styles.darkMuted]}>A conta ainda não está disponível nesta versão. Você pode continuar usando o Nookly como convidado.</Text>
+        </View>
+      ) : !user ? (
         <>
           <View style={[styles.hero, isNight && styles.darkCard]}>
-            <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}>
-              <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="cloud-outline" size={25} />
-            </View>
-            <Text selectable style={[styles.title, isNight && styles.darkTitle]}>Seu Nookly, em qualquer aparelho</Text>
-            <Text selectable style={[styles.body, isNight && styles.darkMuted]}>A conta é opcional. Use o Nookly sem entrar ou conecte uma conta para proteger sua biblioteca.</Text>
+            <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}><Ionicons color={accent} name="cloud-outline" size={26} /></View>
+            <Text style={[styles.title, styles.centered, isNight && styles.darkTitle]}>Sua sala, onde você estiver</Text>
+            <Text style={[styles.body, styles.centered, isNight && styles.darkMuted]}>Entre para manter sua sala salva e continuar sua leitura em outros aparelhos.</Text>
           </View>
           <View style={[styles.card, isNight && styles.darkCard]}>
-            <Benefit icon="library-outline" text="Backup da biblioteca e do progresso" isNight={isNight} />
-            <Benefit icon="phone-portrait-outline" text="Continuidade entre iPhone e Android" isNight={isNight} />
+            <View style={styles.benefit}><Ionicons color={accent} name="library-outline" size={20} /><Text style={[styles.body, styles.flexible, isNight && styles.darkTitle]}>Sua sala, livros, notas e fotos juntos</Text></View>
+            <View style={styles.benefit}><Ionicons color={accent} name="phone-portrait-outline" size={20} /><Text style={[styles.body, styles.flexible, isNight && styles.darkTitle]}>Continue em outro iPhone ou Android</Text></View>
           </View>
-          <View style={styles.actions}>
-            {process.env.EXPO_OS === 'ios' ? (
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonStyle={isNight ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                cornerRadius={controls.button.borderRadius}
-                onPress={() => { void signInWithApple(); }}
-                style={styles.appleButton}
-              />
-            ) : <AuthButton icon="logo-apple" label="Continuar com Apple" onPress={signInWithApple} isNight={isNight} />}
-            <AuthButton icon="logo-google" label="Continuar com Google" onPress={signInWithGoogle} isNight={isNight} />
-          </View>
-          {(isAuthenticating || isLoading) ? <ActivityIndicator color={colors.terracotta} /> : null}
-          {errorMessage ? <Text selectable style={styles.error}>{errorMessage}</Text> : null}
-          <Text selectable style={[styles.note, isNight && styles.darkMuted]}>Fotos escolhidas da galeria permanecem somente no aparelho em que foram adicionadas.</Text>
+          <AuthActions isNight={isNight} showDescription={false} />
+          <Text style={[styles.note, isNight && styles.darkMuted]}>Entrar é opcional. Seu cantinho também funciona sem uma conta.</Text>
         </>
       ) : (
         <>
           <View style={[styles.card, isNight && styles.darkCard]}>
             <View style={styles.accountHeader}>
-              <View style={[styles.iconCircle, isNight && styles.darkIconCircle]}><Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="person-outline" size={23} /></View>
+              <ProfileAvatar avatar={profile.avatar} name={profile.name} size={64} />
               <View style={styles.accountIdentity}>
-                <Text selectable style={[styles.accountProvider, isNight && styles.darkTitle]}>Conectado com {provider === 'apple' ? 'Apple' : 'Google'}</Text>
-                {user.email ? <Text selectable style={[styles.email, isNight && styles.darkMuted]}>{user.email}</Text> : null}
+                <Text selectable style={[styles.profileName, isNight && styles.darkTitle]}>{profile.name}</Text>
+                <View style={styles.providerRow}>
+                  <Ionicons color={muted} name={provider === 'apple' ? 'logo-apple' : 'logo-google'} size={14} />
+                  <Text style={[styles.detail, isNight && styles.darkMuted]}>Conectado com {provider === 'apple' ? 'Apple' : 'Google'}</Text>
+                </View>
               </View>
             </View>
+            {user.email ? <Text selectable style={[styles.email, isNight && styles.darkMuted]}>{user.email}</Text> : null}
           </View>
+
           <View style={[styles.card, isNight && styles.darkCard]}>
             <View style={styles.statusRow}>
-              <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name={status.icon} size={20} />
-              <View style={styles.statusCopy}>
-                <Text selectable style={[styles.statusTitle, isNight && styles.darkTitle]}>{status.label}</Text>
-                {lastSyncedAt ? <Text selectable style={[styles.statusDetail, isNight && styles.darkMuted]}>Última sincronização {new Date(lastSyncedAt).toLocaleString('pt-BR')}</Text> : null}
+              <View style={[styles.statusIcon, saved ? styles.savedIcon : styles.iconCircle, isNight && styles.darkIconCircle]}>
+                {syncStatus === 'syncing' ? <ActivityIndicator color={statusColor} /> : <Ionicons color={statusColor} name={status.icon} size={24} />}
               </View>
+              <Text accessibilityLiveRegion="polite" style={[styles.sectionTitle, styles.flexible, isNight && styles.darkTitle]}>{status.title}</Text>
             </View>
+            <Text style={[styles.body, isNight && styles.darkMuted]}>{status.description}</Text>
+            {updatedLabel ? <Text selectable style={[styles.detail, isNight && styles.darkMuted]}>Último envio: {updatedLabel}</Text> : null}
             <View style={[styles.divider, isNight && styles.darkDivider]} />
-            <StatusLine label="Foto personalizada" value="Somente neste aparelho" isNight={isNight} />
+            <View style={styles.photoStatus}>
+              <Ionicons color={muted} name="image-outline" size={17} />
+              <Text style={[styles.detail, styles.flexible, isNight && styles.darkMuted]}>Foto de perfil</Text>
+              <Text style={[styles.photoValue, isNight && styles.darkTitle]}>{profile.avatar?.pending ? 'Envio pendente' : profile.avatar?.source && profile.avatar.source !== 'none' ? saved ? 'Salva na conta' : 'Adicionada' : 'Sem foto'}</Text>
+            </View>
+            {errorMessage ? <Text style={[styles.error, { color: destructive }]}>{errorMessage}</Text> : null}
+            {syncStatus === 'offline' || syncStatus === 'error' ? <PrimaryButton label={action === 'retry' ? 'Tentando novamente…' : 'Tentar novamente'} loading={action === 'retry'} disabled={busy} onPress={() => { void runAction('retry', retrySync); }} /> : null}
           </View>
+
           {hasConflict ? (
-            <View style={[styles.card, styles.conflictCard, isNight && styles.darkCard]}>
-              <Text selectable style={[styles.statusTitle, isNight && styles.darkTitle]}>Qual biblioteca deseja manter?</Text>
-              <Text selectable style={[styles.body, isNight && styles.darkMuted]}>Este aparelho e a nuvem foram alterados. Nada será substituído até você escolher.</Text>
-              <View style={styles.choiceRow}>
-                <Pressable style={styles.secondaryButton} onPress={() => { void resolveConflict('cloud'); }}><Text style={styles.secondaryButtonText}>Usar nuvem</Text></Pressable>
-                <Pressable style={styles.primaryButton} onPress={() => { void resolveConflict('device'); }}><Text style={styles.primaryButtonText}>Usar aparelho</Text></Pressable>
-              </View>
+            <View style={[styles.card, isNight && styles.darkCard]}>
+              <Text style={[styles.body, isNight && styles.darkMuted]}>A versão escolhida substituirá a outra. Confira qual delas tem as alterações que você deseja manter.</Text>
+              <PrimaryButton label="Manter a sala deste aparelho" loading={action === 'device'} disabled={busy} onPress={() => { void runAction('device', () => resolveConflict('device')); }} />
+              <PrimaryButton label="Usar a sala salva na conta" tone="secondary" loading={action === 'cloud'} disabled={busy} onPress={() => { void runAction('cloud', () => resolveConflict('cloud')); }} />
             </View>
           ) : null}
-          {(syncStatus === 'offline' || syncStatus === 'error') ? (
-            <Pressable style={styles.primaryButton} onPress={() => { void retrySync(); }}><Text style={styles.primaryButtonText}>Tentar novamente</Text></Pressable>
-          ) : null}
-          {errorMessage ? <Text selectable style={styles.error}>{errorMessage}</Text> : null}
-          <View style={[styles.card, isNight && styles.darkCard]}>
-            <Pressable style={styles.menuRow} onPress={() => { void signOut(); }}><Text style={[styles.menuText, isNight && styles.darkTitle]}>Sair da conta</Text><Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="log-out-outline" size={19} /></Pressable>
-            <View style={[styles.divider, isNight && styles.darkDivider]} />
-            <Pressable disabled={isDeleting} style={styles.menuRow} onPress={confirmDelete}><Text style={styles.deleteText}>{isDeleting ? 'Excluindo…' : 'Excluir conta'}</Text>{isDeleting ? <ActivityIndicator color="#B64135" size="small" /> : <Ionicons color="#B64135" name="trash-outline" size={18} />}</Pressable>
+
+          <View style={[styles.actions, isNight && styles.darkCard]}>
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy, busy: action === 'signout' }} disabled={busy} onPress={() => { void runAction('signout', signOut); }} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed, busy && styles.disabled]}>
+              <View style={styles.actionCopy}>
+                <Text style={[styles.menuText, isNight && styles.darkTitle]}>{action === 'signout' ? 'Saindo…' : 'Sair da conta'}</Text>
+                <Text style={[styles.detail, isNight && styles.darkMuted]}>Você voltará ao perfil de convidado deste aparelho.</Text>
+              </View>
+              {action === 'signout' ? <ActivityIndicator color={muted} /> : <Ionicons color={muted} name="log-out-outline" size={21} />}
+            </Pressable>
+            <View style={[styles.divider, styles.actionDivider, isNight && styles.darkDivider]} />
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy, busy: action === 'delete' }} disabled={busy} onPress={confirmDelete} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed, busy && styles.disabled]}>
+              <View style={styles.actionCopy}>
+                <Text style={[styles.menuText, { color: destructive }]}>{action === 'delete' ? 'Excluindo…' : 'Excluir conta'}</Text>
+                <Text style={[styles.detail, isNight && styles.darkMuted]}>Apaga a conta e os dados salvos nela. Seus dados atuais ficam neste aparelho.</Text>
+              </View>
+              {action === 'delete' ? <ActivityIndicator color={destructive} /> : <Ionicons color={destructive} name="trash-outline" size={21} />}
+            </Pressable>
           </View>
         </>
       )}
@@ -140,31 +156,43 @@ export default function AccountScreen() {
   );
 }
 
-function Benefit({ icon, text, isNight }: { icon: keyof typeof Ionicons.glyphMap; text: string; isNight: boolean }) {
-  return <View style={styles.benefit}><Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name={icon} size={19} /><Text selectable style={[styles.benefitText, isNight && styles.darkTitle]}>{text}</Text></View>;
-}
-
-function AuthButton({ icon, label, onPress, isNight }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => Promise<void>; isNight: boolean }) {
-  return <Pressable accessibilityRole="button" style={[styles.authButton, isNight && styles.darkAuthButton]} onPress={() => { void onPress(); }}><Ionicons color={isNight ? darkTheme.text : colors.ink} name={icon} size={20} /><Text style={[styles.authButtonText, isNight && styles.darkTitle]}>{label}</Text></Pressable>;
-}
-
-function StatusLine({ label, value, isNight }: { label: string; value: string; isNight: boolean }) {
-  return <View style={styles.statusLine}><Text selectable style={[styles.statusDetail, isNight && styles.darkMuted]}>{label}</Text><Text selectable style={[styles.statusValue, isNight && styles.darkTitle]}>{value}</Text></View>;
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.cream }, darkScreen: { backgroundColor: darkTheme.bg }, content: { padding: 18, paddingBottom: 48, gap: 14 },
-  disabledScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28, backgroundColor: colors.cream },
-  hero: { alignItems: 'center', gap: 9, padding: 20, backgroundColor: colors.paper, borderRadius: radii.large, borderCurve: 'continuous' },
-  card: { padding: 16, gap: 14, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.lineSubtle, borderRadius: radii.large, borderCurve: 'continuous' }, darkCard: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.terracottaSoft }, darkIconCircle: { backgroundColor: 'rgba(229,138,109,0.16)' },
-  title: { color: colors.ink, fontFamily: typography.editorial, textAlign: 'center' }, body: { color: colors.muted, fontFamily: typography.ui, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-  benefit: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 12 }, benefitText: { flex: 1, color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '500' },
-  actions: { gap: 10 }, appleButton: { width: '100%', height: controls.button.minHeight }, authButton: { ...controls.button, flexDirection: 'row', gap: 10, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line }, darkAuthButton: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle }, authButtonText: { ...controls.buttonText, color: colors.ink, fontFamily: typography.ui },
-  note: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingHorizontal: 10 }, error: { color: '#B64135', fontFamily: typography.ui, fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  accountHeader: { flexDirection: 'row', alignItems: 'center', gap: 13 }, accountIdentity: { flex: 1, gap: 3 }, accountProvider: { color: colors.ink, fontFamily: typography.ui, fontSize: 15, fontWeight: '700' }, email: { color: colors.muted, fontFamily: typography.ui, fontSize: 13 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, statusCopy: { flex: 1, gap: 3 }, statusTitle: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '700' }, statusDetail: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 17 }, statusLine: { minHeight: 30, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }, statusValue: { color: colors.ink, fontFamily: typography.ui, fontSize: 12, fontWeight: '600', textAlign: 'right' },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.lineSubtle }, darkDivider: { backgroundColor: darkTheme.borderSubtle }, conflictCard: { borderColor: 'rgba(182,90,61,0.35)' }, choiceRow: { flexDirection: 'row', gap: 10 },
-  primaryButton: { ...controls.button, flex: 1, backgroundColor: colors.terracotta }, primaryButtonText: { ...controls.buttonText, color: '#FFF', fontFamily: typography.ui }, secondaryButton: { ...controls.button, flex: 1, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.paper }, secondaryButtonText: { ...controls.buttonText, color: colors.ink, fontFamily: typography.ui },
-  menuRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, menuText: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '600' }, deleteText: { color: '#B64135', fontFamily: typography.ui, fontSize: 14, fontWeight: '600' }, darkTitle: { color: darkTheme.text }, darkMuted: { color: darkTheme.textMuted },
+  screen: { flex: 1, backgroundColor: colors.cream },
+  darkScreen: { backgroundColor: darkTheme.bg },
+  content: { padding: 18, paddingTop: 22, paddingBottom: 36, gap: 18, width: '100%', maxWidth: 520, alignSelf: 'center' },
+  card: { padding: 20, gap: 14, backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSubtle, borderRadius: radii.large, borderCurve: 'continuous' },
+  darkCard: { backgroundColor: darkTheme.surface, borderColor: darkTheme.borderSubtle },
+  hero: { alignItems: 'center', gap: 16, padding: 24, backgroundColor: colors.paper, borderRadius: radii.large, borderCurve: 'continuous' },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.terracottaSoft },
+  darkIconCircle: { backgroundColor: darkTheme.surfaceElevated },
+  title: { color: colors.ink, fontFamily: typography.editorial, fontSize: 26, lineHeight: 34 },
+  body: { color: colors.muted, fontFamily: typography.ui, fontSize: 14, lineHeight: 21 },
+  centered: { textAlign: 'center' },
+  flexible: { flex: 1 },
+  benefit: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  note: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 18, textAlign: 'center', paddingHorizontal: 12 },
+  error: { fontFamily: typography.ui, fontSize: 13, lineHeight: 20 },
+  accountHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  accountIdentity: { flex: 1, gap: 6 },
+  profileName: { color: colors.ink, fontFamily: typography.editorial, fontSize: 28, lineHeight: 36 },
+  providerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  email: { color: colors.muted, fontFamily: typography.ui, fontSize: 13, lineHeight: 19 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  statusIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  savedIcon: { backgroundColor: colors.sageSoft },
+  sectionTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 22, lineHeight: 29 },
+  detail: { color: colors.muted, fontFamily: typography.ui, fontSize: 12, lineHeight: 18, flexShrink: 1 },
+  photoStatus: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  photoValue: { color: colors.inkSoft, fontFamily: typography.ui, fontSize: 12, lineHeight: 18, fontWeight: '600', flexShrink: 1 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.lineSubtle },
+  darkDivider: { backgroundColor: darkTheme.borderSubtle },
+  actions: { backgroundColor: colors.paper, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineSubtle, borderRadius: radii.large, borderCurve: 'continuous', overflow: 'hidden' },
+  menuRow: { minHeight: 76, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 18 },
+  actionCopy: { flex: 1, gap: 5 },
+  menuText: { color: colors.ink, fontFamily: typography.ui, fontSize: 14, fontWeight: '600' },
+  actionDivider: { marginHorizontal: 20 },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.5 },
+  darkTitle: { color: darkTheme.text },
+  darkMuted: { color: darkTheme.textMuted },
 });

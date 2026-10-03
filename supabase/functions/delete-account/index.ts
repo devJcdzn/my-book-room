@@ -22,6 +22,16 @@ Deno.serve(async (request) => {
   if (userError || !user) return new Response('Unauthorized', { status: 401 });
 
   const adminClient = createClient(url, serviceRoleKey);
+  // Storage objects must be removed before deleting their owning auth user.
+  for (const bucket of ['profile-avatars', 'room-photos']) {
+    while (true) {
+      const { data: files, error: listError } = await adminClient.storage.from(bucket).list(user.id, { limit: 100 });
+      if (listError) return new Response('Avatar cleanup failed', { status: 500 });
+      if (!files?.length) break;
+      const { error: removeError } = await adminClient.storage.from(bucket).remove(files.map(file => `${user.id}/${file.name}`));
+      if (removeError) return new Response('Avatar cleanup failed', { status: 500 });
+    }
+  }
   const { error } = await adminClient.auth.admin.deleteUser(user.id);
   if (error) return new Response('Account deletion failed', { status: 500 });
 

@@ -1,5 +1,11 @@
 /* eslint-disable react/no-unknown-property */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import { cacheAvatar } from '@/src/services/profile-avatar';
+import { ROOM_PHOTOS_BUCKET } from '@/src/services/room-photos';
+import { supabase } from '@/src/services/supabase';
+import { useAuth } from '@/src/providers/auth-provider';
+import type { ProfileAvatar } from '@/src/types/profile-avatar';
 
 import { useRoomTexture } from '@/src/components/room/use-room-texture';
 
@@ -57,6 +63,7 @@ type RoomPictureFrameProps = {
   sizeOverride?: PictureFrameSize;
   styleIdOverride?: string;
   photoUriOverride?: string | null;
+  photo?: ProfileAvatar;
 };
 
 export function RoomPictureFrame({
@@ -64,14 +71,30 @@ export function RoomPictureFrame({
   sizeOverride,
   styleIdOverride,
   photoUriOverride,
+  photo,
 }: RoomPictureFrameProps) {
   const storeSize = useLibraryStore((state) => state.pictureFrameSize);
   const storeStyleId = useLibraryStore((state) => state.pictureFrameStyleId);
   const storePhotoUri = useLibraryStore((state) => state.pictureFramePhotoUri);
 
+  const { user } = useAuth();
+  const [cached, setCached] = useState<{ version: string; uri: string }>();
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') setRefresh(value => value + 1); });
+    return () => listener.remove();
+  }, []);
+  useEffect(() => {
+    if (!photo || photo.source === 'none') return;
+    let active = true;
+    void cacheAvatar(supabase, user?.id ?? 'guest', photo, ROOM_PHOTOS_BUCKET).then(uri => {
+      if (active && uri) setCached({ version: photo.version, uri });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [photo, user?.id, refresh]);
   const size = sizeOverride ?? storeSize;
   const styleId = styleIdOverride ?? storeStyleId;
-  const photoUri = photoUriOverride !== undefined ? photoUriOverride : storePhotoUri;
+  const photoUri = photo?.source === 'none' ? null : photo && cached?.version === photo.version ? cached.uri : photo?.localUri ?? (photoUriOverride !== undefined ? photoUriOverride : storePhotoUri);
 
   const style = getPictureFrameStyle(styleId);
   const userTexture = useRoomTexture(photoUri);

@@ -6,7 +6,7 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
-import { AuthProvider } from '@/src/providers/auth-provider';
+import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, typography } from '@/src/theme';
 
@@ -38,12 +38,28 @@ if (typeof __DEV__ !== 'undefined' && __DEV__) {
 
 export const unstable_settings = { anchor: '(tabs)' };
 
+function OnboardingRedirect() {
+  const { isLoading } = useAuth();
+  const onboardingStatus = useLibraryStore((state) => state.onboardingStatus);
+  const { from } = useGlobalSearchParams<{ from?: string }>();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading || pathname === '/onboarding' || pathname === '/auth/callback'
+      || (from === 'onboarding' && (pathname === '/add-book' || pathname === '/books/catalog' || pathname === '/book-progress'))) return;
+    if (onboardingStatus === 'not_started' || onboardingStatus === 'in_progress') {
+      router.replace('/onboarding' as Href);
+    }
+  }, [from, isLoading, onboardingStatus, pathname, router]);
+  return null;
+}
+
 export default function RootLayout() {
   const hasHydrated = useLibraryStore((state) => state._hasHydrated);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const onboardingStatus = useLibraryStore((state) => state.onboardingStatus);
   const activeReadingTimer = useLibraryStore((state) => state.activeReadingTimer);
-  const { from } = useGlobalSearchParams<{ from?: string }>();
   const pathname = usePathname();
   const router = useRouter();
   const isNight = resolveAmbience(ambienceMode) === 'night';
@@ -58,17 +74,6 @@ export default function RootLayout() {
       void SplashScreen.hideAsync().catch(() => undefined);
     }
   }, [hasHydrated]);
-
-  useEffect(() => {
-    if (
-      !hasHydrated ||
-      pathname === '/onboarding' ||
-      (from === 'onboarding' && (pathname === '/add-book' || pathname === '/books/catalog'))
-    ) return;
-    if (onboardingStatus === 'not_started' || onboardingStatus === 'in_progress') {
-      router.replace('/onboarding' as Href);
-    }
-  }, [from, hasHydrated, onboardingStatus, pathname, router]);
 
   useEffect(() => {
     const onboardingComplete = onboardingStatus === 'completed' || onboardingStatus === 'skipped';
@@ -109,6 +114,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <OnboardingRedirect />
       <ThemeProvider value={theme}>
         <StatusBar animated style={isNight ? 'light' : 'dark'} />
         <Stack

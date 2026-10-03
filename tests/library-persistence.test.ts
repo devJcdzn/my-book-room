@@ -7,6 +7,11 @@ import { getReadingWeek, normalizeReadingDays } from '../src/utils/reading-days'
 import {
   createPersistedState,
   normalizePersistedState,
+  getCurrentLibrarySnapshot,
+  overwriteLibraryStorageScope,
+  readLibraryStorageScope,
+  replaceLibrarySnapshot,
+  switchLibraryStorageScope,
   useLibraryStore,
 } from '../src/store/library-store';
 import {
@@ -35,6 +40,56 @@ const readingBook: Book = {
   rating: 4,
   notes: 'Retomar no próximo capítulo.',
 };
+
+test('troca de conta preserva os dados salvos e mantém a interface pronta', async () => {
+  const originalState = useLibraryStore.getState();
+  const originalName = useLibraryStore.persist.getOptions().name;
+  const guest = normalizePersistedState({ profile: { name: 'Convidada' }, books: [readingBook] });
+  const account = normalizePersistedState({ profile: { name: 'Conta Apple' }, books: [{ ...readingBook, currentPage: 120 }] });
+  const hydrationStates: boolean[] = [];
+  const unsubscribe = useLibraryStore.subscribe((state) => hydrationStates.push(state._hasHydrated));
+
+  try {
+    await overwriteLibraryStorageScope('user:login-regression', account);
+    await switchLibraryStorageScope('user:guest-regression', guest);
+    await switchLibraryStorageScope('user:login-regression', guest);
+
+    assert.equal(useLibraryStore.getState().profile.name, 'Conta Apple');
+    assert.equal(useLibraryStore.getState().books[0]?.currentPage, 120);
+    assert.deepEqual(await readLibraryStorageScope('user:login-regression'), normalizePersistedState(account));
+    assert.equal(hydrationStates.includes(false), false);
+
+    useLibraryStore.getState().updateProfile({ name: 'Conta atualizada' });
+    await switchLibraryStorageScope('user:guest-regression');
+    assert.deepEqual(getCurrentLibrarySnapshot(), normalizePersistedState(guest));
+    await switchLibraryStorageScope('user:login-regression');
+    assert.equal(useLibraryStore.getState().profile.name, 'Conta atualizada');
+    assert.equal(hydrationStates.includes(false), false);
+  } finally {
+    unsubscribe();
+    useLibraryStore.persist.setOptions({ name: originalName });
+    useLibraryStore.setState(originalState);
+  }
+});
+
+test('restaurar conta antiga não reabre onboarding concluído neste aparelho', async () => {
+  const originalState = useLibraryStore.getState();
+  const originalName = useLibraryStore.persist.getOptions().name;
+  try {
+    useLibraryStore.setState({ onboardingStatus: 'completed', onboardingStep: 4 });
+    replaceLibrarySnapshot(normalizePersistedState({ profile: { name: 'Backup antigo' } }));
+    assert.equal(useLibraryStore.getState().profile.name, 'Backup antigo');
+    assert.equal(useLibraryStore.getState().onboardingStatus, 'completed');
+    assert.equal(useLibraryStore.getState().onboardingStep, 4);
+    await switchLibraryStorageScope('user:onboarding-regression');
+    assert.equal(useLibraryStore.getState().onboardingStatus, 'completed');
+    await useLibraryStore.persist.rehydrate();
+    assert.equal(useLibraryStore.getState().onboardingStatus, 'completed');
+  } finally {
+    useLibraryStore.persist.setOptions({ name: originalName });
+    useLibraryStore.setState(originalState);
+  }
+});
 
 test('snapshot local inclui perfil, livros, progresso e sala sem estado transitório', () => {
   const snapshot = createPersistedState({

@@ -3,3 +3,6 @@
  * Keep this value explicit in EAS/local environments when testing the auth flow.
  */
 export const ACCOUNT_SYNC_ENABLED = process.env.EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC === 'true';
+
+// Keep Google login hidden during the initial Apple-only launch.
+export const GOOGLE_SIGN_IN_VISIBLE = false;

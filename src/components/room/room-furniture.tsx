@@ -449,93 +449,95 @@ export function RoomFurniture({
 }) {
   const editing = useRoomEditor((state) => Boolean(state.draft));
   const books = useLibraryStore((state) => state.books);
+  const completedBooks = books.filter((book) => book.status === 'completed');
   const photo = useLibraryStore((state) => state.pictureFramePhotoUri);
-  const posterBookId = useLibraryStore((state) => state.leftWallPosterBookId);
   return (
     <>
       {layout.pieces
         .filter((p) => p.surface !== "desk" && p.category !== "cat")
-        .map((piece) => (
-          <RoomPieceGroup key={piece.id} piece={piece}>
-            <group
-              scale={
-                piece.category === "frame" && piece.aspect === "portrait"
-                  ? [0.8, 1.45, 1]
-                  : 1
-              }
-            >
-              <RoomModel piece={piece} />
-            </group>
-            {piece.surface === "floor" && piece.category !== "rug" ? (
-              <ContactShadow piece={piece} isNight={isNight} />
-            ) : null}
-            {piece.category === "desk"
-              ? layout.pieces
-                  .filter((p) => p.surface === "desk")
-                  .map((p) => (
-                    <RoomPieceGroup key={p.id} piece={p}>
-                      <RoomModel piece={p} />
-                    </RoomPieceGroup>
-                  ))
-              : null}
-            {piece.category === "window" ? (
-              <RoomWindow contentOnly ambience={isNight ? "night" : "day"} />
-            ) : null}
-            {piece.category === "frame" ? (
-              <group scale={piece.aspect === "portrait" ? [0.8, 1.45, 1] : 1}>
-                {piece.bookId ? (
-                  <RoomPoster
-                    contentOnly
-                    book={
-                      books.find(
-                        (b) => b.id === (piece.bookId ?? posterBookId),
-                      ) ?? books[0]
-                    }
-                  />
-                ) : (
-                  <RoomPictureFrame
-                    contentOnly
-                    photoUriOverride={
-                      piece.photoUri ?? (piece.id === "frame" ? photo : null)
-                    }
-                  />
-                )}
+        .map((piece) => {
+          const frameBook = piece.bookId === 'first-book'
+            ? completedBooks[0]
+            : completedBooks.find((book) => book.id === piece.bookId);
+          return (
+            <RoomPieceGroup key={piece.id} piece={piece}>
+              <group
+                scale={
+                  piece.category === "frame" && piece.aspect === "portrait"
+                    ? [0.8, 1.45, 1]
+                    : 1
+                }
+              >
+                <RoomModel piece={piece} />
               </group>
-            ) : null}
-            {piece.category === "lamp" ? (
-              <>
-                {isLampOn ? (
-                  <pointLight
-                    color={theme.lampColor}
-                    distance={theme.lampDistance}
-                    intensity={theme.lampIntensity}
-                    position={[0, 2.1, 0.15]}
-                  />
-                ) : null}
-                <mesh position={[0, 2.12, 0]}>
-                  <sphereGeometry args={[0.075, 10, 10]} />
-                  <meshBasicMaterial color={isLampOn ? "#FFF0CC" : "#6D5B47"} />
-                </mesh>
-                {!editing ? (
-                  <mesh
-                    position={[0, 1.25, 0]}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onToggleLamp();
-                    }}
-                  >
-                    <cylinderGeometry args={[0.48, 0.48, 2.5, 8]} />
-                    <meshBasicMaterial
-                      transparent
-                      opacity={0}
-                      depthWrite={false}
+              {piece.surface === "floor" && piece.category !== "rug" ? (
+                <ContactShadow piece={piece} isNight={isNight} />
+              ) : null}
+              {piece.category === "desk"
+                ? layout.pieces
+                    .filter((p) => p.surface === "desk")
+                    .map((p) => (
+                      <RoomPieceGroup key={p.id} piece={p}>
+                        <RoomModel piece={p} />
+                      </RoomPieceGroup>
+                    ))
+                : null}
+              {piece.category === "window" ? (
+                <RoomWindow contentOnly ambience={isNight ? "night" : "day"} />
+              ) : null}
+              {piece.category === "frame" ? (
+                <group scale={piece.aspect === "portrait" ? [0.8, 1.45, 1] : 1}>
+                  {frameBook ? (
+                    <RoomPoster
+                      contentOnly
+                      book={frameBook}
                     />
+                  ) : (
+                    <RoomPictureFrame
+                      contentOnly
+                      photo={piece.photo}
+                      photoUriOverride={
+                        piece.photoUri ?? (piece.id === "frame" ? photo : null)
+                      }
+                    />
+                  )}
+                </group>
+              ) : null}
+              {piece.category === "lamp" ? (
+                <>
+                  {isLampOn ? (
+                    <pointLight
+                      color={theme.lampColor}
+                      distance={theme.lampDistance}
+                      intensity={theme.lampIntensity}
+                      position={[0, 2.1, 0.15]}
+                    />
+                  ) : null}
+                  <mesh position={[0, 2.12, 0]}>
+                    <sphereGeometry args={[0.075, 10, 10]} />
+                    <meshBasicMaterial color={isLampOn ? "#FFF0CC" : "#6D5B47"} />
                   </mesh>
-                ) : null}
-              </>
-            ) : null}
-          </RoomPieceGroup>
-        ))}
+                  {!editing ? (
+                    <mesh
+                      position={[0, 1.25, 0]}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleLamp();
+                      }}
+                    >
+                      <cylinderGeometry args={[0.48, 0.48, 2.5, 8]} />
+                      <meshBasicMaterial
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                      />
+                    </mesh>
+                  ) : null}
+                </>
+              ) : null}
+            </RoomPieceGroup>
+          );
+        })}
     </>
   );
 }

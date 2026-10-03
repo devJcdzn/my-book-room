@@ -18,6 +18,7 @@ export function PrimaryButton({ label, loading = false, tone = 'primary', disabl
       accessible
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
+      accessibilityState={{ ...props.accessibilityState, disabled: Boolean(isDisabled), busy: loading }}
       disabled={isDisabled}
       style={(state) => [
         styles.base, secondary ? styles.secondary : styles.primary,
@@ -25,15 +26,14 @@ export function PrimaryButton({ label, loading = false, tone = 'primary', disabl
         typeof style === 'function' ? style(state) : style,
       ]}
     >
-      {loading ? <ActivityIndicator color={colors.white} /> : (
-        <Text style={[styles.label, secondary && styles.secondaryLabel]}>{label}</Text>
-      )}
+      {loading && <ActivityIndicator color={secondary ? colors.ink : colors.white} />}
+      <Text style={[styles.label, secondary && styles.secondaryLabel]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { ...controls.button },
+  base: { ...controls.button, flexDirection: 'row', gap: 8 },
   primary: { backgroundColor: colors.terracotta },
   secondary: { backgroundColor: colors.sageSoft },
   label: { ...controls.buttonText, color: colors.white },

@@ -17,6 +17,7 @@ const PALETTE = ['#B95F3B', '#4F7480', '#6D7657', '#6A4D61', '#C58A3C', '#2E4057
 
 export default function AddBookScreen() {
   const {
+    from,
     catalogAuthor,
     catalogCoverId,
     catalogCoverUrl,
@@ -27,6 +28,7 @@ export default function AddBookScreen() {
     status,
     query: initialQuery,
   } = useLocalSearchParams<{
+    from?: string;
     catalogAuthor?: string;
     catalogCoverId?: string;
     catalogCoverUrl?: string;
@@ -99,7 +101,12 @@ export default function AddBookScreen() {
     }
 
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.back();
+    if (from === 'onboarding') {
+      useLibraryStore.getState().setOnboardingStep(7);
+      router.dismissTo('/onboarding');
+    } else {
+      router.back();
+    }
   };
 
   return (

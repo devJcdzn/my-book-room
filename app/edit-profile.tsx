@@ -1,9 +1,14 @@
+import * as ImagePicker from 'expo-image-picker';
+import { AuthActions } from '@/src/components/auth-actions';
+import { ProfileAvatar } from '@/src/components/profile-avatar';
+import { prepareAvatar, removeLocalAvatar } from '@/src/services/profile-avatar';
+import { useAuth } from '@/src/providers/auth-provider';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { PrimaryButton } from '@/src/components/primary-button';
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
@@ -11,30 +16,70 @@ import { PROFILE_LIMITS, useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, typography } from '@/src/theme';
 
 export default function EditProfileScreen() {
+  const { user, isLoading, hasConflict } = useAuth();
+  return <EditProfileForm key={`${user?.id ?? 'guest'}:${isLoading}:${hasConflict}`} />;
+}
+
+function EditProfileForm() {
   const insets = useSafeAreaInsets();
   const profile = useLibraryStore((state) => state.profile);
   const updateProfile = useLibraryStore((state) => state.updateProfile);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
 
+  const { user, isLoading, hasConflict } = useAuth();
+  const avatar = profile.avatar;
+  const [photoDraft, setPhotoDraft] = useState<string | null>();
+  const [saving, setSaving] = useState(false);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const actionInProgress = useRef(false);
+  const scope = user?.id ?? 'guest';
+
   const [name, setName] = useState(profile.name);
   const [bio, setBio] = useState(profile.bio);
   const [bioAttribution, setBioAttribution] = useState(profile.bioAttribution);
   const [error, setError] = useState('');
 
-  const handleSave = () => {
+  const handlePickPhoto = async () => {
+    if (actionInProgress.current || isLoading || hasConflict) return;
+    actionInProgress.current = true;
+    setPickingPhoto(true);
+    setError('');
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.9 });
+      if (!result.canceled) setPhotoDraft(result.assets[0].uri);
+    } catch {
+      setError('Não foi possível abrir sua galeria.');
+    } finally {
+      actionInProgress.current = false;
+      setPickingPhoto(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (actionInProgress.current || isLoading || hasConflict) return;
     const nextName = name.trim();
     if (!nextName) {
       setError('Digite um nome para continuar.');
       return;
     }
 
-    updateProfile({
-      name: nextName,
-      bio: bio.trim(),
-      bioAttribution: bioAttribution.trim(),
-    });
-    router.back();
+    actionInProgress.current = true;
+    setSaving(true);
+    const storageName = useLibraryStore.persist.getOptions().name;
+    try {
+      let nextAvatar = avatar;
+      if (photoDraft === null) nextAvatar = { source: 'none', version: `${Date.now()}`, previousPath: avatar?.storagePath ?? avatar?.previousPath, pending: Boolean(user) };
+      else if (photoDraft) nextAvatar = await prepareAvatar(photoDraft, scope, avatar);
+      if (storageName !== useLibraryStore.persist.getOptions().name) return;
+      updateProfile({ name: nextName, bio: bio.trim(), bioAttribution: bioAttribution.trim(), avatar: nextAvatar });
+      if (photoDraft !== undefined && avatar?.localUri !== nextAvatar?.localUri) {
+        try { removeLocalAvatar(avatar, scope); } catch { /* A cached old file must not block saving. */ }
+      }
+      router.back();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a foto. Tente novamente.');
+    } finally { actionInProgress.current = false; setSaving(false); }
   };
 
   const inputStyle = [styles.input, isNight && styles.nightInput];
@@ -60,15 +105,35 @@ export default function EditProfileScreen() {
           <Text style={[styles.subtitle, isNight && styles.nightMuted]}>Conte um pouco sobre você e sua jornada de leitura.</Text>
         </View>
       </View>
+      <AuthActions isNight={isNight} />
       <View style={styles.identityHero}>
         <Image source={require('@/assets/images/profile-books-art.png')} contentFit="contain" accessible={false} pointerEvents="none" style={[styles.headerArtwork, isNight && styles.nightArtwork]} />
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{name.trim().charAt(0).toUpperCase() || 'L'}</Text>
-        </View>
+        <ProfileAvatar avatar={photoDraft === null ? undefined : photoDraft ? { source: 'custom', version: photoDraft, localUri: photoDraft } : avatar} name={name} size={104} />
         <View style={styles.identityCopy}>
           <Text style={[styles.identityName, isNight && styles.nightText]} numberOfLines={2}>{name.trim() || 'Leitor(a)'}</Text>
           <Text style={[styles.description, isNight && styles.nightMuted]}>Seu cantinho de leitura</Text>
         </View>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ busy: pickingPhoto, disabled: saving || pickingPhoto || isLoading || hasConflict }}
+          style={[styles.photoButton, isNight && styles.nightPhotoButton]}
+          disabled={saving || pickingPhoto || isLoading || hasConflict}
+          onPress={() => { void handlePickPhoto(); }}
+        >
+          {pickingPhoto ? <ActivityIndicator size="small" color={isNight ? darkTheme.accent : colors.terracottaDark} /> : <Ionicons name="image-outline" size={18} color={isNight ? darkTheme.accent : colors.terracottaDark} />}
+          <Text style={[styles.photoButtonText, { color: isNight ? darkTheme.accent : colors.terracottaDark }]}>{pickingPhoto ? 'Abrindo galeria…' : 'Escolher foto'}</Text>
+        </Pressable>
+        {(photoDraft || (photoDraft !== null && avatar?.source !== 'none' && avatar)) && <Pressable
+          accessibilityRole="button"
+          style={[styles.photoButton, styles.removePhotoButton, isNight && styles.nightRemovePhotoButton]}
+          disabled={saving || pickingPhoto || isLoading || hasConflict}
+          onPress={() => setPhotoDraft(null)}
+        >
+          <Ionicons name="trash-outline" size={18} color={isNight ? '#F0A298' : '#B64135'} />
+          <Text style={[styles.photoButtonText, { color: isNight ? '#F0A298' : '#B64135' }]}>Remover foto</Text>
+        </Pressable>}
       </View>
       <View style={[styles.form, isNight && styles.nightCard]}>
         <View style={styles.field}>
@@ -130,9 +195,7 @@ export default function EditProfileScreen() {
         <View style={[styles.previewCard, isNight && styles.nightCard]}>
           <Image source={require('@/assets/images/profile-books-art.png')} contentFit="contain" accessible={false} pointerEvents="none" style={[styles.previewArtwork, isNight && styles.nightArtwork]} />
           <View style={styles.identity}>
-            <View style={[styles.avatar, styles.previewAvatar]}>
-              <Text style={[styles.avatarText, styles.previewAvatarText]}>{name.trim().charAt(0).toUpperCase() || 'L'}</Text>
-            </View>
+            <ProfileAvatar avatar={photoDraft === null ? undefined : photoDraft ? { source: 'custom', version: photoDraft, localUri: photoDraft } : avatar} name={name} size={50} />
             <Text style={[styles.previewName, isNight && styles.nightText]}>{name.trim() || 'Leitor(a)'}</Text>
           </View>
           {bio.trim() ? (
@@ -146,8 +209,10 @@ export default function EditProfileScreen() {
 
       {error ? <Text accessibilityRole="alert" selectable style={styles.error}>{error}</Text> : null}
       <PrimaryButton
-        label="Salvar perfil"
-        onPress={handleSave}
+        label={saving ? "Salvando…" : "Salvar perfil"}
+        loading={saving}
+        disabled={pickingPhoto || isLoading || hasConflict}
+        onPress={() => { void handleSave(); }}
         style={[styles.saveButton, isNight && styles.nightSaveButton]}
       />
     </ScrollView>
@@ -172,6 +237,11 @@ function Counter({ value, max, isNight }: { value: number; max: number; isNight:
 }
 
 const styles = StyleSheet.create({
+  photoButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.softFill },
+  removePhotoButton: { backgroundColor: 'rgba(182,65,53,0.08)' },
+  nightRemovePhotoButton: { backgroundColor: 'rgba(240,162,152,0.12)' },
+  nightPhotoButton: { backgroundColor: darkTheme.surfaceElevated },
+  photoButtonText: { fontFamily: typography.ui, fontSize: 14, fontWeight: '600' },
   screen: { flex: 1, backgroundColor: colors.cream },
   nightScreen: { backgroundColor: darkTheme.bg },
   content: { width: '100%', maxWidth: 600, alignSelf: 'center', gap: 18, paddingHorizontal: 18 },

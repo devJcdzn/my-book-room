@@ -216,7 +216,12 @@ export default function BookProgressPage() {
     const saved = useLibraryStore.getState().books.find((item) => item.id === previewResult.workKey);
     if (saved) {
       if (Platform.OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace({ pathname: '/book-progress', params: { bookId: saved.id } });
+      if (param(params.from) === 'onboarding') {
+        useLibraryStore.getState().setOnboardingStep(7);
+        router.dismissTo('/onboarding');
+      } else {
+        router.replace({ pathname: '/book-progress', params: { bookId: saved.id } });
+      }
     }
   };
 

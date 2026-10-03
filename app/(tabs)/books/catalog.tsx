@@ -41,7 +41,7 @@ export default function CatalogScreen() {
   const openBook = (result: BookSearchResult) => {
     const savedBook = books.find((book) => book.openLibraryWorkKey === result.workKey);
     if (savedBook) {
-      router.navigate({ pathname: '/book-progress', params: { bookId: savedBook.id } });
+      router.navigate({ pathname: '/book-progress', params: { bookId: savedBook.id, from } });
       return;
     }
     router.navigate({

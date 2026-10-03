@@ -1,3 +1,4 @@
+import { normalizeAvatar, type ProfileAvatar } from '@/src/types/profile-avatar';
 export type RoomCategory =
   | "desk"
   | "seat"
@@ -20,10 +21,11 @@ export type RoomPiece = {
   position: RoomPosition;
   rotation: number;
   photoUri?: string;
+  photo?: ProfileAvatar;
   bookId?: string;
   aspect?: "square" | "portrait";
 };
-export type RoomLayout = { version: 1; pieces: RoomPiece[] };
+export type RoomLayout = { version: 1; pieces: RoomPiece[]; legacyPhoto?: ProfileAvatar };
 export const ROOM_CATEGORIES: { id: RoomCategory; name: string }[] = [
   { id: "desk", name: "Mesa" },
   { id: "seat", name: "Assento" },
@@ -359,6 +361,7 @@ export function normalizeRoomLayout(
           ? Math.PI / 2
           : 0
         : snapRoomRotation(p.rotation),
+      photo: normalizeAvatar(p.photo),
       photoUri: typeof p.photoUri === "string" ? p.photoUri : undefined,
       bookId: typeof p.bookId === "string" ? p.bookId : undefined,
     };
@@ -414,6 +417,7 @@ export function normalizeRoomLayout(
   );
   return {
     version: 1,
+    legacyPhoto: normalizeAvatar((value as RoomLayout).legacyPhoto),
     pieces: pieces.filter(
       (p) => !extras.slice(MAX_EXTRA_DECORATIONS).includes(p),
     ),

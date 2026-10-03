@@ -1,180 +1,92 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f3ede3" />
-    <meta
-      name="description"
-      content="Bookroom é um espaço de leitura para acompanhar páginas, organizar livros e ver seu acervo ganhar vida."
-    />
-    <meta property="og:title" content="Bookroom - seu refúgio de leitura" />
-    <meta
-      property="og:description"
-      content="Entre na primeira turma do Bookroom para iPhone via TestFlight."
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="assets/bookroom-logo.webp" />
-    <link rel="icon" href="assets/bookroom-logo.webp" type="image/webp" />
-    <link rel="preload" as="image" href="assets/ambient-room.webp" type="image/webp" fetchpriority="high" />
-    <link rel="stylesheet" href="styles.css?v=5" />
-    <title>Bookroom - seu refúgio de leitura</title>
-  </head>
-  <body>
-    <header class="site-header" data-header>
-      <a class="brand" href="#top" aria-label="Bookroom, voltar ao início">
-        <span class="brand-mark" aria-hidden="true">
-          <img src="assets/bookroom-mark.webp" alt="" width="72" height="48" />
-        </span>
-        <span class="brand-name">Bookroom</span>
-      </a>
-      <nav class="site-nav" aria-label="Navegação principal">
-        <a href="#experiencia">A experiência</a>
-        <a class="header-cta" href="#waitlist">Quero testar o Bookroom</a>
-      </nav>
-    </header>
-
-    <main id="top">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-inner">
-          <div class="hero-copy">
-            <p class="eyebrow">Primeira turma para iPhone</p>
-            <h1 id="hero-title">Sua leitura ganha um lugar.</h1>
-            <p class="hero-lede">
-              Acompanhe cada página e veja sua biblioteca ganhar vida em uma sala 3D feita por você.
-            </p>
-
-            <div class="hero-action" id="waitlist">
-              <div class="availability" data-availability aria-live="polite">
-                <span class="availability-dot" aria-hidden="true"></span>
-                <span data-counter>Turma inicial de 200 leitores</span>
-              </div>
-              <form class="waitlist-form" data-waitlist-form novalidate>
-                <label class="field-label" for="hero-email">Email da sua Conta Apple</label>
-                <input
-                  id="hero-email"
-                  name="email"
-                  type="email"
-                  autocomplete="email"
-                  inputmode="email"
-                  placeholder="voce@exemplo.com"
-                  aria-describedby="hero-form-note hero-form-status"
-                  maxlength="320"
-                  required
-                />
-                <input class="honeypot" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
-                <button type="submit">Quero testar o Bookroom <span aria-hidden="true">↗</span></button>
-                <div class="turnstile-slot" data-turnstile></div>
-              </form>
-              <p class="form-note" id="hero-form-note">O convite chegará pelo TestFlight.</p>
-              <p class="form-status" id="hero-form-status" data-form-status aria-live="polite"></p>
-            </div>
-          </div>
-
-          <figure class="hero-visual" data-reveal>
-            <div class="hero-visual-shadow" aria-hidden="true"></div>
-            <img
-              src="assets/ambient-room.webp"
-              alt="Ambiente 3D do Bookroom com mesa, livro aberto, estante e objetos aconchegantes"
-              width="1179"
-              height="2556"
-              fetchpriority="high"
-            />
-            <figcaption>Uma sala que muda conforme você lê.</figcaption>
-          </figure>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F6EFE5" />
+  <meta name="description" content="Sua biblioteca, no seu ritmo. Organize livros, acompanhe suas leituras e crie um cantinho só seu no Nookly. Entre na lista do TestFlight." />
+  <meta property="og:title" content="Nookly — Sua biblioteca, no seu ritmo" />
+  <meta property="og:description" content="Seus livros merecem um cantinho. Conheça o Nookly e entre na lista do TestFlight." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/nookly-icon.webp" />
+  <link rel="icon" href="assets/nookly-icon.webp" type="image/webp" />
+  <link rel="preload" href="assets/playfair-display.ttf" as="font" type="font/ttf" crossorigin />
+  <link rel="stylesheet" href="styles.css?v=6" />
+  <title>Nookly — Sua biblioteca, no seu ritmo</title>
+</head>
+<body id="top">
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Nookly, início"><img src="assets/nookly-icon.webp" alt="" width="44" height="44" /><span>nookly</span></a>
+    <nav aria-label="Navegação principal"><a href="#biblioteca">O app</a><a href="#perguntas">Dúvidas</a><a class="button button-small" href="#convite">Quero experimentar <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main id="conteudo">
+    <section class="hero section-width" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">Seus livros.<br />Seu ritmo.<br /><em>Seu cantinho.</em></h1>
+        <p>Uma biblioteca pessoal que tem a sua cara. Organize suas leituras, acompanhe cada página e dê vida ao seu próprio refúgio.</p>
+        <a class="button" href="#convite">Quero conhecer o Nookly <span aria-hidden="true">↗</span></a>
+        <p class="cta-note">Em beta para iPhone, pelo TestFlight.</p>
+      </div>
+      <div class="hero-art">
+        <img class="hero-phone" src="assets/room-iphone.webp" alt="Sala virtual do Nookly com estante, livros, poltrona e controles de ambiente" width="760" height="1251" fetchpriority="high" />
+        <img class="hero-niko" src="assets/niko.webp" alt="Niko, o mascote do Nookly, com seus óculos terracota" width="700" height="700" />
+        <span class="niko-note">Seu novo companheiro<br />de estante.</span>
+      </div>
+    </section>
+    <section class="intro section-width" aria-labelledby="intro-title">
+      <h2 id="intro-title">Um lugar para tudo<br />que a leitura deixa.</h2>
+      <p>O próximo livro. A página onde você parou. Aquela ideia que vale guardar. No Nookly, tudo encontra seu lugar.</p>
+    </section>
+    <section class="feature feature-sage" id="biblioteca" aria-labelledby="library-title">
+      <div class="feature-inner section-width">
+        <div class="feature-image"><img src="assets/library-iphone.webp" alt="Biblioteca do Nookly com capas e organização por status de leitura" width="760" height="1215" loading="lazy" /></div>
+        <div class="feature-copy"><h2 id="library-title">Uma estante.<br /><em>Mil próximas histórias.</em></h2><p>Reúna os livros que quer ler, os que estão te acompanhando e os que já deixaram saudade. Crie suas estantes e encontre sua próxima leitura.</p><ul class="feature-list"><li>Busca de livros e cadastro manual</li><li>Quero ler, lendo e concluídos</li><li>Estantes organizadas do seu jeito</li></ul></div>
+      </div>
+    </section>
+    <section class="feature feature-cream" aria-labelledby="progress-title">
+      <div class="feature-inner section-width reverse">
+        <div class="feature-copy"><h2 id="progress-title">Só mais<br /><em>um capítulo.</em></h2><p>Reserve um momento para ler. Registre suas páginas, acompanhe seu progresso e use o cronômetro para dar espaço à leitura no seu dia.</p><p class="feature-aside">Pequenos momentos também fazem uma boa história.</p></div>
+        <div class="feature-image"><img src="assets/progress-iphone.webp" alt="Tela de uma sessão de leitura no Nookly com cronômetro e capa do livro" width="760" height="1251" loading="lazy" /></div>
+      </div>
+    </section>
+    <section class="feature feature-terracotta" aria-labelledby="diary-title">
+      <div class="feature-inner section-width">
+        <div class="feature-image"><img src="assets/diary-iphone.webp" alt="Diário do Nookly com notas coloridas sobre os livros" width="760" height="1360" loading="lazy" /></div>
+        <div class="feature-copy"><h2 id="diary-title">A última página<br />não precisa ser<br /><em>o fim da conversa.</em></h2><p>Guarde pensamentos, trechos e descobertas no seu diário. Organize suas notas por livro e favorite o que você quer revisitar.</p><p class="feature-aside">Para lembrar do que ficou em você.</p></div>
+      </div>
+    </section>
+    <section class="room-section section-width" aria-labelledby="room-title">
+      <div class="room-copy"><h2 id="room-title">Seu cantinho de leitura.<br /><em>Agora, dentro do app.</em></h2><p>Escolha móveis, mude a decoração, acrescente suas fotos e encontre a atmosfera que combina com você. Uma sala virtual para chamar de sua.</p></div>
+      <div class="room-details"><article><span aria-hidden="true">☀</span><h3>Dia ou noite</h3><p>Um ambiente para cada momento da sua leitura.</p></article><article><span aria-hidden="true">◇</span><h3>Do seu jeito</h3><p>Combine objetos e organize cada detalhe do espaço.</p></article><article><span aria-hidden="true">♡</span><h3>Com suas memórias</h3><p>Suas fotos também têm lugar nesse refúgio.</p></article></div>
+    </section>
+    <section class="faq section-width" id="perguntas" aria-labelledby="faq-title">
+      <h2 id="faq-title">Antes de abrir<br />a primeira página.</h2>
+      <div class="faq-list">
+        <details><summary>O Nookly é um app para ler ebooks?</summary><p>O Nookly organiza sua biblioteca e acompanha suas leituras. Ele não fornece ebooks nem substitui o livro físico ou o aplicativo em que você lê.</p></details>
+        <details><summary>Preciso criar uma conta?</summary><p>Você pode usar o app sem conta, com os dados no aparelho. Para sincronizar sua biblioteca e seu perfil, entre com Google ou, no iOS, com Apple.</p></details>
+        <details><summary>O app tem compras ou assinaturas?</summary><p>A versão atual não oferece compras dentro do app nem assinaturas.</p></details>
+        <details><summary>Como funciona o beta?</summary><p>Inscreva seu email na lista abaixo. Os convites são enviados para testar o Nookly no iPhone pelo TestFlight, aplicativo da Apple. O beta pode ter ajustes e falhas durante o desenvolvimento.</p></details>
+      </div>
+    </section>
+    <section class="closing" id="convite" aria-labelledby="closing-title">
+      <div class="closing-inner section-width">
+        <div class="closing-copy"><img src="assets/niko.webp" alt="" width="170" height="170" loading="lazy" /><h2 id="closing-title">Tem um cantinho<br />esperando por você.</h2><p>Entre na lista e receba seu convite para experimentar o Nookly no iPhone.</p><p class="availability" data-availability><span data-counter>Uma primeira turma de até 200 leitores.</span></p></div>
+        <div class="closing-action">
+          <form class="waitlist-form" data-waitlist-form novalidate>
+            <label for="email">Email da sua Conta Apple</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" aria-describedby="form-status email-privacy" maxlength="320" required />
+            <input class="honeypot" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <button class="button" type="submit">Quero testar o Nookly <span aria-hidden="true">↗</span></button>
+            <div class="turnstile-slot" data-turnstile></div>
+          </form>
+          <p id="form-status" class="form-status" data-form-status aria-live="polite"></p>
+          <p class="form-note" id="email-privacy">Seu email será usado para o convite e as comunicações do beta. Saiba mais na <a href="privacy.html">Política de Privacidade</a>.</p>
         </div>
-        <div class="hero-rule" aria-hidden="true"></div>
-      </section>
-
-      <section class="intro" id="experiencia" aria-labelledby="intro-title">
-        <h2 id="intro-title">Ler deixa uma marca no espaço.</h2>
-        <p>
-          No Bookroom, cada página lida é um pequeno movimento. Seus livros começam na mesa, acompanham seu ritmo e encontram seu lugar na estante quando a história termina.
-        </p>
-      </section>
-
-      <section class="story story-library" aria-labelledby="library-title">
-        <div class="story-copy" data-reveal>
-          <h2 id="library-title">Progresso visível, sem transformar leitura em obrigação.</h2>
-          <p>
-            Atualize suas páginas, mantenha suas notas e reencontre exatamente o ponto onde parou. O acervo mostra o caminho sem cobrar pressa.
-          </p>
-        </div>
-        <figure class="story-visual" data-reveal>
-          <div class="phone-crop phone-crop-library">
-            <img
-              src="assets/library.webp"
-              alt="Biblioteca do Bookroom mostrando progresso, livros concluídos e livro aberto na mesa"
-              width="1179"
-              height="2556"
-              loading="lazy"
-            />
-          </div>
-        </figure>
-      </section>
-
-      <section class="story story-profile" aria-labelledby="profile-title">
-        <figure class="story-visual" data-reveal>
-          <div class="phone-crop phone-crop-profile">
-            <img
-              src="assets/profile.webp"
-              alt="Perfil do Bookroom com atmosfera da sala e escolhas de ambiente"
-              width="1179"
-              height="2556"
-              loading="lazy"
-            />
-          </div>
-        </figure>
-        <div class="story-copy" data-reveal>
-          <h2 id="profile-title">Um espaço com a sua atmosfera.</h2>
-          <p>
-            Escolha o clima da sala e acompanhe um acervo que fica mais pessoal a cada livro. A leitura não precisa disputar atenção com o resto do dia.
-          </p>
-        </div>
-      </section>
-
-      <section class="closing" aria-labelledby="closing-title">
-        <div class="closing-inner">
-          <div>
-            <p class="section-kicker">Primeiros 200 leitores</p>
-            <h2 id="closing-title">Reserve seu lugar na primeira estante.</h2>
-            <p>Entre na lista para receber o convite do Bookroom pelo TestFlight.</p>
-          </div>
-          <div class="closing-action">
-            <form class="waitlist-form" data-waitlist-form novalidate>
-              <label class="field-label" for="closing-email">Email da sua Conta Apple</label>
-              <input
-                id="closing-email"
-                name="email"
-                type="email"
-                autocomplete="email"
-                inputmode="email"
-                placeholder="voce@exemplo.com"
-                aria-describedby="closing-form-status"
-                maxlength="320"
-                required
-              />
-              <input class="honeypot" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
-              <button type="submit">Quero testar o Bookroom <span aria-hidden="true">↗</span></button>
-              <div class="turnstile-slot" data-turnstile></div>
-            </form>
-            <p class="form-status" id="closing-form-status" data-form-status aria-live="polite"></p>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer">
-      <a class="footer-brand" href="#top">Bookroom</a>
-      <p>Seu email será usado apenas para o convite e as comunicações do beta.</p>
-      <nav class="footer-links" aria-label="Informações legais">
-        <a href="support.html">Suporte</a>
-        <a href="privacy.html">Política de Privacidade</a>
-        <a href="terms.html">Termos de Uso</a>
-      </nav>
-    </footer>
-
-    <script src="config.js?v=4"></script>
-    <script src="script.js?v=4"></script>
-  </body>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer section-width"><div><a class="footer-brand" href="#top">nookly</a><p>Sua biblioteca, no seu ritmo.</p></div><nav class="footer-links" aria-label="Informações legais"><a href="support.html">Suporte</a><a href="privacy.html">Privacidade</a><a href="terms.html">Termos de Uso</a></nav></footer>
+  <script src="config.js?v=4"></script><script src="script.js?v=6"></script>
+</body>
 </html>

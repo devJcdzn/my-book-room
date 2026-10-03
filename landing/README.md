@@ -1,4 +1,4 @@
-# Bookroom waitlist
+# Nookly — landing e TestFlight
 
 Landing page estática, sem build step. Para testar localmente:
 
@@ -33,3 +33,9 @@ npx supabase secrets set TURNSTILE_SECRET_KEY=...
 ```
 
 O canal do Discord usado pelo webhook deve ser privado. A função mantém a inscrição mesmo quando a notificação falha, permitindo recuperação pelo campo `discord_notified_at`.
+
+## Identidade e imagens
+
+Paleta do app: creme, sálvia e terracota. Ícone e Niko vêm de `assets/` do projeto. Os arquivos `*-iphone.webp` foram exportados dos mockups com telas reais do arquivo Figma BJ-Screenshots (página 0:1, nós 4054:26, 4054:54, 4054:82 e 4054:110). Para atualizar as telas, exporte esses mockups novamente e substitua as imagens. A fonte Playfair Display é servida localmente.
+
+A página mantém o endpoint existente e o cadastro do TestFlight. O nome interno `BOOKROOM_CONFIG` foi preservado para compatibilidade. Termos, privacidade e suporte descrevem o login opcional, a sincronização e a ausência de compras na versão atual.

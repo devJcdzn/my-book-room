@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { fullLibraryFixture } from './fixtures/full-library';
 
 import { createCloudLibrarySnapshot, normalizeCloudLibrarySnapshot } from '../src/services/library-sync';
-import { createPersistedState, isDefaultLibrarySnapshot } from '../src/store/library-store';
+import { createPersistedState, isDefaultLibrarySnapshot, normalizePersistedState } from '../src/store/library-store';
 import {
   DEFAULT_BOOKCASE_PALETTE_ID,
   DEFAULT_CAT_ID,
@@ -95,4 +96,62 @@ test('snapshot de nuvem sincroniza entradas do diário junto com os livros', () 
 test('biblioteca com foto local não é considerada vazia', () => {
   assert.equal(isDefaultLibrarySnapshot(snapshot), false);
   assert.equal(isDefaultLibrarySnapshot({ ...snapshot, pictureFramePhotoUri: null, roomLayout: undefined }), true);
+});
+
+
+test('backup de perfil preserva referência remota e nunca inclui estado local do avatar', () => {
+  const withAvatar = { ...snapshot, profile: { ...snapshot.profile, avatar: {
+    source: 'custom' as const, version: 'photo-1', localUri: 'file:///device/avatar.jpg',
+    storagePath: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/photo-1.jpg', pending: true,
+  } } };
+  const cloud = createCloudLibrarySnapshot(withAvatar);
+  assert.equal(cloud.profile.avatar?.storagePath, withAvatar.profile.avatar.storagePath);
+  assert.equal(cloud.profile.avatar?.localUri, undefined);
+  assert.equal(cloud.profile.avatar?.pending, undefined);
+});
+
+
+test('backup completo restaura todos os campos persistidos e referências dos quadros', () => {
+  const fixture = fullLibraryFixture();
+  const cloud = createCloudLibrarySnapshot(fixture);
+  const serialized = JSON.stringify(cloud);
+  assert.equal(serialized.includes('file://'), false);
+  assert.equal(serialized.includes('previousPath'), false);
+  assert.equal(serialized.includes('pending'), false);
+  const restored = normalizeCloudLibrarySnapshot(JSON.parse(serialized), null);
+  assert.deepEqual(createCloudLibrarySnapshot(restored), cloud);
+  assert.equal(restored.books[0].totalPages, 321);
+  assert.equal(restored.books[0].readingEntries?.[0].isFavorite, true);
+  assert.equal(restored.readingFolders?.length, 1);
+  assert.equal(restored.readingSessions?.[0].description, 'Pela manhã');
+  assert.equal(restored.roomLayout?.pieces.filter(p => p.photo?.storagePath).length, 2);
+  assert.equal(restored.activeReadingTimer?.elapsedMs, 125000);
+  assert.deepEqual(Object.keys(cloud).sort(), Object.keys(fixture).filter(key => key !== 'pictureFramePhotoUri').sort());
+});
+
+test('timer remoto conserva o tempo até o backup e volta pausado', () => {
+  const fixture = fullLibraryFixture();
+  const now = Date.now();
+  fixture.activeReadingTimer = { ...fixture.activeReadingTimer!, phase: 'running', segmentStartedAt: new Date(now - 5000).toISOString() };
+  const cloud = createCloudLibrarySnapshot(fixture);
+  assert.equal(cloud.activeReadingTimer?.phase, 'paused');
+  assert.ok(cloud.activeReadingTimer!.elapsedMs >= 130000 && cloud.activeReadingTimer!.elapsedMs < 131000);
+  assert.equal(cloud.activeReadingTimer?.segmentStartedAt, undefined);
+  assert.equal(fixture.activeReadingTimer.phase, 'running');
+});
+
+test('quadros antigos ainda podem ser migrados sem alterar o arquivo original', () => {
+  const legacy = normalizePersistedState({ ...fullLibraryFixture(), roomLayout: undefined, pictureFramePhotoUri: 'file:///legacy/frame.jpg' });
+  assert.equal(legacy.roomLayout?.pieces.find(p => p.id === 'frame')?.photoUri, 'file:///legacy/frame.jpg');
+});
+
+test('foto de quadro antigo oculto preserva somente a referência no backup', () => {
+  const fixture = fullLibraryFixture();
+  fixture.roomLayout!.legacyPhoto = { source: 'custom', version: 'hidden-frame', storagePath: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/hidden-frame.jpg', localUri: 'file:///hidden.jpg', pending: true };
+  fixture.roomLayout!.pieces = fixture.roomLayout!.pieces.filter(p => p.id !== 'frame');
+  const cloud = createCloudLibrarySnapshot(fixture);
+  assert.equal(JSON.stringify(cloud).includes('file://'), false);
+  const restored = normalizeCloudLibrarySnapshot(cloud, null);
+  assert.equal(restored.roomLayout?.legacyPhoto?.storagePath, fixture.roomLayout!.legacyPhoto!.storagePath);
+  assert.equal(restored.roomLayout?.pieces.some(p => p.id === 'frame'), false);
 });

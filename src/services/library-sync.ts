@@ -1,3 +1,4 @@
+import { cloudAvatar } from '@/src/types/profile-avatar';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -15,9 +16,25 @@ export type RemoteLibraryBackup = {
 
 export const createCloudLibrarySnapshot = (
   snapshot: PersistedLibraryState,
+  pauseTimer = true,
 ): CloudLibrarySnapshot => {
   const { pictureFramePhotoUri: _localPhoto, ...cloudSnapshot } = snapshot;
-  return { ...cloudSnapshot, roomLayout:cloudSnapshot.roomLayout ? {...cloudSnapshot.roomLayout,pieces:cloudSnapshot.roomLayout.pieces.map(({photoUri:_photo,...piece})=>piece)} : undefined };
+  const timer = cloudSnapshot.activeReadingTimer;
+  const activeReadingTimer = pauseTimer && timer?.phase === 'running' ? {
+    ...timer, phase: 'paused' as const,
+    elapsedMs: timer.elapsedMs + Math.max(0, Date.now() - Date.parse(timer.segmentStartedAt!)),
+    segmentStartedAt: undefined,
+  } : timer;
+  return {
+    ...cloudSnapshot,
+    activeReadingTimer,
+    profile: { ...cloudSnapshot.profile, avatar: cloudAvatar(cloudSnapshot.profile.avatar) },
+    roomLayout: cloudSnapshot.roomLayout ? {
+      ...cloudSnapshot.roomLayout,
+      legacyPhoto: cloudAvatar(cloudSnapshot.roomLayout.legacyPhoto),
+      pieces: cloudSnapshot.roomLayout.pieces.map(({ photoUri: _photo, ...piece }) => ({ ...piece, photo: cloudAvatar(piece.photo) })),
+    } : undefined,
+  };
 };
 
 export const normalizeCloudLibrarySnapshot = (

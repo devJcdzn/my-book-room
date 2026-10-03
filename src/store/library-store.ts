@@ -1,3 +1,5 @@
+import { ONBOARDING_STEPS, ONBOARDING_VERSION, normalizeOnboardingAnswers, normalizeOnboardingStep, type OnboardingAnswers } from '@/src/utils/onboarding';
+import { normalizeAvatar, type ProfileAvatar } from '@/src/types/profile-avatar';
 import { createDefaultRoomLayout, isRoomPlacementValid, normalizeRoomLayout, type RoomLayout } from '@/src/types/room-layout';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -32,7 +34,7 @@ import {
 export type AmbienceMode = 'auto' | 'day' | 'night';
 export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 
-export const ONBOARDING_VERSION = 1;
+export { ONBOARDING_VERSION } from '@/src/utils/onboarding';
 export const READING_DESK_CAPACITY = 3;
 
 type LibraryState = {
@@ -70,6 +72,8 @@ type LibraryState = {
   onboardingVersion: number;
   onboardingStatus: OnboardingStatus;
   onboardingStep: number;
+  onboardingAnswers: OnboardingAnswers;
+  setOnboardingAnswers: (answers: Partial<OnboardingAnswers>) => void;
   setAmbienceMode: (mode: AmbienceMode) => void;
   cycleAmbienceMode: () => void;
   toggleLamp: () => void;
@@ -123,6 +127,7 @@ type LibraryState = {
 };
 
 export type Profile = {
+  avatar?: ProfileAvatar;
   name: string;
   bio: string;
   bioAttribution: string;
@@ -183,12 +188,13 @@ type PersistedLibraryFields = Pick<
   | 'onboardingVersion'
   | 'onboardingStatus'
   | 'onboardingStep'
+  | 'onboardingAnswers'
 >;
 
 export type PersistedLibraryState = Omit<
   PersistedLibraryFields,
-  'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders'
-> & Partial<Pick<PersistedLibraryFields, 'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'readingDays' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'deskBookIds' | 'readingFolders' | 'readingSessions' | 'activeReadingTimer'>>;
+  'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders'
+> & Partial<Pick<PersistedLibraryFields, 'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'deskBookIds' | 'readingFolders' | 'readingSessions' | 'activeReadingTimer'>>;
 
 const memoryStorage = new Map<string, string>();
 
@@ -226,7 +232,9 @@ const trimToLimit = (value: unknown, fallback: string, limit: number) =>
 
 const normalizeProfile = (value: unknown): Profile => {
   const candidate = value && typeof value === 'object' ? value as Partial<Profile> : {};
+  const avatar = normalizeAvatar(candidate.avatar);
   return {
+    ...(avatar ? { avatar } : {}),
     name: trimToLimit(candidate.name, DEFAULT_PROFILE.name, PROFILE_LIMITS.name) || DEFAULT_PROFILE.name,
     bio: trimToLimit(candidate.bio, DEFAULT_PROFILE.bio, PROFILE_LIMITS.bio),
     bioAttribution: trimToLimit(candidate.bioAttribution, DEFAULT_PROFILE.bioAttribution, PROFILE_LIMITS.bioAttribution),
@@ -568,9 +576,8 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
       || candidate.onboardingStatus === 'skipped'
       ? candidate.onboardingStatus
       : 'not_started',
-    onboardingStep: typeof candidate.onboardingStep === 'number'
-      ? Math.min(3, Math.max(0, Math.round(candidate.onboardingStep)))
-      : 0,
+    onboardingStep: normalizeOnboardingStep(candidate.onboardingStep, candidate.onboardingVersion, candidate.onboardingStatus),
+    onboardingAnswers: normalizeOnboardingAnswers(candidate.onboardingAnswers),
   };
 };
 
@@ -633,6 +640,7 @@ export const createPersistedState = (state: Omit<PersistedLibraryState, 'reading
     onboardingVersion: state.onboardingVersion ?? ONBOARDING_VERSION,
     onboardingStatus: state.onboardingStatus ?? 'not_started',
     onboardingStep: state.onboardingStep ?? 0,
+    onboardingAnswers: normalizeOnboardingAnswers(state.onboardingAnswers),
   };
 };
 
@@ -674,7 +682,7 @@ type LibraryDataState = Pick<
     | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'bookcasePaletteId'
     | 'catId' | 'leftWallItem' | 'leftWallPosterBookId' | 'leftWallWindowStyle' | 'leftWallFrameColor'
     | 'pictureFrameSize' | 'pictureFrameStyleId' | 'pictureFramePhotoUri' | 'profile'
-    | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'readingDays'
+    | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays'
     | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders'
 >;
 
@@ -712,6 +720,7 @@ const initialState: LibraryDataState = {
   onboardingVersion: ONBOARDING_VERSION,
   onboardingStatus: 'not_started',
   onboardingStep: 0,
+  onboardingAnswers: {},
 };
 
 export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
@@ -726,6 +735,7 @@ export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
   && (snapshot.completedShelves?.length ?? 1) === 1
   && Object.keys(snapshot.shelfNames ?? {}).length === 0
   && (snapshot.libraryBackgroundId ?? DEFAULT_LIBRARY_PALETTE_ID) === DEFAULT_LIBRARY_PALETTE_ID
+  && !snapshot.profile.avatar
   && snapshot.profile.name === DEFAULT_PROFILE.name
   && snapshot.profile.bio === DEFAULT_PROFILE.bio
   && snapshot.profile.bioAttribution === DEFAULT_PROFILE.bioAttribution
@@ -738,6 +748,7 @@ export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
   && snapshot.pictureFramePhotoUri === null
   && snapshot.onboardingStatus === 'not_started'
   && snapshot.onboardingStep === 0
+  && Object.keys(snapshot.onboardingAnswers ?? {}).length === 0
 );
 
 export const useLibraryStore = create<LibraryState>()(persist((set) => ({
@@ -765,9 +776,9 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   setLeftWallPosterBookId: (bookId) => set(state=>({ leftWallPosterBookId:bookId,roomLayout:{...state.roomLayout,pieces:state.roomLayout.pieces.map(p=>p.id==='poster'?{...p,bookId:bookId??'first-book'}:p)} })),
   setLeftWallWindowStyle: (styleId) => set({ leftWallWindowStyle: styleId }),
   setLeftWallFrameColor: (frameId) => set({ leftWallFrameColor: frameId }),
-  setPictureFrameSize: (size) => set(state=>({ pictureFrameSize:size,roomLayout:{...state.roomLayout,pieces:size==='none'?state.roomLayout.pieces.filter(p=>p.id!=='frame'):state.roomLayout.pieces.some(p=>p.id==='frame')?state.roomLayout.pieces.map(p=>p.id==='frame'?{...p,aspect:size==='2:1'?'portrait' as const:'square' as const}:p):[...state.roomLayout.pieces,createDefaultRoomLayout({pictureFramePhotoUri:state.pictureFramePhotoUri}).pieces.find(p=>p.id==='frame')!]}})),
+  setPictureFrameSize: (size) => set(state=>({ pictureFrameSize:size,roomLayout:{...state.roomLayout,legacyPhoto:state.roomLayout.pieces.find(p=>p.id==='frame')?.photo??state.roomLayout.legacyPhoto,pieces:size==='none'?state.roomLayout.pieces.filter(p=>p.id!=='frame'):state.roomLayout.pieces.some(p=>p.id==='frame')?state.roomLayout.pieces.map(p=>p.id==='frame'?{...p,aspect:size==='2:1'?'portrait' as const:'square' as const}:p):[...state.roomLayout.pieces,{...createDefaultRoomLayout({pictureFramePhotoUri:state.pictureFramePhotoUri}).pieces.find(p=>p.id==='frame')!,photo:state.roomLayout.legacyPhoto}]}})),
   setPictureFrameStyleId: (styleId) => set({ pictureFrameStyleId: styleId }),
-  setPictureFramePhotoUri: (uri) => set(state=>({pictureFramePhotoUri:uri,roomLayout:{...state.roomLayout,pieces:state.roomLayout.pieces.map(p=>p.id==='frame'?{...p,photoUri:uri??undefined,bookId:undefined}:p)}})),
+  setPictureFramePhotoUri: (uri) => set(state=>({pictureFramePhotoUri:uri,roomLayout:{...state.roomLayout,pieces:state.roomLayout.pieces.map(p=>p.id==='frame'?{...p,photoUri:uri??undefined,photo:uri?undefined:{source:'none' as const,version:`${Date.now()}`,pending:true,previousPath:p.photo?.storagePath??p.photo?.previousPath},bookId:undefined}:p)}})),
   setLibraryBackgroundId: (id) => {
     if (LIBRARY_PALETTES.some((palette) => palette.id === id)) set({ libraryBackgroundId: id });
   },
@@ -820,14 +831,18 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     const next = normalizeProfile({ ...state.profile, ...input });
     return { profile: next };
   }),
+  setOnboardingAnswers: (answers) => set((state) => ({
+    onboardingAnswers: normalizeOnboardingAnswers({ ...state.onboardingAnswers, ...answers }),
+  })),
   setOnboardingStep: (step) => set({
+    onboardingVersion: ONBOARDING_VERSION,
     onboardingStatus: 'in_progress',
-    onboardingStep: Math.min(3, Math.max(0, Math.round(step))),
+    onboardingStep: normalizeOnboardingStep(step, ONBOARDING_VERSION, 'in_progress'),
   }),
   completeOnboarding: () => set({
     onboardingVersion: ONBOARDING_VERSION,
     onboardingStatus: 'completed',
-    onboardingStep: 3,
+    onboardingStep: ONBOARDING_STEPS - 1,
   }),
   skipOnboarding: () => set({
     onboardingVersion: ONBOARDING_VERSION,
@@ -1250,9 +1265,17 @@ export const overwriteLibraryStorageScope = async (
 };
 
 export const replaceLibrarySnapshot = (snapshot: unknown, preservePhoto = false) => {
+  const current = useLibraryStore.getState();
   const currentPhoto = useLibraryStore.getState().pictureFramePhotoUri;
   const localPieces = useLibraryStore.getState().roomLayout.pieces;
   const normalized = normalizePersistedState(snapshot);
+  // Completing onboarding belongs to this installation, even when an older backup is restored.
+  if ((current.onboardingStatus === 'completed' || current.onboardingStatus === 'skipped')
+    && (normalized.onboardingStatus === 'not_started' || normalized.onboardingStatus === 'in_progress')) {
+    normalized.onboardingStatus = current.onboardingStatus;
+    normalized.onboardingStep = current.onboardingStep;
+    normalized.onboardingVersion = current.onboardingVersion;
+  }
   useLibraryStore.setState({
     ...normalized,
     pictureFramePhotoUri: preservePhoto ? currentPhoto : normalized.pictureFramePhotoUri,
@@ -1267,14 +1290,9 @@ export const switchLibraryStorageScope = async (
   fallback?: PersistedLibraryState,
 ) => {
   const name = storageKeyForScope(scope);
-  const stored = await storage.getItem(name);
+  const snapshot = await readLibraryStorageScope(scope);
   useLibraryStore.persist.setOptions({ name });
-
-  if (stored) {
-    useLibraryStore.setState({ ...initialState, _hasHydrated: false });
-    await useLibraryStore.persist.rehydrate();
-    return;
-  }
-
-  replaceLibrarySnapshot(fallback ?? initialState);
+  // Read before changing scope: resetting the store would overwrite the saved account.
+  // Account switches must also keep the root navigator and AuthProvider mounted.
+  replaceLibrarySnapshot(snapshot ?? fallback ?? initialState);
 };

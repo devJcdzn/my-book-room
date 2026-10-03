@@ -14,8 +14,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import { File, Paths } from "expo-file-system";
+import { prepareAvatar } from '@/src/services/profile-avatar';
+import { ROOM_PHOTOS_BUCKET } from '@/src/services/room-photos';
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RoomAppearanceOptions } from "@/src/components/room/room-customization-overlay";
 import { roomModel } from "@/src/components/room/room-models";
@@ -97,6 +98,7 @@ export function RoomEditorPanel({
     redo,
   } = useRoomEditor();
   const books = useLibraryStore((state) => state.books);
+  const completedBooks = books.filter((book) => book.status === 'completed');
   const setLayout = useLibraryStore((state) => state.setRoomLayout);
   const [category, setCategory] = useState<RoomCategory>(
     initialCategory ?? "desk",
@@ -192,21 +194,14 @@ export function RoomEditorPanel({
         quality: 0.85,
       });
       if (picked.canceled) return;
-      const image = await ImageManipulator.manipulateAsync(
-        picked.assets[0].uri,
-        [{ resize: { width: 768 } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      const destination = new File(
-        Paths.document,
-        `${nextDecorationId("photo")}.jpg`,
-      );
-      new File(image.uri).copy(destination);
+      const storageName = useLibraryStore.persist.getOptions().name ?? '';
+      const scope = storageName.includes('user:') ? storageName.split('user:')[1] : 'guest';
+      const photo = await prepareAvatar(picked.assets[0].uri, scope, selected.photo, ROOM_PHOTOS_BUCKET, 1024);
       const current = useRoomEditor
         .getState()
         .draft?.pieces.find((p) => p.id === id);
       if (current)
-        update({ ...current, photoUri: destination.uri, bookId: undefined });
+        update({ ...current, photo, photoUri: photo.localUri, bookId: undefined });
     } catch {
       Alert.alert(
         "Foto indisponível",
@@ -939,7 +934,7 @@ export function RoomEditorPanel({
                   {action(
                     "Arte padrão",
                     () =>
-                      apply({ ...selected, photoUri: "", bookId: undefined }),
+                      apply({ ...selected, photoUri: '', photo: { source: 'none', version: nextDecorationId("photo"), pending: true, previousPath: selected.photo?.storagePath ?? selected.photo?.previousPath }, bookId: undefined }),
                     { icon: "brush-outline", grow: true },
                   )}
                 </View>
@@ -966,16 +961,16 @@ export function RoomEditorPanel({
                     </Pressable>
                   ))}
                 </View>
-                {books.length ? (
+                {completedBooks.length ? (
                   <Text style={[styles.hint, muted]}>
-                    Ou use a capa de um livro
+                    Ou use a capa de um livro concluído
                   </Text>
                 ) : (
                   <Text style={[styles.hint, muted]}>
-                    Adicione livros à biblioteca para usar suas capas aqui.
+                    Conclua um livro para desbloquear sua capa nos quadros.
                   </Text>
                 )}
-                {books.map((book) => (
+                {completedBooks.map((book) => (
                   <Pressable
                     key={book.id}
                     accessibilityRole="button"
@@ -988,6 +983,7 @@ export function RoomEditorPanel({
                         ...selected,
                         bookId: book.id,
                         photoUri: undefined,
+                        photo: { source: 'none', version: nextDecorationId("photo"), pending: true, previousPath: selected.photo?.storagePath ?? selected.photo?.previousPath },
                       })
                     }
                     style={[
