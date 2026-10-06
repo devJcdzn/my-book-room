@@ -6,6 +6,19 @@ Landing page estática, sem build step. Para testar localmente:
 python3 -m http.server 4173 --directory landing
 ```
 
+## Publicação e verificação do Google OAuth
+
+Na Vercel, use `landing` como Root Directory, sem comando de build. O `vercel.json` redireciona `/privacy` para `/privacy.html`; esse redirecionamento só é aplicado pela Vercel, não pelo servidor Python acima.
+
+Após publicar, confira as páginas sem estar autenticado e configure no Google Auth Platform:
+
+- Nome do aplicativo: `Nookly: Sua biblioteca pessoal`.
+- Página inicial: `https://www.nooklyapp.site/`.
+- Política de privacidade: `https://www.nooklyapp.site/privacy.html`, a mesma página vinculada na landing.
+- Domínio autorizado: `nooklyapp.site`, com propriedade verificada.
+
+Confira os escopos efetivamente solicitados pelo provedor Google no Supabase e declarados no console: o app usa login e perfil básico, sem integração com Gmail, Drive, contatos ou calendário. Somente depois de validar a publicação e essas configurações, reenvie para verificação. Alterações nos arquivos não atualizam automaticamente o console OAuth nem confirmam aprovação pelo Google.
+
 O `config.js` aponta para a função pública do projeto Bookroom. O Turnstile é opcional: para ativá-lo, configure a site key pública no arquivo e o secret apenas na função. Nunca coloque o secret do Turnstile nem o webhook do Discord no código da landing.
 
 No Supabase:
