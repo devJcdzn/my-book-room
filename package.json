@@ -5,6 +5,8 @@
   "dependencies": {
     "@expo/ui": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
+    "@himetrica/tracker-react-native": "0.1.29",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-three/fiber": "^9.7.0",
     "@supabase/supabase-js": "^2.116.0",
     "expo": "~57.0.20",

@@ -131,6 +131,9 @@ export default function OnboardingScreen() {
   const skipOnboarding = useLibraryStore((state) => state.skipOnboarding);
 
   const pathname = usePathname();
+  useEffect(() => {
+    if (useLibraryStore.getState().onboardingStatus === 'not_started') setOnboardingStep(0);
+  }, [setOnboardingStep]);
   const step = Math.min(TOTAL_STEPS - 1, Math.max(0, onboardingStep));
   const [name, setName] = useState(profile.name === 'Leitor(a)' ? '' : profile.name);
   const [answers, setAnswers] = useState(savedAnswers);

@@ -1,3 +1,4 @@
+import { trackEvent } from '../services/analytics';
 import { ONBOARDING_STEPS, ONBOARDING_VERSION, normalizeOnboardingAnswers, normalizeOnboardingStep, type OnboardingAnswers } from '@/src/utils/onboarding';
 import { normalizeAvatar, type ProfileAvatar } from '@/src/types/profile-avatar';
 import { createDefaultRoomLayout, isRoomPlacementValid, normalizeRoomLayout, type RoomLayout } from '@/src/types/room-layout';
@@ -834,25 +835,39 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   setOnboardingAnswers: (answers) => set((state) => ({
     onboardingAnswers: normalizeOnboardingAnswers({ ...state.onboardingAnswers, ...answers }),
   })),
-  setOnboardingStep: (step) => set({
-    onboardingVersion: ONBOARDING_VERSION,
-    onboardingStatus: 'in_progress',
-    onboardingStep: normalizeOnboardingStep(step, ONBOARDING_VERSION, 'in_progress'),
+  setOnboardingStep: (step) => set((state) => {
+    if (state.onboardingStatus === 'not_started') trackEvent('onboarding_started', { version: ONBOARDING_VERSION });
+    return {
+      onboardingVersion: ONBOARDING_VERSION,
+      onboardingStatus: 'in_progress',
+      onboardingStep: normalizeOnboardingStep(step, ONBOARDING_VERSION, 'in_progress'),
+    };
   }),
-  completeOnboarding: () => set({
-    onboardingVersion: ONBOARDING_VERSION,
-    onboardingStatus: 'completed',
-    onboardingStep: ONBOARDING_STEPS - 1,
+  completeOnboarding: () => set((state) => {
+    if (state.onboardingStatus === 'completed') return state;
+    trackEvent('onboarding_completed', { final_step: state.onboardingStep });
+    return {
+      onboardingVersion: ONBOARDING_VERSION,
+      onboardingStatus: 'completed',
+      onboardingStep: ONBOARDING_STEPS - 1,
+    };
   }),
-  skipOnboarding: () => set({
-    onboardingVersion: ONBOARDING_VERSION,
-    onboardingStatus: 'skipped',
+  skipOnboarding: () => set((state) => {
+    if (state.onboardingStatus === 'skipped') return state;
+    trackEvent('onboarding_skipped', { final_step: state.onboardingStep });
+    return {
+      onboardingVersion: ONBOARDING_VERSION,
+      onboardingStatus: 'skipped',
+    };
   }),
-  restartOnboarding: () => set({
-    onboardingVersion: ONBOARDING_VERSION,
-    onboardingStatus: 'in_progress',
-    onboardingStep: 0,
-  }),
+  restartOnboarding: () => {
+    trackEvent('onboarding_started', { version: ONBOARDING_VERSION });
+    set({
+      onboardingVersion: ONBOARDING_VERSION,
+      onboardingStatus: 'in_progress',
+      onboardingStep: 0,
+    });
+  },
   addOpenLibraryBook: (result, options = {}) => set((state) => {
     if (state.books.some((book) => book.id === result.workKey)) return state;
     if (!result.title.trim() || !Number.isInteger(result.totalPages) || result.totalPages < 1 || result.totalPages > 99_999) return state;
@@ -877,6 +892,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       rating: options.rating,
       notes: options.notes?.trim() || undefined,
     };
+    trackEvent('book_added', { source: 'catalog', status });
     return { ...allocation, books: [...state.books, newBook] };
   }),
   addCustomBook: (bookData, requestedShelfId, status = 'reading') => set((state) => {
@@ -896,6 +912,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       status,
       shelfId: allocation.shelfId,
     };
+    trackEvent('book_added', { source: 'manual', status });
     return { ...allocation, books: [...state.books, newBook] };
   }),
   updateBookCoverColor: (bookId, color) => set((state) => {
@@ -1056,6 +1073,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
         readingDays,
       };
     });
+    if (saved) trackEvent('reading_session_saved', { duration_seconds: saved.durationSeconds, pages_read: saved.pagesRead });
     return saved;
   },
   updateReadingSession: (sessionId, input) => set((state) => {
@@ -1115,6 +1133,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   completeBook: (bookId, input = {}) => set((state) => {
     const book = state.books.find((item) => item.id === bookId);
     if (!book || book.status === 'completed' || state.completingBookId === bookId) return state;
+    trackEvent('book_completed');
     const allocation = allocateBookShelf(state, 'completed', state.completedShelves[0], bookId);
     return {
       activeBookId: state.activeBookId === bookId ? undefined : state.activeBookId,
@@ -1147,6 +1166,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       color: READING_NOTE_COLORS.includes(input.color as typeof READING_NOTE_COLORS[number]) ? input.color : undefined,
       folderId: state.readingFolders.some((folder) => folder.id === input.folderId) ? input.folderId : undefined,
     };
+    trackEvent('reading_note_created');
     return { books: state.books.map((item) => item.id === bookId
       ? { ...item, readingEntries: [entry, ...(item.readingEntries ?? [])] }
       : item) };
@@ -1214,6 +1234,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     if (state.completingBookId !== bookId) return state;
     const book = state.books.find((item) => item.id === bookId);
     if (!book) return state;
+    trackEvent('book_completed');
     const remainingBooks = state.books.filter((item) => item.id !== bookId);
     const allocation = allocateBookShelf(state, 'completed', state.completedShelves[0], bookId);
     return {

@@ -1,3 +1,4 @@
+import { trackEvent } from '@/src/services/analytics';
 import * as ImagePicker from 'expo-image-picker';
 import { AuthActions } from '@/src/components/auth-actions';
 import { ProfileAvatar } from '@/src/components/profile-avatar';
@@ -76,6 +77,7 @@ function EditProfileForm() {
       if (photoDraft !== undefined && avatar?.localUri !== nextAvatar?.localUri) {
         try { removeLocalAvatar(avatar, scope); } catch { /* A cached old file must not block saving. */ }
       }
+      trackEvent('profile_updated', { photo_changed: photoDraft !== undefined });
       router.back();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a foto. Tente novamente.');

@@ -30,7 +30,7 @@
           <p class="legal-summary">
             O Nookly foi criado para funcionar, por padrão, como uma biblioteca pessoal no seu próprio aparelho. Esta política explica de forma direta quando algum dado sai do dispositivo e por quê.
           </p>
-          <p class="legal-updated">Última atualização: 2 de outubro de 2026</p>
+          <p class="legal-updated">Última atualização: 3 de outubro de 2026</p>
         </header>
 
         <section>
@@ -59,6 +59,10 @@
           <h3>Conta e login opcional</h3>
           <p>Você pode entrar com Google ou, no iOS, com Apple. Recebemos do provedor o identificador da conta, email e dados básicos de perfil, como nome e foto, quando fornecidos. A Apple pode fornecer um endereço de email privado caso você escolha ocultar seu email. O Nookly não recebe sua senha do Google ou da Apple.</p>
           <p>O Supabase fornece autenticação e mantém a sessão. Quando você entra, a biblioteca, o progresso, as notas, o perfil, as configurações da sala e as fotos selecionadas são sincronizados com a conta. O uso sem conta mantém esses conteúdos localmente.</p>
+          <h3>Análise de uso</h3>
+          <p>Nos builds de TestFlight e na versão publicada, usamos Himetrica para entender a navegação e melhorar o Nookly. Registramos telas visitadas, sessões e ações como adicionar livros, concluir leituras, salvar notas ou personalizar a sala. Os eventos incluem plataforma, versão do aplicativo e uso com ou sem conta; sessões de leitura incluem duração e quantidade de páginas. Um identificador aleatório permite medir o uso sem login.</p>
+          <p>Ao entrar, associamos esses registros ao identificador da conta no Supabase, nome disponível, email, provedor de login e data de criação da conta. Não enviamos ao Himetrica títulos de livros, buscas, conteúdo de notas, resenhas, bio, fotos, tokens ou URLs de arquivos. Essa integração não é usada para publicidade nem rastreamento entre aplicativos.</p>
+          <p>Conforme a <a href="https://www.himetrica.com/privacy">política do Himetrica</a>, o serviço usa o endereço IP da conexão para estimar país, região e cidade, sem mantê-lo na base de análise após essa estimativa. Não solicitamos acesso à localização do aparelho. A retenção dos registros de uso depende do plano contratado com o fornecedor.</p>
           <h3>Pagamentos</h3>
           <p>A versão atual não oferece compras dentro do aplicativo nem assinaturas e não utiliza RevenueCat para tratar dados de compras.</p>
 
@@ -77,6 +81,7 @@
             <li>buscar informações bibliográficas e capas;</li>
             <li>autenticar sua conta, quando você escolher entrar;</li>
             <li>sincronizar sua biblioteca, perfil, sala e fotos quando você usar uma conta;</li>
+            <li>entender o uso e melhorar a navegação e as funções do aplicativo;</li>
             <li>gerenciar convites e comunicações do beta;</li>
             <li>prevenir fraude, abuso e falhas técnicas; e</li>
             <li>cumprir obrigações legais.</li>
@@ -96,6 +101,7 @@
           <ul>
             <li>Apple e Google, para distribuição e login;</li>
             <li>Supabase, para catálogo, lista do beta, autenticação, armazenamento de fotos e sincronização;</li>
+            <li>Himetrica, para análise de navegação, eventos de uso e identificação da conta;</li>
             <li>Open Library, para pesquisa e dados de livros;</li>
             <li>Discord, para notificação interna de novas inscrições no beta; e</li>
             <li>Cloudflare, caso o Turnstile esteja habilitado para proteção anti-spam.</li>
@@ -114,6 +120,7 @@
         </section>
 
         <section>
+          <p>Sair ou excluir a conta reinicia o identificador de análise neste aparelho. Isso não apaga automaticamente os registros já recebidos pelo Himetrica. Solicitações de acesso ou exclusão desses registros podem ser feitas pelo canal de contato desta política.</p>
           <h2>7. Segurança</h2>
           <p>
             Adotamos medidas técnicas e organizacionais proporcionais ao serviço, incluindo armazenamento local, conexões seguras e controles de acesso no banco de dados. Nenhum sistema é totalmente imune a falhas, mas trabalhamos para reduzir riscos de acesso, alteração ou divulgação indevida.

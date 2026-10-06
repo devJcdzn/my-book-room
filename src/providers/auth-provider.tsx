@@ -1,3 +1,4 @@
+import { identifyAnalytics, trackEvent } from '../services/analytics';
 import { prepareRoomPhotos, uploadRoomPhotos, preserveGuestRoomPhotos, roomPhotoPaths, ROOM_PHOTOS_BUCKET } from '@/src/services/room-photos';
 import { adoptAvatar, uploadAvatar, guestAvatar, AVATAR_BUCKET } from '@/src/services/profile-avatar';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -439,29 +440,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error || !data.url) throw error ?? new Error('Não foi possível abrir o login.');
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, REDIRECT_URL);
-    if (result.type !== 'success') return;
+    if (result.type !== 'success') throw new Error('cancelled');
     const code = new URL(result.url).searchParams.get('code');
     if (!code) throw new Error('O provedor não retornou um código de acesso.');
     await completeOAuth(code);
+    const { data: restored } = await supabase.auth.getSession();
+    const signedInUser = restored.session?.user;
+    if (signedInUser) void identifyAnalytics({ userId: signedInUser.id,
+      name: useLibraryStore.getState().profile.name,
+      ...(signedInUser.email ? { email: signedInUser.email } : {}),
+      metadata: { provider: 'google', created_at: signedInUser.created_at } });
   }, [completeOAuth]);
 
-  const runAuthentication = useCallback(async (operation: () => Promise<void>) => {
+  const runAuthentication = useCallback(async (provider: 'apple' | 'google', operation: () => Promise<void>) => {
     if (authenticationRef.current) return;
     authenticationRef.current = true;
     setIsAuthenticating(true);
     setErrorMessage(null);
+    trackEvent('login_started', { provider });
     try {
       await operation();
+      trackEvent('login_succeeded', { provider });
     } catch (error) {
-      if (!isCancelledError(error)) setErrorMessage('Não foi possível entrar. Verifique sua conexão e tente novamente.');
+      if (isCancelledError(error)) trackEvent('login_cancelled', { provider });
+      else {
+        trackEvent('login_failed', { provider, failure_category: 'authentication' });
+        setErrorMessage('Não foi possível entrar. Verifique sua conexão e tente novamente.');
+      }
     } finally {
       authenticationRef.current = false;
       setIsAuthenticating(false);
     }
   }, []);
 
-  const signInWithApple = useCallback(() => runAuthentication(async () => {
-    if (process.env.EXPO_OS !== 'ios') return;
+  const signInWithApple = useCallback(() => runAuthentication('apple', async () => {
+    if (process.env.EXPO_OS !== 'ios') throw new Error('unsupported_platform');
     if (!ACCOUNT_SYNC_ENABLED || !supabase) throw new Error('A sincronização ainda não está ativada.');
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
@@ -470,16 +483,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ],
     });
     if (!credential.identityToken) throw new Error('A Apple não retornou uma identidade válida.');
-    const { error } = await supabase.auth.signInWithIdToken({
+    const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: credential.identityToken,
       access_token: credential.authorizationCode ?? undefined,
     });
     if (error) throw error;
+    if (data.user) void identifyAnalytics({ userId: data.user.id, name: useLibraryStore.getState().profile.name,
+      ...(data.user.email ? { email: data.user.email } : {}),
+      metadata: { provider: 'apple', created_at: data.user.created_at } });
   }), [runAuthentication]);
 
   const signInWithGoogle = useCallback(
-    () => runAuthentication(signInWithOAuth),
+    () => runAuthentication('google', signInWithOAuth),
     [runAuthentication, signInWithOAuth],
   );
 
@@ -538,7 +554,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLastSyncedAt(null);
     try {
       await switchLibraryStorageScope('guest');
-      await supabase.auth.signOut({ scope: 'local' });
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (!error) trackEvent('account_signed_out');
+      void identifyAnalytics(null);
     } finally {
       switchingRef.current = false;
       authenticationRef.current = false;
@@ -560,6 +578,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       snapshot.profile = { ...snapshot.profile, avatar: await guestAvatar(supabase, userId, snapshot.profile.avatar) };
       const { error } = await supabase.functions.invoke('delete-account', { body: {} });
       if (error) throw error;
+      trackEvent('account_deleted');
+      void identifyAnalytics(null);
       await overwriteLibraryStorageScope('guest', snapshot);
       syncReadyRef.current = false;
       sessionRef.current = null;

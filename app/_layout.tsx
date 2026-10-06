@@ -6,6 +6,7 @@ import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { AnalyticsProvider } from '@/src/providers/analytics-provider';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, typography } from '@/src/theme';
@@ -114,6 +115,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <AnalyticsProvider>
       <OnboardingRedirect />
       <ThemeProvider value={theme}>
         <StatusBar animated style={isNight ? 'light' : 'dark'} />
@@ -199,6 +201,7 @@ export default function RootLayout() {
         />
         </Stack>
       </ThemeProvider>
+      </AnalyticsProvider>
     </AuthProvider>
   );
 }

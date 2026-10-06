@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { trackEvent } from '@/src/services/analytics';
 import { resolveRoomOptionId } from '@/src/services/room-customization-access';
 import { useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
@@ -35,17 +36,23 @@ export default function CustomizeRoomScreen() {
 
   const handleSelectWallPalette = (palette: WallPalette) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (wallPaletteId === palette.id) return;
     setWallPaletteId(palette.id);
+    trackEvent('room_customization_saved', { piece_count: useLibraryStore.getState().roomLayout.pieces.length });
   };
 
   const handleSelectFloorPalette = (palette: FloorPalette) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (floorPaletteId === palette.id) return;
     setFloorPaletteId(palette.id);
+    trackEvent('room_customization_saved', { piece_count: useLibraryStore.getState().roomLayout.pieces.length });
   };
 
   const handleSelectRugPalette = (palette: RugPalette) => {
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (rugPaletteId === palette.id) return;
     setRugPaletteId(palette.id);
+    trackEvent('room_customization_saved', { piece_count: useLibraryStore.getState().roomLayout.pieces.length });
   };
 
   const handleTabPress = (tab: CustomizationTab) => {

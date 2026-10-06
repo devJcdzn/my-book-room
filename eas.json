@@ -33,8 +33,10 @@
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
-      }
+        "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true",
+        "EXPO_PUBLIC_ENABLE_ANALYTICS": "true"
+      },
+      "environment": "production"
     }
   },
   "submit": {

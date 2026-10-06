@@ -1,3 +1,4 @@
+import { trackEvent } from '@/src/services/analytics';
 import { colors, controls, darkTheme, typography } from "@/src/theme";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -400,6 +401,12 @@ export function RoomEditorPanel({
           () => {
             useRoomEditor.getState().endMove();
             const editor = useRoomEditor.getState();
+            const previous = useLibraryStore.getState();
+            const changed = JSON.stringify(previous.roomLayout) !== JSON.stringify(editor.draft)
+              || (editor.appearance && (previous.wallPaletteId !== editor.appearance.wallPaletteId
+                || previous.floorPaletteId !== editor.appearance.floorPaletteId
+                || previous.rugPaletteId !== editor.appearance.rugPaletteId
+                || previous.catId !== editor.appearance.catId));
             setLayout(editor.draft!);
             if (editor.appearance) {
               const store = useLibraryStore.getState();
@@ -408,6 +415,7 @@ export function RoomEditorPanel({
               store.setRugPaletteId(editor.appearance.rugPaletteId);
               store.setCatId(editor.appearance.catId);
             }
+            if (changed) trackEvent('room_customization_saved', { piece_count: editor.draft!.pieces.length });
             feedback();
             finish();
           },
