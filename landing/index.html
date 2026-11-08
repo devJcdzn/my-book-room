@@ -3,44 +3,66 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#F6EFE5" />
-  <meta name="description" content="Sua biblioteca, no seu ritmo. Organize livros, acompanhe suas leituras e crie um cantinho só seu no Nookly. Entre na lista do TestFlight." />
+  <meta name="theme-color" content="#32251F" />
+  <link rel="canonical" href="https://nooklyapp.site/" />
+  <meta name="description" content="Organize sua biblioteca, acompanhe o progresso, registre ideias no diário e personalize sua sala de leitura no Nookly para iPhone. Em breve no Google Play." />
   <meta property="og:title" content="Nookly: Sua biblioteca pessoal" />
-  <meta property="og:description" content="Seus livros merecem um cantinho. Conheça o Nookly e entre na lista do TestFlight." />
+  <meta property="og:description" content="Organize seus livros, acompanhe suas leituras e guarde ideias no diário do Nookly para iPhone. Em breve no Google Play." />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://nooklyapp.site/" />
+  <meta property="og:locale" content="pt_BR" />
   <meta property="og:image" content="assets/nookly-icon.webp" />
   <link rel="icon" href="assets/nookly-icon.webp" type="image/webp" />
   <link rel="preload" href="assets/playfair-display.ttf" as="font" type="font/ttf" crossorigin />
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=11" />
   <title>Nookly: Sua biblioteca pessoal</title>
 </head>
 <body id="top">
+  <svg class="icon-definitions" aria-hidden="true" focusable="false">
+    <symbol id="apple-mark" viewBox="0 0 24 24"><path d="M16.8 12.8c0-2.2 1.8-3.2 1.9-3.3-1-1.5-2.6-1.7-3.2-1.8-1.4-.1-2.7.8-3.5.8-.7 0-1.8-.8-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 6.8 1.2 9.1.8 1.2 1.7 2.5 2.9 2.5 1.2-.1 1.6-.8 3.1-.8s1.9.8 3.1.8 2-1.2 2.8-2.3c.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-3.7zM14.6 6.2c.7-.8 1.1-1.9 1-3.1-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.9-1 3 .9.1 2-.5 2.8-1.3z" /></symbol>
+    <symbol id="play-mark" viewBox="0 0 24 24">
+      <path fill="#34A853" d="M3.3 2.1c-.4.2-.6.6-.6 1.2v17.4c0 .6.2 1 .6 1.2L13.6 12z" />
+      <path fill="#4285F4" d="m3.3 2.1 12.4 7.2 3.1-3.1-11-6.3c-1.6-.9-3.1-.4-4.5 2.2z" />
+      <path fill="#FBBC04" d="m15.7 9.3 5 2.9c1.2.7 1.2 1.9 0 2.6l-5 2.9-3.1-3.1z" />
+      <path fill="#EA4335" d="m3.3 21.9 12.4-7.2 3.1 3.1-11 6.3c-1.6.9-3.1.4-4.5-2.2z" />
+    </symbol>
+  </svg>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
-  <header class="site-header">
+  <header class="site-header site-header-dark">
     <a class="brand" href="#top" aria-label="Nookly, início"><img src="assets/nookly-icon.webp" alt="" width="44" height="44" /><span>nookly</span></a>
-    <nav aria-label="Navegação principal"><a href="#biblioteca">O app</a><a href="#perguntas">Dúvidas</a><a class="button button-small" href="#convite">Quero experimentar <span aria-hidden="true">↗</span></a></nav>
+    <nav aria-label="Navegação principal"><a href="#biblioteca">O app</a><a href="#perguntas">Dúvidas</a><a class="button button-small header-store-link" data-app-store-link href="https://apps.apple.com/app/apple-store/id6810810549?pt=128672223&amp;ct=site&amp;mt=8"><svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple-mark" /></svg><span>App Store</span><span aria-hidden="true">↗</span></a></nav>
   </header>
   <main id="conteudo">
-    <section class="hero section-width" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <h1 id="hero-title">Seus livros.<br />Seu ritmo.<br /><em>Seu cantinho.</em></h1>
-        <p><strong>Nookly: Sua biblioteca pessoal</strong> é um aplicativo para organizar livros, acompanhar o progresso de leitura, registrar notas e personalizar uma sala virtual.</p>
-        <a class="button" href="#convite">Quero conhecer o Nookly <span aria-hidden="true">↗</span></a>
-        <p class="cta-note">Em beta para iPhone, pelo TestFlight.</p>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy section-width">
+        <h1 id="hero-title">Seus livros.<br /><em>Seu ritmo.</em></h1>
+        <p><strong>Nookly: Sua biblioteca pessoal</strong> organiza seus livros, acompanha seu progresso e guarda as ideias que aparecem pelo caminho — tudo no seu cantinho de leitura.</p>
+        <div class="store-badges" role="group" aria-label="Lojas do Nookly">
+          <a class="store-badge store-badge-apple" data-app-store-link href="https://apps.apple.com/app/apple-store/id6810810549?pt=128672223&amp;ct=site&amp;mt=8"><svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple-mark" /></svg><span class="store-badge-copy"><small>Baixar na</small><strong>App Store</strong></span></a>
+          <div class="store-badge store-badge-play" role="note"><svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#play-mark" /></svg><span class="store-badge-copy"><small>Em breve no</small><strong>Google Play</strong></span></div>
+        </div>
+        <p class="cta-note">Para iPhone. O app é gratuito; algumas coleções podem ser compradas à parte.</p>
       </div>
-      <div class="hero-art">
-        <img class="hero-phone" src="assets/room-iphone.webp" alt="Sala virtual do Nookly com estante, livros, poltrona e controles de ambiente" width="760" height="1251" fetchpriority="high" />
+      <div class="hero-art section-width">
+        <img class="hero-stack" src="assets/3d/book-stack.webp" alt="Pilha de livros de capa dura com um livro aberto e marcador sálvia" width="720" height="720" fetchpriority="high" />
+        <img class="hero-phone" src="assets/room-iphone-cutout.webp" alt="Sala virtual do Nookly com estante, livros, poltrona e controles de ambiente" width="620" height="1277" fetchpriority="high" />
         <img class="hero-niko" src="assets/niko.webp" alt="Niko, o mascote do Nookly, com seus óculos terracota" width="700" height="700" />
-        <span class="niko-note">Seu novo companheiro<br />de estante.</span>
       </div>
     </section>
     <section class="intro section-width" aria-labelledby="intro-title">
-      <h2 id="intro-title">Um lugar para tudo<br />que a leitura deixa.</h2>
-      <p>O próximo livro. A página onde você parou. Aquela ideia que vale guardar. No Nookly, tudo encontra seu lugar.</p>
+      <div class="intro-copy">
+        <h2 id="intro-title">Um lugar para tudo<br />que a leitura deixa.</h2>
+        <p>O próximo livro. A página onde você parou. Aquela ideia que vale guardar. No Nookly, tudo encontra seu lugar.</p>
+      </div>
+      <div class="story-objects" role="group" aria-label="Recursos do Nookly">
+        <article class="story-object story-object-sage"><img src="assets/3d/reading-timer.webp" alt="" width="720" height="720" loading="lazy" /><span>Ritmo de leitura</span></article>
+        <article class="story-object story-object-paper"><img src="assets/3d/reading-journal.webp" alt="" width="720" height="540" loading="lazy" /><span>Diário</span></article>
+        <article class="story-object story-object-terra"><img src="assets/3d/reading-lamp.webp" alt="" width="720" height="720" loading="lazy" /><span>Sala virtual</span></article>
+      </div>
     </section>
     <section class="feature feature-sage" id="biblioteca" aria-labelledby="library-title">
       <div class="feature-inner section-width">
-        <div class="feature-image"><img src="assets/library-iphone.webp" alt="Biblioteca do Nookly com capas e organização por status de leitura" width="760" height="1215" loading="lazy" /></div>
+        <div class="feature-image"><img src="assets/library-iphone-cutout.webp" alt="Biblioteca do Nookly com capas e organização por status de leitura" width="731" height="1483" loading="lazy" /></div>
         <div class="feature-copy"><h2 id="library-title">Uma estante.<br /><em>Mil próximas histórias.</em></h2><p>Reúna os livros que quer ler, os que estão te acompanhando e os que já deixaram saudade. Crie suas estantes e encontre sua próxima leitura.</p><ul class="feature-list"><li>Busca de livros e cadastro manual</li><li>Quero ler, lendo e concluídos</li><li>Estantes organizadas do seu jeito</li></ul></div>
       </div>
     </section>
@@ -52,7 +74,7 @@
     </section>
     <section class="feature feature-terracotta" aria-labelledby="diary-title">
       <div class="feature-inner section-width">
-        <div class="feature-image"><img src="assets/diary-iphone.webp" alt="Diário do Nookly com notas coloridas sobre os livros" width="760" height="1360" loading="lazy" /></div>
+        <div class="feature-image"><img src="assets/diary-iphone-cutout.webp" alt="Diário do Nookly com notas coloridas sobre os livros" width="690" height="1404" loading="lazy" /></div>
         <div class="feature-copy"><h2 id="diary-title">A última página<br />não precisa ser<br /><em>o fim da conversa.</em></h2><p>Guarde pensamentos, trechos e descobertas no seu diário. Organize suas notas por livro e favorite o que você quer revisitar.</p><p class="feature-aside">Para lembrar do que ficou em você.</p></div>
       </div>
     </section>
@@ -65,28 +87,24 @@
       <div class="faq-list">
         <details><summary>O Nookly é um app para ler ebooks?</summary><p>O Nookly organiza sua biblioteca e acompanha suas leituras. Ele não fornece ebooks nem substitui o livro físico ou o aplicativo em que você lê.</p></details>
         <details><summary>Preciso criar uma conta?</summary><p>Você pode usar o app sem conta, com os dados no aparelho. Para sincronizar sua biblioteca e seu perfil, entre com Google ou, no iOS, com Apple. O login com Google usa seu identificador, email e perfil básico para autenticar sua conta. Consulte os detalhes de armazenamento, análise de uso e exclusão na <a href="privacy.html">Política de Privacidade</a>.</p></details>
-        <details><summary>O app tem compras ou assinaturas?</summary><p>A versão atual não oferece compras dentro do app nem assinaturas.</p></details>
-        <details><summary>Como funciona o beta?</summary><p>Inscreva seu email na lista abaixo. Os convites são enviados para testar o Nookly no iPhone pelo TestFlight, aplicativo da Apple. O beta pode ter ajustes e falhas durante o desenvolvimento.</p></details>
+        <details><summary>O Nookly está disponível para quais aparelhos?</summary><p>O Nookly está disponível para iPhone na App Store. A versão para Android chega em breve à Google Play.</p></details>
+        <details><summary>O Nookly tem compras dentro do app?</summary><p>O app pode ser baixado gratuitamente. Algumas coleções opcionais da sala virtual são compras dentro do app; a App Store apresenta os preços antes da confirmação. Não há assinatura.</p></details>
       </div>
     </section>
-    <section class="closing" id="convite" aria-labelledby="closing-title">
+    <section class="closing" id="baixar" aria-labelledby="closing-title">
       <div class="closing-inner section-width">
-        <div class="closing-copy"><img src="assets/niko.webp" alt="" width="170" height="170" loading="lazy" /><h2 id="closing-title">Tem um cantinho<br />esperando por você.</h2><p>Entre na lista e receba seu convite para experimentar o Nookly no iPhone.</p><p class="availability" data-availability><span data-counter>Uma primeira turma de até 200 leitores.</span></p></div>
+        <div class="closing-copy"><img src="assets/niko.webp" alt="" width="170" height="170" loading="lazy" /><h2 id="closing-title">Tem um cantinho<br />esperando por você.</h2><p>Leve seus livros, seu progresso e suas ideias para a sala de leitura do Nookly.</p></div>
         <div class="closing-action">
-          <form class="waitlist-form" data-waitlist-form novalidate>
-            <label for="email">Email da sua Conta Apple</label>
-            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" aria-describedby="form-status email-privacy" maxlength="320" required />
-            <input class="honeypot" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
-            <button class="button" type="submit">Quero testar o Nookly <span aria-hidden="true">↗</span></button>
-            <div class="turnstile-slot" data-turnstile></div>
-          </form>
-          <p id="form-status" class="form-status" data-form-status aria-live="polite"></p>
-          <p class="form-note" id="email-privacy">Seu email será usado para o convite e as comunicações do beta. Saiba mais na <a href="privacy.html">Política de Privacidade</a>.</p>
+          <div class="store-badges" role="group" aria-label="Lojas do Nookly">
+            <a class="store-badge store-badge-apple" data-app-store-link href="https://apps.apple.com/app/apple-store/id6810810549?pt=128672223&amp;ct=site&amp;mt=8"><svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#apple-mark" /></svg><span class="store-badge-copy"><small>Baixar na</small><strong>App Store</strong></span></a>
+            <div class="store-badge store-badge-play" role="note"><svg class="store-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#play-mark" /></svg><span class="store-badge-copy"><small>Em breve no</small><strong>Google Play</strong></span></div>
+          </div>
+          <p class="form-note">Para iPhone. Preços de compras opcionais são exibidos pela App Store.</p>
         </div>
       </div>
     </section>
   </main>
   <footer class="site-footer section-width"><div><a class="footer-brand" href="#top">nookly</a><p>Sua biblioteca, no seu ritmo.</p></div><nav class="footer-links" aria-label="Informações legais"><a href="support.html">Suporte</a><a href="privacy.html">Privacidade</a><a href="terms.html">Termos de Uso</a></nav></footer>
-  <script src="config.js?v=4"></script><script src="script.js?v=6"></script>
+  <script src="config.js?v=5"></script><script src="script.js?v=7"></script>
 </body>
 </html>

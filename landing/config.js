@@ -1,6 +1,3 @@
-window.BOOKROOM_CONFIG = {
-  // These two values are public and can be committed. Never place the
-  // Turnstile secret or the Discord webhook in this file.
-  waitlistEndpoint: 'https://hsvkqzpkmxntfejzoyka.supabase.co/functions/v1/testflight-waitlist',
-  turnstileSiteKey: '',
+window.NOOKLY_CONFIG = {
+  appStoreUrl: 'https://apps.apple.com/app/apple-store/id6810810549?pt=128672223&ct=site&mt=8',
 };
