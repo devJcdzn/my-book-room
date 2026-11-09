@@ -1,24 +1,15 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
 config.resolver.assetExts.push('glb');
 
-const originalResolveRequest = config.resolver.resolveRequest;
-
-// Deduplicate Three.js to prevent "Multiple instances of Three.js being imported"
+// expo-three imports example loaders without extensions; Three exports require .js.
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'three') {
-    return {
-      filePath: path.resolve(__dirname, 'node_modules/three/build/three.module.js'),
-      type: 'sourceFile',
-    };
-  }
-  if (originalResolveRequest) {
-    return originalResolveRequest(context, moduleName, platform);
-  }
-  return context.resolveRequest(context, moduleName, platform);
+  const resolvedName = /^three\/examples\/jsm\/.*(?<!\.js)$/.test(moduleName)
+    ? `${moduleName}.js`
+    : moduleName;
+  return context.resolveRequest(context, resolvedName, platform);
 };
 
 module.exports = config;

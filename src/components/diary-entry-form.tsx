@@ -1,12 +1,14 @@
+import { showSaveFailure, showSaveFeedback } from '@/src/components/save-feedback';
+import { AppTextInput, FieldError } from '@/src/components/app-text-input';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/src/components/book-cover';
 import { LibrarySheet } from '@/src/components/library-sheet';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, getReadingNotePalette, radii, typography } from '@/src/theme';
 import { READING_FOLDER_COLORS, READING_NOTE_COLORS, getReadingNoteText } from '@/src/utils/reading-note';
@@ -34,6 +36,7 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const [description, setDescription] = useState(getReadingNoteText(initialEntry));
   const [page, setPage] = useState(initialEntry?.page ? String(initialEntry.page) : '');
+  const [focusedField, setFocusedField] = useState<'note' | 'page'>();
   const [pageError, setPageError] = useState('');
   const [noteColor, setNoteColor] = useState(initialEntry?.color ?? initialColor);
   const [isFavorite, setIsFavorite] = useState(initialEntry?.isFavorite ?? false);
@@ -44,8 +47,8 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
   const background = isNight ? darkTheme.bg : colors.cream;
   const text = isNight ? darkTheme.text : colors.ink;
   const muted = isNight ? darkTheme.textMuted : colors.muted;
-  const accent = isNight ? darkTheme.accent : colors.terracottaDark;
-  const actionText = isNight ? darkTheme.actionText : colors.white;
+  const accent = isNight ? darkTheme.selectionText : colors.sageDark;
+  const actionText = isNight ? darkTheme.actionText : colors.paper;
 
   const handleColorChange = (color: string) => {
     setNoteColor(color);
@@ -61,6 +64,15 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
       return;
     }
     setPageError('');
+    const book = useLibraryStore.getState().books.find(item => item.id === selectedBook.id);
+    if (!book || (entryId && !book.readingEntries?.some(entry => entry.id === entryId))) {
+      showSaveFailure('Não foi possível salvar. O livro ou a nota já não está disponível.');
+      return;
+    }
+    if (parsedPage !== undefined && parsedPage > book.totalPages) {
+      setPageError(`Informe uma página entre 1 e ${book.totalPages}.`);
+      return;
+    }
     if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const input = {
       title: '',
@@ -72,6 +84,7 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
     };
     if (entryId) updateEntry(selectedBook.id, entryId, input);
     else addEntry(selectedBook.id, input);
+    showSaveFeedback('Nota salva');
     router.back();
   };
 
@@ -145,15 +158,18 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
 
         <View style={[styles.inputGroup, isNight && styles.nightGroup]}>
           <FieldLabel isNight={isNight} label="Nota" />
-          <TextInput
+          <AppTextInput
             accessibilityLabel="Texto da nota"
+            onFocus={() => setFocusedField('note')}
+            onBlur={() => setFocusedField(undefined)}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
             maxLength={1000}
             multiline
             onChangeText={setDescription}
             placeholder="Escreva uma ideia, um trecho ou uma impressão da leitura."
             placeholderTextColor={notePalette.muted}
             selectionColor={accent}
-            style={[styles.descriptionInput, { backgroundColor: notePalette.surface, borderColor: notePalette.border, color: notePalette.text }]}
+            style={[styles.descriptionInput, { backgroundColor: notePalette.surface, borderColor: focusedField === 'note' ? accent : notePalette.border, color: notePalette.text }]}
             textAlignVertical="top"
             value={description}
           />
@@ -161,17 +177,21 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
 
         <View style={[styles.inputGroup, isNight && styles.nightGroup]}>
           <FieldLabel isNight={isNight} label="Página" optional />
-          <TextInput
+          <AppTextInput
             accessibilityLabel="Página da nota, opcional"
+            onFocus={() => setFocusedField('page')}
+            onBlur={() => setFocusedField(undefined)}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
             keyboardType="number-pad"
+            invalid={Boolean(pageError)}
             onChangeText={(value) => { setPage(value.replace(/\D/g, '')); setPageError(''); }}
             placeholder={`1–${selectedBook.totalPages}`}
             placeholderTextColor={muted}
             selectionColor={accent}
-            style={[styles.pageInput, isNight && styles.nightField]}
+            style={[styles.pageInput, isNight && styles.nightField, focusedField === 'page' && { borderColor: accent }]}
             value={page}
           />
-          {pageError ? <Text style={[styles.errorText, isNight && styles.nightError]}>{pageError}</Text> : null}
+          <FieldError isNight={isNight} message={pageError} />
         </View>
 
         {readingFolders.length > 0 ? (
@@ -209,13 +229,13 @@ export function DiaryEntryForm({ bookId: initialBookId, entryId, folderId: initi
           accessibilityRole="button"
           accessibilityState={{ selected: isFavorite }}
           onPress={() => setIsFavorite((value) => !value)}
-          style={[styles.favoriteAction, isNight && styles.nightField]}
+          style={[styles.favoriteAction, isNight && styles.nightField, isFavorite && { backgroundColor: isNight ? darkTheme.selection : colors.sageSoft, borderColor: accent }]}
         >
           <Ionicons color={accent} name={isFavorite ? 'star' : 'star-outline'} size={18} />
           <Text style={[styles.favoriteText, { color: text }]}>{isFavorite ? 'Nota favorita' : 'Adicionar aos favoritos'}</Text>
         </Pressable>
 
-        <Pressable accessibilityRole="button" disabled={!description.trim()} onPress={handleSave} style={[styles.saveButton, isNight && styles.nightSaveButton, !description.trim() && styles.saveDisabled]}>
+        <Pressable accessibilityRole="button" disabled={!description.trim()} onPress={handleSave} style={({ pressed }) => [styles.saveButton, isNight && styles.nightSaveButton, !description.trim() && styles.saveDisabled, pressed && styles.pressed]}>
           <Text style={[styles.saveText, { color: actionText }]}>{entryId ? 'Salvar alterações' : 'Salvar nota'}</Text>
         </Pressable>
       </ScrollView>
@@ -290,28 +310,26 @@ const styles = StyleSheet.create({
   colorOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   colorOption: { ...controls.iconButton, borderWidth: 1, borderColor: 'rgba(50, 37, 31, 0.13)', alignItems: 'center', justifyContent: 'center' },
   selectedColorOption: { borderWidth: 2 },
-  inputGroup: { gap: 12, padding: 16, borderRadius: 20, backgroundColor: colors.paper },
+  inputGroup: { gap: 12, padding: 16, borderRadius: radii.large, borderCurve: 'continuous', backgroundColor: colors.paper },
   nightGroup: { backgroundColor: darkTheme.surface },
   labelRow: { minHeight: 20, flexDirection: 'row', alignItems: 'baseline', gap: 7 },
   label: { color: colors.ink, fontFamily: typography.editorial, fontSize: 18, lineHeight: 24 },
   optionalLabel: { color: colors.muted, fontSize: 12 },
-  descriptionInput: { ...controls.input, minHeight: 180, color: colors.ink, backgroundColor: 'rgba(255, 255, 255, 0.62)', borderColor: 'rgba(50, 37, 31, 0.12)', lineHeight: 21 },
-  pageInput: { ...controls.input, color: colors.ink, backgroundColor: 'rgba(255, 255, 255, 0.62)', borderColor: 'rgba(50, 37, 31, 0.12)' },
+  descriptionInput: { ...controls.input, borderRadius: radii.medium, minHeight: 180, color: colors.ink, backgroundColor: 'rgba(255, 255, 255, 0.62)', borderColor: 'rgba(50, 37, 31, 0.12)', lineHeight: 21 },
+  pageInput: { ...controls.input, borderRadius: radii.medium, color: colors.ink, backgroundColor: 'rgba(255, 255, 255, 0.62)', borderColor: 'rgba(50, 37, 31, 0.12)' },
   nightField: { backgroundColor: darkTheme.inputBg, borderColor: darkTheme.inputBorder, color: darkTheme.text },
   nightText: { color: darkTheme.text },
   nightMuted: { color: darkTheme.textMuted },
-  errorText: { color: '#9E352B', fontSize: 12 },
-  nightError: { color: '#E9A294' },
   folderOptions: { gap: 8, paddingVertical: 2, paddingRight: 12 },
   folderOption: { minHeight: 44, maxWidth: 180, paddingHorizontal: 13, justifyContent: 'center', borderRadius: radii.full, borderWidth: 1, borderColor: 'transparent' },
   folderOptionText: { fontSize: 12, fontWeight: '600' },
   favoriteAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: radii.medium, backgroundColor: 'rgba(255, 255, 255, 0.46)', borderWidth: 1, borderColor: 'rgba(50, 37, 31, 0.1)' },
   favoriteText: { color: colors.inkSoft, fontSize: 13, fontWeight: '600' },
-  saveButton: { ...controls.button, backgroundColor: colors.terracotta },
-  nightSaveButton: { backgroundColor: darkTheme.accent },
-  saveDisabled: { opacity: 0.45 },
+  saveButton: { ...controls.button, backgroundColor: colors.ink },
+  nightSaveButton: { backgroundColor: darkTheme.primary },
+  saveDisabled: controls.buttonDisabled,
   saveText: { ...controls.buttonText, color: colors.white },
-  pressed: { opacity: 0.85 },
+  pressed: controls.buttonPressed,
   bookList: { gap: 9, paddingBottom: 8 },
   bookOption: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: radii.medium, backgroundColor: 'rgba(50, 37, 31, 0.05)' },
   optionCover: { width: 35, height: 50, borderRadius: 4 },

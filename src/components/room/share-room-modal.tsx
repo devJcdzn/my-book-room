@@ -1,10 +1,10 @@
+import { TransitionModal } from '@/src/components/transition-modal';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { BookCover } from '@/src/components/book-cover';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { coverUrlForId } from '@/src/services/open-library';
 import { getLastCapturedRoomUri } from '@/src/services/room-snapshot-service';
 import {
@@ -27,7 +27,7 @@ import {
   shareToInstagramOrSystem,
 } from '@/src/services/share-room';
 import { useLibraryStore } from '@/src/store/library-store';
-import { controls, colors, darkTheme, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
 
 type Props = {
@@ -74,7 +74,8 @@ export function ShareRoomModal({
     const cached = getLastCapturedRoomUri(initialAmbience);
     return cached ? { [initialAmbience]: cached } : {};
   });
-  const [isSharing, setIsSharing] = useState(false);
+  const [sharingTarget, setSharingTarget] = useState<'instagram' | 'other' | null>(null);
+  const isSharing = sharingTarget !== null;
   const [copiedNotification, setCopiedNotification] = useState(false);
   const pendingShareRef = useRef<PendingShare | null>(null);
   const cardRef = useRef<View>(null);
@@ -117,7 +118,10 @@ export function ShareRoomModal({
   const modalPalette = {
     background: isModalNight ? darkTheme.bg : colors.cream,
     surface: isModalNight ? darkTheme.surface : colors.paper,
-    surfaceElevated: isModalNight ? darkTheme.surfaceElevated : '#FFFFFF',
+    selection: isModalNight ? darkTheme.selection : colors.sageSoft,
+    accent: isModalNight ? darkTheme.selectionText : colors.sageDark,
+    action: isModalNight ? darkTheme.primary : colors.ink,
+    actionText: isModalNight ? darkTheme.actionText : colors.white,
     text: isModalNight ? darkTheme.text : colors.ink,
     muted: isModalNight ? darkTheme.textMuted : colors.muted,
     border: isModalNight ? darkTheme.border : colors.line,
@@ -125,17 +129,14 @@ export function ShareRoomModal({
 
   const isCardNight = cardTheme === 'night';
   const cardPalette = {
-    bg: isCardNight ? darkTheme.bg : '#FAF6EE',
-    roomBg: isCardNight ? darkTheme.surface : '#EDE4D5',
-    border: isCardNight ? 'rgba(255, 255, 255, 0.08)' : 'rgba(50, 37, 31, 0.08)',
-    trackBg: isCardNight ? 'rgba(255, 255, 255, 0.10)' : 'rgba(50, 37, 31, 0.08)',
-    pulseBg: isCardNight ? 'rgba(182, 90, 61, 0.12)' : 'rgba(182, 90, 61, 0.08)',
-    text: isCardNight ? darkTheme.text : '#221915',
-    muted: isCardNight ? darkTheme.textMuted : '#7C6F64',
-    accent: isCardNight ? darkTheme.accent : '#B65A3D',
-    shadow: isCardNight
-      ? '0 16px 40px rgba(0, 0, 0, 0.55)'
-      : '0 16px 40px rgba(50, 37, 31, 0.09)',
+    bg: isCardNight ? darkTheme.surface : colors.paper,
+    roomBg: isCardNight ? darkTheme.bg : colors.softFill,
+    border: isCardNight ? darkTheme.border : colors.line,
+    trackBg: isCardNight ? darkTheme.surfaceElevated : colors.softFill,
+    pulseBg: isCardNight ? darkTheme.selection : colors.sageSoft,
+    text: isCardNight ? darkTheme.text : colors.ink,
+    muted: isCardNight ? darkTheme.textMuted : colors.muted,
+    accent: isCardNight ? darkTheme.selectionText : colors.sageDark,
   };
 
   const stats = computeReadingStats(books, profile.name, activeBookId);
@@ -179,7 +180,7 @@ export function ShareRoomModal({
 
   const handleShareInstagram = async () => {
     tapFeedback(Haptics.ImpactFeedbackStyle.Medium);
-    setIsSharing(true);
+    setSharingTarget('instagram');
 
     try {
       // 1. Tenta capturar o card editorial completo (com stats, capa do livro e sala 3D)
@@ -205,13 +206,13 @@ export function ShareRoomModal({
     } catch (err) {
       console.warn('Erro ao compartilhar nos Stories:', err);
     } finally {
-      setIsSharing(false);
+      setSharingTarget(null);
     }
   };
 
   const handleShareOther = async () => {
     tapFeedback();
-    setIsSharing(true);
+    setSharingTarget('other');
     try {
       // 1. Tenta capturar o card editorial completo (com stats, capa do livro e sala 3D)
       let imageUri = await captureCardImage();
@@ -236,7 +237,7 @@ export function ShareRoomModal({
     } catch (err) {
       console.warn('Erro ao compartilhar imagem:', err);
     } finally {
-      setIsSharing(false);
+      setSharingTarget(null);
     }
   };
 
@@ -257,8 +258,7 @@ export function ShareRoomModal({
   };
 
   return (
-    <Modal
-      animationType="slide"
+    <TransitionModal
       onDismiss={() => void runPendingShare()}
       presentationStyle="pageSheet"
       transparent={false}
@@ -270,10 +270,10 @@ export function ShareRoomModal({
         <View style={[styles.header, { paddingTop: insets.top > 0 ? insets.top + 6 : 20 }]}>
           <View style={styles.headerLeft}>
             <Text selectable style={[styles.headerTitle, { color: modalPalette.text }]}>
-              Compartilhar quarto
+              Compartilhar Refúgio
             </Text>
             <Text selectable style={[styles.headerSubtitle, { color: modalPalette.muted }]}>
-              Prévia para Stories e outras redes sociais
+              Escolha a luz da sala na imagem.
             </Text>
           </View>
 
@@ -304,73 +304,37 @@ export function ShareRoomModal({
               { backgroundColor: modalPalette.surface, borderColor: modalPalette.border },
             ]}
           >
-            <Pressable
-              accessibilityHint="Altera visual do card para tema claro com luz do dia"
-              accessibilityLabel="Tema claro"
-              accessibilityRole="button"
-              onPress={() => {
-                tapFeedback();
-                setCardTheme('day');
-              }}
-              style={[
-                styles.themeToggleBtn,
-                cardTheme === 'day' && styles.themeToggleBtnActiveDay,
-              ]}
-            >
-              <Ionicons
-                color={cardTheme === 'day' ? colors.ink : modalPalette.muted}
-                name="sunny-outline"
-                size={14}
-              />
-              <Text
-                style={[
-                  styles.themeToggleLabel,
-                  { color: cardTheme === 'day' ? colors.ink : modalPalette.muted },
-                  cardTheme === 'day' && styles.themeToggleLabelActive,
-                ]}
-              >
-                Claro
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityHint="Altera visual do card para tema noturno com a luminária acesa"
-              accessibilityLabel="Tema noturno"
-              accessibilityRole="button"
-              onPress={() => {
-                tapFeedback();
-                setCardTheme('night');
-              }}
-              style={[
-                styles.themeToggleBtn,
-                cardTheme === 'night' && styles.themeToggleBtnActiveNight,
-              ]}
-            >
-              <Ionicons
-                color={cardTheme === 'night' ? darkTheme.accent : modalPalette.muted}
-                name="moon-outline"
-                size={14}
-              />
-              <Text
-                style={[
-                  styles.themeToggleLabel,
-                  { color: cardTheme === 'night' ? darkTheme.text : modalPalette.muted },
-                  cardTheme === 'night' && styles.themeToggleLabelActive,
-                ]}
-              >
-                Noturno
-              </Text>
-            </Pressable>
+            {([
+              ['day', 'Claro', 'sunny-outline'],
+              ['night', 'Noturno', 'moon-outline'],
+            ] as const).map(([theme, label, icon]) => {
+              const selected = cardTheme === theme;
+              const color = selected ? modalPalette.accent : modalPalette.muted;
+              return (
+                <Pressable
+                  key={theme}
+                  accessibilityLabel={`Prévia: ${label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    tapFeedback();
+                    setCardTheme(theme);
+                  }}
+                  style={({ pressed }) => [styles.themeToggleBtn,
+                    selected && { backgroundColor: modalPalette.selection }, pressed && styles.pressed]}
+                >
+                  <Ionicons color={color} name={icon} size={17} accessible={false} />
+                  <Text style={[styles.themeToggleLabel, { color }, selected && styles.themeToggleLabelActive]}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           {/* Card Proporcional de Story */}
           <Animated.View
             entering={FadeInDown.duration(340)}
             style={[
-              styles.storyCardShadowWrapper,
-              {
-                boxShadow: cardPalette.shadow,
-              },
+              styles.storyCardWrapper,
             ]}
           >
             <View
@@ -422,6 +386,8 @@ export function ShareRoomModal({
                 </View>
               ) : (
                 <Image
+                  accessibilityLabel={`Prévia da sala em modo ${isCardNight ? 'noturno' : 'claro'}`}
+                  accessible
                   cachePolicy="memory-disk"
                   contentFit="contain"
                   source={{ uri: activeSnapshotUri }}
@@ -533,46 +499,44 @@ export function ShareRoomModal({
               accessibilityHint="Abre o Instagram para postar diretamente nos Stories"
               accessibilityLabel="Compartilhar nos Stories"
               accessibilityRole="button"
+              accessibilityState={{ busy: sharingTarget === 'instagram' }}
               disabled={isSharing || isGeneratingSnapshot}
               onPress={handleShareInstagram}
               style={({ pressed }) => [
-                styles.instagramBtn,
+                styles.instagramBtn, { backgroundColor: modalPalette.action },
                 pressed && styles.pressed,
-                (isSharing || isGeneratingSnapshot) && styles.btnDisabled,
+                (isSharing || isGeneratingSnapshot) && sharingTarget !== 'instagram' && styles.btnDisabled,
               ]}
             >
-              {isSharing ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <>
-                  <Ionicons color={colors.white} name="logo-instagram" size={20} />
-                  <Text selectable style={styles.instagramBtnText}>
-                    Compartilhar nos Stories
-                  </Text>
-                </>
-              )}
+              {sharingTarget === 'instagram'
+                ? <ActivityIndicator color={modalPalette.actionText} size="small" accessible={false} />
+                : <Ionicons color={modalPalette.actionText} name="logo-instagram" size={20} />}
+              <Text style={[styles.instagramBtnText, { color: modalPalette.actionText }]}>Compartilhar nos Stories</Text>
             </Pressable>
 
             {/* Botão Secundário: Outros Apps */}
             <Pressable
               accessibilityHint="Salva a imagem na galeria ou compartilha em outros apps como WhatsApp"
-              accessibilityLabel="Salvar imagem ou outros apps"
+              accessibilityLabel="Salvar ou compartilhar imagem"
               accessibilityRole="button"
+              accessibilityState={{ busy: sharingTarget === 'other' }}
               disabled={isSharing || isGeneratingSnapshot}
               onPress={handleShareOther}
               style={({ pressed }) => [
                 styles.outlineBtn,
                 {
                   borderColor: modalPalette.border,
-                  backgroundColor: modalPalette.surfaceElevated,
+                  backgroundColor: modalPalette.selection,
                 },
                 pressed && styles.pressed,
-                (isSharing || isGeneratingSnapshot) && styles.btnDisabled,
+                (isSharing || isGeneratingSnapshot) && sharingTarget !== 'other' && styles.btnDisabled,
               ]}
             >
-              <Ionicons color={modalPalette.text} name="share-outline" size={18} />
-              <Text selectable style={[styles.outlineBtnText, { color: modalPalette.text }]}>
-                Salvar Imagem / Outros Apps
+              {sharingTarget === 'other'
+                ? <ActivityIndicator color={modalPalette.accent} size="small" accessible={false} />
+                : <Ionicons color={modalPalette.accent} name="share-outline" size={18} />}
+              <Text selectable style={[styles.outlineBtnText, { color: modalPalette.accent }]}>
+                Salvar ou compartilhar imagem
               </Text>
             </Pressable>
 
@@ -585,7 +549,7 @@ export function ShareRoomModal({
               style={styles.copyTextBtn}
             >
               <Ionicons
-                color={copiedNotification ? '#3C8A52' : modalPalette.muted}
+                color={copiedNotification ? modalPalette.accent : modalPalette.muted}
                 name={copiedNotification ? 'checkmark-circle' : 'copy-outline'}
                 size={16}
               />
@@ -593,7 +557,7 @@ export function ShareRoomModal({
                 selectable
                 style={[
                   styles.copyTextLabel,
-                  { color: copiedNotification ? '#3C8A52' : modalPalette.muted },
+                  { color: copiedNotification ? modalPalette.accent : modalPalette.muted },
                 ]}
               >
                 {copiedNotification ? 'Resumo copiado com sucesso!' : 'Copiar resumo de leitura em texto'}
@@ -602,7 +566,7 @@ export function ShareRoomModal({
           </View>
         </ScrollView>
       </View>
-    </Modal>
+    </TransitionModal>
   );
 }
 
@@ -645,7 +609,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 3,
-    borderRadius: 20,
+    gap: 3,
+    borderRadius: radii.medium,
     borderCurve: 'continuous',
     borderWidth: 1,
   },
@@ -654,18 +619,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: radii.small,
     borderCurve: 'continuous',
-  },
-  themeToggleBtnActiveDay: {
-    backgroundColor: '#FFFFFF',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-  },
-  themeToggleBtnActiveNight: {
-    backgroundColor: darkTheme.surfaceElevated,
-    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
   },
   themeToggleLabel: {
     fontSize: 12,
@@ -676,7 +633,7 @@ const styles = StyleSheet.create({
   },
 
   // Story Card Proporcional - Design Minimalista Editorial
-  storyCardShadowWrapper: {
+  storyCardWrapper: {
     borderRadius: 24,
     borderCurve: 'continuous',
   },
@@ -703,7 +660,7 @@ const styles = StyleSheet.create({
   // Frame Central da Sala 3D
   storyRoomFrame: {
     width: '100%',
-    aspectRatio: 1.14,
+    aspectRatio: 1,
     borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -850,10 +807,10 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
-  instagramBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8, backgroundColor: colors.terracotta, boxShadow: '0 4px 12px rgba(140, 63, 43, 0.18)' },
-  instagramBtnText: { ...controls.buttonText, color: colors.white, letterSpacing: 0.2 },
-  outlineBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8, borderWidth: 1, boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' },
-  outlineBtnText: { ...controls.buttonText },
+  instagramBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8 },
+  instagramBtnText: { ...controls.buttonText, color: colors.paper, flexShrink: 1, textAlign: 'center' },
+  outlineBtn: { ...controls.button, width: '100%', flexDirection: 'row', gap: 8, borderWidth: StyleSheet.hairlineWidth },
+  outlineBtnText: { ...controls.buttonText, flexShrink: 1, textAlign: 'center' },
   copyTextBtn: {
     minHeight: controls.iconButton.height,
     flexDirection: 'row',
@@ -868,11 +825,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  btnDisabled: {
-    opacity: 0.65,
-  },
-  pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.985 }],
-  },
+  btnDisabled: controls.buttonDisabled,
+  pressed: controls.buttonPressed,
 });

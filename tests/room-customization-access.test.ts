@@ -59,20 +59,8 @@ test('padrões atuais são Free e IDs novos ou não permitidos são Pro', () => 
   assert.equal(isFreeRoomOption('walls', 'future-wall'), false);
 });
 
-test('resolver mascara valores premium no render Free sem alterar o snapshot bruto', () => {
-  const free = resolveRoomCustomization(snapshot, false);
-
-  assert.equal(free.wallPaletteId, DEFAULT_WALL_PALETTE_ID);
-  assert.equal(free.floorPaletteId, DEFAULT_FLOOR_PALETTE_ID);
-  assert.equal(free.rugPaletteId, DEFAULT_RUG_PALETTE_ID);
-  assert.equal(free.bookcasePaletteId, DEFAULT_BOOKCASE_PALETTE_ID);
-  assert.equal(free.catId, DEFAULT_CAT_ID);
-  assert.equal(free.leftWallWindowStyle, DEFAULT_WINDOW_STYLE_ID);
-  assert.equal(free.leftWallFrameColor, DEFAULT_POSTER_FRAME_ID);
-  assert.equal(free.pictureFrameStyleId, DEFAULT_PICTURE_FRAME_STYLE_ID);
-  assert.equal(free.pictureFramePhotoUri, null);
-  assert.equal(snapshot.wallPaletteId, 'sage-green');
-  assert.equal(snapshot.pictureFramePhotoUri, 'file:///private/photo.jpg');
+test('resolver Free preserva escolhas enquanto a venda de personalizações está desativada', () => {
+  assert.deepEqual(resolveRoomCustomization(snapshot, false), snapshot);
 });
 
 test('resolver Pro preserva todas as escolhas, inclusive a foto local', () => {

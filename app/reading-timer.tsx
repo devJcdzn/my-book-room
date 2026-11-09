@@ -1,30 +1,31 @@
+import { TransitionModal } from '@/src/components/transition-modal';
+import { showSaveFailure, showSaveFeedback } from '@/src/components/save-feedback';
+import { AppTextInput, FieldError } from '@/src/components/app-text-input';
+import { showAlert } from '@/src/components/app-dialog';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { router, useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCover } from '@/src/components/book-cover';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { useLibraryStore, getReadingTimerElapsedMs } from '@/src/store/library-store';
 import { controls, colors, radii, typography } from '@/src/theme';
-import { formatReadingDuration, getReadingSessionPalette } from '@/src/utils/reading-session';
+import { formatReadingDuration, getReadingControlsPalette } from '@/src/utils/reading-session';
 
 export default function ReadingTimerScreen() {
   const insets = useSafeAreaInsets();
@@ -38,10 +39,10 @@ export default function ReadingTimerScreen() {
   const addReadingEntry = useLibraryStore((state) => state.addReadingEntry);
   const saveSession = useLibraryStore((state) => state.saveReadingSession);
   const isNight = resolveAmbience(ambienceMode) === 'night';
-  const palette = useMemo(() => getReadingSessionPalette(timer?.coverColor ?? colors.terracotta, isNight), [timer?.coverColor, isNight]);
-  const fieldBackground = isNight ? palette.surfaceAlt : palette.surface;
-  const fieldBorder = isNight ? palette.border : 'rgba(50, 37, 31, 0.24)';
-  const fieldPlaceholder = isNight ? palette.muted : '#88766B';
+  const palette = getReadingControlsPalette(isNight);
+  const fieldBackground = palette.surface;
+  const fieldBorder = palette.border;
+  const fieldPlaceholder = palette.muted;
   const [now, setNow] = useState(0);
   const [isNoteVisible, setNoteVisible] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -50,7 +51,7 @@ export default function ReadingTimerScreen() {
   const [isEditingEndingPage, setEditingEndingPage] = useState(false);
   const [endingPageDraft, setEndingPageDraft] = useState<{ timerId: string; value: string }>();
   const [savedSessionId, setSavedSessionId] = useState<string>();
-  const [isDiscardingSession, setIsDiscardingSession] = useState(false);
+  const [allowExit, setAllowExit] = useState(false);
   const pendingExit = useRef<(() => void) | undefined>(undefined);
   const navigation = useNavigation();
   const endingPage = timer?.phase === 'review'
@@ -64,19 +65,27 @@ export default function ReadingTimerScreen() {
     pauseTimer();
   };
 
-  const confirmDiscardSession = (onDiscard: () => void) => {
-    Alert.alert(
+  const confirmExitSession = (onExit: () => void) => {
+    showAlert(
       'Leitura em andamento',
-      'Se sair agora, sua sessão atual e o tempo registrado serão apagados.',
+      'Você pode pausar e retomar pela mesa sem perder a sessão.',
       [
         { text: 'Continuar lendo', style: 'cancel', onPress: resumeTimer },
+        {
+          text: 'Pausar e voltar',
+          onPress: () => {
+            pendingExit.current = onExit;
+            pauseTimer();
+            setAllowExit(true);
+          },
+        },
         {
           text: 'Excluir sessão',
           style: 'destructive',
           onPress: () => {
-            pendingExit.current = onDiscard;
+            pendingExit.current = onExit;
             discardTimer();
-            setIsDiscardingSession(true);
+            setAllowExit(true);
           },
         },
       ],
@@ -84,12 +93,12 @@ export default function ReadingTimerScreen() {
     );
   };
 
-  usePreventRemove(Boolean(timer) && !isDiscardingSession, ({ data }) => {
+  usePreventRemove(Boolean(timer) && !allowExit, ({ data }) => {
     if (timer?.phase === 'review') {
       returnToTimer();
       return;
     }
-    confirmDiscardSession(() => navigation.dispatch(data.action));
+    confirmExitSession(() => navigation.dispatch(data.action));
   });
 
   useEffect(() => {
@@ -103,17 +112,14 @@ export default function ReadingTimerScreen() {
       router.replace({ pathname: '/reading-session', params: { sessionId: savedSessionId } });
       return;
     }
-    if (!timer) {
-      if (isDiscardingSession) {
-        const exit = pendingExit.current;
-        pendingExit.current = undefined;
-        exit?.();
-        return;
-      }
-      router.replace('/');
+    if (allowExit) {
+      const exit = pendingExit.current;
+      pendingExit.current = undefined;
+      exit?.();
       return;
     }
-  }, [isDiscardingSession, savedSessionId, timer]);
+    if (!timer) router.replace('/');
+  }, [allowExit, savedSessionId, timer]);
 
   if (!timer) return <View style={styles.loading} />;
 
@@ -135,7 +141,7 @@ export default function ReadingTimerScreen() {
     const text = noteText.trim();
     if (!text) return;
     if (!book) {
-      Alert.alert('Livro indisponível', 'Este livro foi removido da biblioteca e não pode receber novas notas.');
+      showAlert('Livro indisponível', 'Este livro foi removido da biblioteca e não pode receber novas notas.');
       return;
     }
     addReadingEntry(book.id, {
@@ -143,14 +149,19 @@ export default function ReadingTimerScreen() {
     });
     setNoteText('');
     setNoteVisible(false);
+    showSaveFeedback('Nota salva');
     if (Platform.OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const saveReading = () => {
     if (!isPageValid || !sessionName.trim()) return;
     const session = saveSession({ name: sessionName, description, endingPage: parsedEndingPage });
-    if (!session) return;
+    if (!session) {
+      showSaveFailure('Não foi possível salvar a leitura. Confira a página final e tente salvar novamente.');
+      return;
+    }
     if (Platform.OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showSaveFeedback('Leitura salva');
     setSavedSessionId(session.id);
   };
 
@@ -159,27 +170,45 @@ export default function ReadingTimerScreen() {
       returnToTimer();
       return;
     }
-    confirmDiscardSession(() => {
+    confirmExitSession(() => {
       if (navigation.canGoBack()) router.back();
       else router.replace('/');
     });
   };
 
-  return (
+  const edgeBack = Gesture.Pan()
+    .enabled(Platform.OS === 'ios' && !allowExit && !savedSessionId && !isNoteVisible)
+    .hitSlop({ left: 0, width: 24 })
+    .activeOffsetX(12)
+    .failOffsetY([-16, 16])
+    .maxPointers(1)
+    .runOnJS(true)
+    // eslint-disable-next-line react-hooks/refs -- Gesture Handler calls this callback after the swipe ends.
+    .onEnd((event, success) => {
+      if (success && (event.translationX >= 52 || (event.translationX >= 20 && event.velocityX >= 550))) {
+        closeTimer();
+      }
+    });
+
+  const content = (
     <View style={[styles.screen, { backgroundColor: palette.background, paddingTop: insets.top + 10 }]}>
-      {timer.coverUrl ? (
-        <View pointerEvents="none" style={[styles.coverBackdrop, timer.phase === 'review' && { height: insets.top + 280 }]}>
-          <Image source={{ uri: timer.coverUrl }} contentFit="cover" style={[StyleSheet.absoluteFill, { opacity: isNight ? 0.34 : 0.46 }]} />
-          <View style={[styles.backdropFade, { experimental_backgroundImage: `linear-gradient(to bottom, ${palette.background}00, ${palette.background})` }]} />
-        </View>
-      ) : null}
       <StatusBar style={isNight ? 'light' : 'dark'} />
       <View style={styles.header}>
         <Pressable accessibilityLabel="Voltar" accessibilityRole="button" hitSlop={10} onPress={closeTimer} style={styles.backButton}>
           <Ionicons color={palette.text} name="chevron-back" size={24} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>{timer.phase === 'review' ? 'Salvar sessão' : ''}</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={[styles.headerTitle, { color: palette.text }]}>{timer.phase === 'review' ? 'Salvar sessão' : 'Leitura'}</Text>
+        {timer.phase === 'review' ? <View style={styles.headerSpacer} /> : (
+          <Pressable
+            accessibilityLabel="Adicionar nota rápida"
+            accessibilityRole="button"
+            disabled={!book}
+            onPress={() => setNoteVisible(true)}
+            style={({ pressed }) => [styles.noteButton, { backgroundColor: fieldBackground, borderColor: fieldBorder }, !book && styles.disabled, pressed && styles.pressed]}
+          >
+            <Ionicons color={palette.accent} name="create-outline" size={21} />
+          </Pressable>
+        )}
       </View>
 
       {timer.phase === 'review' ? (
@@ -213,7 +242,7 @@ export default function ReadingTimerScreen() {
 
             <View style={[styles.fieldGroup, { backgroundColor: palette.surface }]}>
               <Text style={[styles.fieldLabel, { color: palette.text }]}>Nome da sessão</Text>
-              <TextInput
+              <AppTextInput
                 accessibilityLabel="Nome da sessão"
                 keyboardAppearance={isNight ? 'dark' : 'light'}
                 maxLength={80}
@@ -244,7 +273,7 @@ export default function ReadingTimerScreen() {
                 </Pressable>
                 <View style={[styles.pageValueGroup, { backgroundColor: palette.surfaceAlt, borderColor: palette.border }]}>
                   {isEditingEndingPage ? (
-                    <TextInput
+                    <AppTextInput
                       accessibilityLabel="Página final"
                       autoFocus
                       keyboardAppearance={isNight ? 'dark' : 'light'}
@@ -280,7 +309,7 @@ export default function ReadingTimerScreen() {
                   <Ionicons color={palette.accent} name="add" size={22} />
                 </Pressable>
               </View>
-              {!isPageValid ? <Text style={[styles.errorText, { color: palette.accent }]}>Use uma página entre {timer.startingPage} e {totalPages}.</Text> : null}
+              <FieldError isNight={isNight} message={!isPageValid ? `Use uma página entre ${timer.startingPage} e ${totalPages}.` : undefined} />
               <Text style={[styles.pagesRead, { color: palette.muted }]}>{pagesRead} {pagesRead === 1 ? 'página lida' : 'páginas lidas'}</Text>
             </View>
 
@@ -289,7 +318,7 @@ export default function ReadingTimerScreen() {
                 <Text style={[styles.fieldLabel, { color: palette.text }]}>Sobre esta leitura</Text>
                 <Text style={[styles.pageRange, { color: palette.muted }]}>Opcional</Text>
               </View>
-              <TextInput
+              <AppTextInput
                 accessibilityLabel="Descrição opcional da sessão"
                 keyboardAppearance={isNight ? 'dark' : 'light'}
                 maxLength={500}
@@ -308,7 +337,7 @@ export default function ReadingTimerScreen() {
               accessibilityRole="button"
               disabled={!sessionName.trim() || !isPageValid}
               onPress={saveReading}
-              style={({ pressed }) => [styles.primaryButton, { backgroundColor: palette.accent }, (!sessionName.trim() || !isPageValid) && styles.disabled, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.primaryButton, { backgroundColor: palette.action }, (!sessionName.trim() || !isPageValid) && styles.disabled, pressed && styles.pressed]}
             >
               <Text style={[styles.primaryButtonText, { color: palette.actionText }]}>Salvar sessão</Text>
             </Pressable>
@@ -332,7 +361,7 @@ export default function ReadingTimerScreen() {
             </View>
           </View>
 
-          <View style={styles.timerDisplay}>
+          <View style={[styles.timerDisplay, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <Text style={[styles.timerCaption, { color: palette.muted }]}>
               {timer.phase === 'paused' ? 'Leitura pausada' : 'Seu tempo de leitura'}
             </Text>
@@ -341,18 +370,9 @@ export default function ReadingTimerScreen() {
 
           <View style={styles.timerActions}>
             <Pressable
-              accessibilityLabel="Adicionar nota rápida"
-              accessibilityRole="button"
-              disabled={!book}
-              onPress={() => setNoteVisible(true)}
-              style={({ pressed }) => [styles.noteButton, { backgroundColor: fieldBackground, borderColor: fieldBorder }, !book && styles.disabled, pressed && styles.pressed]}
-            >
-              <Ionicons color={palette.accent} name="create-outline" size={21} />
-            </Pressable>
-            <Pressable
               accessibilityRole="button"
               onPress={timer.phase === 'running' ? pauseTimer : resumeTimer}
-              style={({ pressed }) => [styles.primaryButton, styles.timerActionButton, { backgroundColor: palette.accent }, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.primaryButton, styles.timerActionButton, { backgroundColor: palette.action }, pressed && styles.pressed]}
             >
               <Ionicons color={palette.actionText} name={timer.phase === 'running' ? 'pause' : 'play'} size={18} />
               <Text style={[styles.primaryButtonText, styles.timerActionText, { color: palette.actionText }]}>{timer.phase === 'running' ? 'Pausar' : 'Continuar'}</Text>
@@ -361,15 +381,16 @@ export default function ReadingTimerScreen() {
               accessibilityLabel="Encerrar leitura e revisar sessão"
               accessibilityRole="button"
               onPress={finishTimer}
-              style={({ pressed }) => [styles.finishButton, { backgroundColor: palette.surface, borderColor: fieldBorder }, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.primaryButton, styles.timerActionButton, { backgroundColor: palette.selection }, pressed && styles.pressed]}
             >
-              <Ionicons name="stop" size={21} color={palette.accent} />
+              <Ionicons name="stop" size={16} color={palette.accent} accessible={false} />
+              <Text style={[styles.primaryButtonText, styles.timerActionText, { color: palette.accent }]}>Finalizar</Text>
             </Pressable>
           </View>
         </ScrollView>
       )}
 
-      <Modal animationType="slide" onRequestClose={() => setNoteVisible(false)} statusBarTranslucent transparent visible={isNoteVisible}>
+      <TransitionModal onRequestClose={() => setNoteVisible(false)} statusBarTranslucent transparent visible={isNoteVisible}>
         <View style={styles.modalOverlay}>
           <Pressable accessibilityLabel="Fechar nota rápida" onPress={() => setNoteVisible(false)} style={StyleSheet.absoluteFill} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboard}>
@@ -377,7 +398,7 @@ export default function ReadingTimerScreen() {
               <View style={[styles.grabber, { backgroundColor: palette.border }]} />
               <Text style={[styles.sheetTitle, { color: palette.text }]}>Nova nota</Text>
               <Text style={[styles.sheetDescription, { color: palette.muted }]}>Ela ficará vinculada a este livro e poderá ser editada nas suas Notas.</Text>
-              <TextInput
+              <AppTextInput
                 accessibilityLabel="Texto da nota rápida"
                 autoFocus
                 maxLength={1000}
@@ -393,26 +414,30 @@ export default function ReadingTimerScreen() {
                 accessibilityRole="button"
                 disabled={!noteText.trim()}
                 onPress={saveQuickNote}
-                style={({ pressed }) => [styles.primaryButton, { backgroundColor: palette.accent }, !noteText.trim() && styles.disabled, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.primaryButton, { backgroundColor: palette.action }, !noteText.trim() && styles.disabled, pressed && styles.pressed]}
               >
                 <Text style={[styles.primaryButtonText, { color: palette.actionText }]}>Salvar nota</Text>
               </Pressable>
             </View>
           </KeyboardAvoidingView>
         </View>
-      </Modal>
+      </TransitionModal>
     </View>
   );
+
+  return Platform.OS === 'ios' ? <GestureDetector gesture={edgeBack}>{content}</GestureDetector> : content;
 }
 
 function BookIdentity({ timer, palette, compact = false }: {
   timer: NonNullable<ReturnType<typeof useLibraryStore.getState>['activeReadingTimer']>;
-  palette: ReturnType<typeof getReadingSessionPalette>;
+  palette: ReturnType<typeof getReadingControlsPalette>;
   compact?: boolean;
 }) {
   return (
     <View style={[styles.bookIdentity, compact && styles.compactIdentity]}>
-      <BookCover color={timer.coverColor} coverUrl={timer.coverUrl} style={[styles.cover, compact && styles.compactCover]} />
+      <BookCover color={timer.coverColor} coverUrl={timer.coverUrl} style={[styles.cover, compact && styles.compactCover]}>
+        {!timer.coverUrl && <Ionicons name="book-outline" color={colors.paper} size={compact ? 23 : 32} accessible={false} />}
+      </BookCover>
       <View style={[styles.identityCopy, compact && styles.compactIdentityCopy]}>
         <Text numberOfLines={compact ? 3 : 2} style={[styles.bookTitle, { color: palette.text }, compact && styles.compactBookTitle]}>{timer.bookTitle}</Text>
         <Text numberOfLines={1} style={[styles.bookAuthor, { color: palette.muted }, compact && styles.compactAuthor]}>{timer.bookAuthor}</Text>
@@ -423,13 +448,11 @@ function BookIdentity({ timer, palette, compact = false }: {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  coverBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, height: '65%' },
-  backdropFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '55%' },
   loading: { flex: 1, backgroundColor: colors.cream },
   header: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
   backButton: { ...controls.iconButton },
   headerTitle: { fontFamily: typography.editorial, fontSize: 22 },
-  headerSpacer: { width: 42 },
+  headerSpacer: { width: 44 },
   timerContent: { flexGrow: 1, justifyContent: 'space-between', gap: 18, paddingHorizontal: 24, paddingTop: 18 },
   bookProgressSection: { alignItems: 'center', gap: 23 },
   bookIdentity: { alignItems: 'center', gap: 7 },
@@ -437,7 +460,7 @@ const styles = StyleSheet.create({
   identityCopy: { alignItems: 'center', gap: 5 },
   compactIdentityCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
   compactAuthor: { textAlign: 'left', fontSize: 13 },
-  cover: { width: 96, height: 144, marginBottom: 3, borderRadius: 8, boxShadow: '0 5px 14px rgba(30, 22, 18, 0.18)' },
+  cover: { width: 120, height: 180, marginBottom: 3, borderRadius: radii.small, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   compactCover: { width: 64, height: 96 },
   bookTitle: { maxWidth: '90%', fontFamily: typography.editorial, fontSize: 20, lineHeight: 26, textAlign: 'center' },
   compactBookTitle: { maxWidth: '100%', fontSize: 17, lineHeight: 23, textAlign: 'left' },
@@ -448,14 +471,13 @@ const styles = StyleSheet.create({
   progressInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   progressPercent: { fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums'] },
   progressPages: { fontSize: 14 },
-  timerDisplay: { flex: 1, minHeight: 190, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 20 },
-  timerValue: { width: '100%', textAlign: 'center', fontFamily: typography.editorial, fontSize: 96, lineHeight: 120, fontVariant: ['tabular-nums'], letterSpacing: -3 },
+  timerDisplay: { flex: 1, minHeight: 150, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: radii.large, borderCurve: 'continuous', borderWidth: StyleSheet.hairlineWidth },
+  timerValue: { width: '100%', textAlign: 'center', fontFamily: typography.editorial, fontSize: 88, lineHeight: 106, fontVariant: ['tabular-nums'], letterSpacing: -3 },
   timerCaption: { fontSize: 14, fontWeight: '600' },
   timerActions: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  noteButton: { ...controls.timerButton, borderWidth: 1 },
-  timerActionButton: { minHeight: 58, flex: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 8 },
-  timerActionText: { fontSize: 15 },
-  finishButton: { ...controls.timerButton, borderWidth: 1 },
+  noteButton: { ...controls.iconButton, borderWidth: 1 },
+  timerActionButton: { flex: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 8 },
+  timerActionText: { fontSize: 15, flexShrink: 1, textAlign: 'center' },
   primaryButton: { ...controls.button },
   primaryButtonText: { ...controls.buttonText },
   reviewContent: { gap: 16, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 28 },
@@ -482,9 +504,8 @@ const styles = StyleSheet.create({
   pageInput: { ...controls.pageValue },
   pageTotal: { fontSize: 15 },
   pagesRead: { fontSize: 13 },
-  errorText: { fontSize: 12 },
-  disabled: { opacity: 0.62 },
-  pressed: { opacity: 0.78 },
+  disabled: controls.buttonDisabled,
+  pressed: controls.buttonPressed,
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20, 14, 12, 0.44)' },
   modalKeyboard: { flex: 1, justifyContent: 'flex-end' },
   noteSheet: { maxHeight: '82%', paddingHorizontal: 22, paddingTop: 10, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous' },

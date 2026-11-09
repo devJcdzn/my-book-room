@@ -226,9 +226,9 @@ test('carrega sinopse da obra e dados bibliográficos da edição pelas chaves s
     editionPageCount: 312,
     isbn: '9780439554930',
   });
-  assert.deepEqual(urls, [
-    'https://openlibrary.org/works/OL1W.json',
+  assert.deepEqual(urls.sort(), [
     'https://openlibrary.org/books/OL10M.json',
+    'https://openlibrary.org/works/OL1W.json',
   ]);
 });
 
@@ -375,4 +375,33 @@ test('respeita intervalo mínimo entre inícios de chamadas', async () => {
   });
   await Promise.all([client.searchBooks('primeiro'), client.searchBooks('segundo')]);
   assert.ok(starts[1] - starts[0] >= 18);
+});
+
+test('cached Portuguese work text skips the work request and preserves edition data', async () => {
+  const requests: string[] = [];
+  const client = createOpenLibraryClient({
+    minIntervalMs: 0,
+    getBookText: async (workKey) => {
+      assert.equal(workKey, '/works/OL1W');
+      return {
+        description_pt_br: 'Uma história de aventura.',
+        subjects_pt_br: ['Aventura'],
+        first_publish_date: '2001',
+      };
+    },
+    fetcher: async (url) => {
+      requests.push(url);
+      return jsonResponse({ number_of_pages: 220, publishers: ['Editora'] });
+    },
+  });
+
+  const details = await client.getBookDetails({
+    workKey: '/works/OL1W', editionKey: '/books/OL2M', title: 'Livro', author: 'Autora',
+  });
+
+  assert.deepEqual(requests, ['https://openlibrary.org/books/OL2M.json']);
+  assert.equal(details?.description, 'Uma história de aventura.');
+  assert.deepEqual(details?.subjects, ['Aventura']);
+  assert.equal(details?.firstPublishDate, '2001');
+  assert.equal(details?.editionPageCount, 220);
 });

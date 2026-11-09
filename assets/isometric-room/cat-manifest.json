@@ -1,0 +1,674 @@
+[
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-0-00.png",
+    "nightFile": "cat-0-00-night.png",
+    "lineFile": "cat-0-00-line.png",
+    "shadowFile": "cat-0-00-shadow.png",
+    "hitMaskFile": "cat-0-00-hit.png",
+    "runtimeMaskFile": "cat-0-00-materials.png",
+    "turn": 0,
+    "frame": 0,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-direita-sleep-0.png",
+    "sourceView": "frente-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      16
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-0-01.png",
+    "nightFile": "cat-0-01-night.png",
+    "lineFile": "cat-0-01-line.png",
+    "shadowFile": "cat-0-01-shadow.png",
+    "hitMaskFile": "cat-0-01-hit.png",
+    "runtimeMaskFile": "cat-0-01-materials.png",
+    "turn": 0,
+    "frame": 1,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-direita-sleep-1.png",
+    "sourceView": "frente-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      14
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-0-02.png",
+    "nightFile": "cat-0-02-night.png",
+    "lineFile": "cat-0-02-line.png",
+    "shadowFile": "cat-0-02-shadow.png",
+    "hitMaskFile": "cat-0-02-hit.png",
+    "runtimeMaskFile": "cat-0-02-materials.png",
+    "turn": 0,
+    "frame": 2,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-direita-sleep-2.png",
+    "sourceView": "frente-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      15
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-0-03.png",
+    "nightFile": "cat-0-03-night.png",
+    "lineFile": "cat-0-03-line.png",
+    "shadowFile": "cat-0-03-shadow.png",
+    "hitMaskFile": "cat-0-03-hit.png",
+    "runtimeMaskFile": "cat-0-03-materials.png",
+    "turn": 0,
+    "frame": 3,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-direita-sleep-3.png",
+    "sourceView": "frente-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      15
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-90-00.png",
+    "nightFile": "cat-90-00-night.png",
+    "lineFile": "cat-90-00-line.png",
+    "shadowFile": "cat-90-00-shadow.png",
+    "hitMaskFile": "cat-90-00-hit.png",
+    "runtimeMaskFile": "cat-90-00-materials.png",
+    "turn": 90,
+    "frame": 0,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-esquerda-sleep-0.png",
+    "sourceView": "frente-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      16
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-90-01.png",
+    "nightFile": "cat-90-01-night.png",
+    "lineFile": "cat-90-01-line.png",
+    "shadowFile": "cat-90-01-shadow.png",
+    "hitMaskFile": "cat-90-01-hit.png",
+    "runtimeMaskFile": "cat-90-01-materials.png",
+    "turn": 90,
+    "frame": 1,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-esquerda-sleep-1.png",
+    "sourceView": "frente-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      15
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-90-02.png",
+    "nightFile": "cat-90-02-night.png",
+    "lineFile": "cat-90-02-line.png",
+    "shadowFile": "cat-90-02-shadow.png",
+    "hitMaskFile": "cat-90-02-hit.png",
+    "runtimeMaskFile": "cat-90-02-materials.png",
+    "turn": 90,
+    "frame": 2,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-esquerda-sleep-2.png",
+    "sourceView": "frente-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      15
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-90-03.png",
+    "nightFile": "cat-90-03-night.png",
+    "lineFile": "cat-90-03-line.png",
+    "shadowFile": "cat-90-03-shadow.png",
+    "hitMaskFile": "cat-90-03-hit.png",
+    "runtimeMaskFile": "cat-90-03-materials.png",
+    "turn": 90,
+    "frame": 3,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-frente-esquerda-sleep-3.png",
+    "sourceView": "frente-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      15
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-180-00.png",
+    "nightFile": "cat-180-00-night.png",
+    "lineFile": "cat-180-00-line.png",
+    "shadowFile": "cat-180-00-shadow.png",
+    "hitMaskFile": "cat-180-00-hit.png",
+    "runtimeMaskFile": "cat-180-00-materials.png",
+    "turn": 180,
+    "frame": 0,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-esquerda-sleep-0.png",
+    "sourceView": "costas-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      1
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-180-01.png",
+    "nightFile": "cat-180-01-night.png",
+    "lineFile": "cat-180-01-line.png",
+    "shadowFile": "cat-180-01-shadow.png",
+    "hitMaskFile": "cat-180-01-hit.png",
+    "runtimeMaskFile": "cat-180-01-materials.png",
+    "turn": 180,
+    "frame": 1,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-esquerda-sleep-1.png",
+    "sourceView": "costas-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      1
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-180-02.png",
+    "nightFile": "cat-180-02-night.png",
+    "lineFile": "cat-180-02-line.png",
+    "shadowFile": "cat-180-02-shadow.png",
+    "hitMaskFile": "cat-180-02-hit.png",
+    "runtimeMaskFile": "cat-180-02-materials.png",
+    "turn": 180,
+    "frame": 2,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-esquerda-sleep-2.png",
+    "sourceView": "costas-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      1
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-180-03.png",
+    "nightFile": "cat-180-03-night.png",
+    "lineFile": "cat-180-03-line.png",
+    "shadowFile": "cat-180-03-shadow.png",
+    "hitMaskFile": "cat-180-03-hit.png",
+    "runtimeMaskFile": "cat-180-03-materials.png",
+    "turn": 180,
+    "frame": 3,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-esquerda-sleep-3.png",
+    "sourceView": "costas-esquerda",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      1
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-270-00.png",
+    "nightFile": "cat-270-00-night.png",
+    "lineFile": "cat-270-00-line.png",
+    "shadowFile": "cat-270-00-shadow.png",
+    "hitMaskFile": "cat-270-00-hit.png",
+    "runtimeMaskFile": "cat-270-00-materials.png",
+    "turn": 270,
+    "frame": 0,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-direita-sleep-0.png",
+    "sourceView": "costas-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      11
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-270-01.png",
+    "nightFile": "cat-270-01-night.png",
+    "lineFile": "cat-270-01-line.png",
+    "shadowFile": "cat-270-01-shadow.png",
+    "hitMaskFile": "cat-270-01-hit.png",
+    "runtimeMaskFile": "cat-270-01-materials.png",
+    "turn": 270,
+    "frame": 1,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-direita-sleep-1.png",
+    "sourceView": "costas-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      11
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-270-02.png",
+    "nightFile": "cat-270-02-night.png",
+    "lineFile": "cat-270-02-line.png",
+    "shadowFile": "cat-270-02-shadow.png",
+    "hitMaskFile": "cat-270-02-hit.png",
+    "runtimeMaskFile": "cat-270-02-materials.png",
+    "turn": 270,
+    "frame": 2,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-direita-sleep-2.png",
+    "sourceView": "costas-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      11
+    ]
+  },
+  {
+    "key": "cat",
+    "category": "cat",
+    "file": "cat-270-03.png",
+    "nightFile": "cat-270-03-night.png",
+    "lineFile": "cat-270-03-line.png",
+    "shadowFile": "cat-270-03-shadow.png",
+    "hitMaskFile": "cat-270-03-hit.png",
+    "runtimeMaskFile": "cat-270-03-materials.png",
+    "turn": 270,
+    "frame": 3,
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "materials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "runtimeMaterials": [
+      "fur",
+      "accent",
+      "paper"
+    ],
+    "sockets": {},
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "sourceFile": "png/gato-costas-direita-sleep-3.png",
+    "sourceView": "costas-direita",
+    "sourceDurationMs": 400,
+    "sourceOffset": [
+      1,
+      11
+    ]
+  }
+]

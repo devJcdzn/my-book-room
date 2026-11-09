@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { BookCover } from '@/src/components/book-cover';
-import { colors, darkTheme } from '@/src/theme';
+import { colors, darkTheme, radii } from '@/src/theme';
 import type { LibraryPalette } from '@/src/library-palette';
 import type { BookSearchResult } from '@/src/types/book';
 
@@ -33,10 +33,12 @@ export function CatalogBookGrid({
             onPress={() => onOpen(book)}
             style={({ pressed }) => [styles.book, twoColumns && styles.bookWide, pressed && styles.pressed]}
           >
-            <BookCover color={colors.softFill} coverUrl={book.coverUrl} style={styles.cover} />
+            <BookCover color={isNight ? darkTheme.surfaceElevated : colors.softFill} coverUrl={book.coverUrl} style={styles.cover}>
+              {!book.coverUrl && <Ionicons name="book-outline" size={26} color={isNight ? darkTheme.textMuted : colors.muted} accessible={false} />}
+            </BookCover>
             {isSaved ? (
               <View style={[styles.savedMark, { backgroundColor: palette?.surface ?? (isNight ? darkTheme.surface : colors.paper) }]}>
-                <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="checkmark" size={13} />
+                <Ionicons color={isNight ? darkTheme.selectionText : colors.sageDark} name="checkmark" size={13} />
               </View>
             ) : null}
             <Text numberOfLines={2} style={[styles.title, palette && { color: palette.text }, isNight && !palette && styles.darkText]}>{book.title}</Text>
@@ -52,7 +54,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 22 },
   book: { width: '31%', gap: 4, position: 'relative' },
   bookWide: { width: '47%' },
-  cover: { width: '100%', aspectRatio: 0.68, borderRadius: 5, borderCurve: 'continuous', backgroundColor: colors.softFill, boxShadow: '0 3px 8px rgba(50, 37, 31, 0.12)' },
+  cover: { width: '100%', aspectRatio: 0.68, borderRadius: radii.small, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center' },
   title: { color: colors.ink, fontSize: 13, fontWeight: '600', lineHeight: 18, marginTop: 4 },
   author: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   savedMark: { position: 'absolute', top: 7, right: 7, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },

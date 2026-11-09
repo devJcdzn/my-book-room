@@ -5,26 +5,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, controls, darkTheme, typography } from '@/src/theme';
 
-export function ScreenHeader({ title, isNight, onBack, right }: {
+export function ScreenHeader({ title, isNight, onBack, right, compactTop = false }: {
   title: string;
   isNight: boolean;
   onBack: () => void;
   right?: ReactNode;
+  compactTop?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-      <Pressable
-        accessibilityLabel="Voltar"
-        accessibilityRole="button"
-        onPress={onBack}
-        style={({ pressed }) => [styles.back, isNight && styles.nightBack, pressed && styles.pressed]}
-      >
-        <Ionicons color={isNight ? darkTheme.text : colors.ink} name="chevron-back" size={24} />
-      </Pressable>
+    <View style={[styles.header, { paddingTop: (compactTop ? 0 : insets.top) + 8 }]}>
+      <ScreenBackButton isNight={isNight} onPress={onBack} />
       <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, isNight && styles.nightText]}>{title}</Text>
       <View style={styles.right}>{right}</View>
     </View>
+  );
+}
+
+export function ScreenBackButton({ isNight, onPress }: { isNight: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityLabel="Voltar"
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.back, isNight && styles.nightBack, pressed && styles.pressed]}
+    >
+      <Ionicons color={isNight ? darkTheme.text : colors.ink} name="chevron-back" size={24} />
+    </Pressable>
   );
 }
 

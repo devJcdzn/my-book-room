@@ -1,8 +1,14 @@
+import { lockedCollection, useCollectionPurchases } from '@/src/services/collection-access';
 import { create } from "zustand";
 import {
-  createDefaultRoomLayout,
+  createRestoredRoomLayout,
+  normalizeRoomLayout,
   isRoomPlacementValid,
+  constrainRoomPieceToWalls,
   MAX_EXTRA_DECORATIONS,
+  resizeRoomLayout,
+  roomDeskHeight,
+  type RoomSize,
   type RoomLayout,
   type RoomPiece,
 } from "@/src/types/room-layout";
@@ -43,11 +49,12 @@ type RoomEditorState = {
   update: (piece: RoomPiece) => boolean;
   add: (piece: RoomPiece) => boolean;
   remove: (id: string) => void;
-  restore: () => void;
+  restore: () => boolean;
   beginMove: () => void;
   endMove: () => void;
   undo: () => void;
   redo: () => void;
+  resize: (roomSize: RoomSize) => boolean;
 };
 
 const sameLayout = (a: RoomLayout, b: RoomLayout) =>
@@ -106,12 +113,14 @@ export const useRoomEditor = create<RoomEditorState>((set, get) => {
     draft: null,
     setAppearance: (patch) => {
       const appearance = get().appearance;
+      const owned = useCollectionPurchases.getState().owned;
+      if (Object.values(patch).some(value => lockedCollection(value, owned))) return;
       if (appearance) set({ appearance: { ...appearance, ...patch } });
     },
     begin: (layout, appearance) =>
       set({
         ...idle,
-        draft: structuredClone(layout),
+        draft: normalizeRoomLayout(structuredClone(layout)),
         appearance: appearance ? { ...appearance } : null,
         selectedId: layout.pieces[0]?.id ?? null,
       }),
@@ -125,33 +134,44 @@ export const useRoomEditor = create<RoomEditorState>((set, get) => {
       set({ selectedId, invalid: false, cameraMode: false });
     },
     update: (piece) => {
+      const owned = useCollectionPurchases.getState().owned;
+      if (lockedCollection(piece.modelId, owned) || lockedCollection(piece.color, owned)) return false;
       const draft = get().draft;
+      if (draft) piece = constrainRoomPieceToWalls(piece, draft.roomSize);
       if (
         !draft ||
         !draft.pieces.some((p) => p.id === piece.id) ||
-        !isRoomPlacementValid(piece, draft.pieces)
+        !isRoomPlacementValid(piece, draft.pieces, draft.roomSize)
       ) {
+        set({ invalid: true });
+        return false;
+      }
+      const pillow = draft.pieces.find(p => p.category === "pillow");
+      const cat = draft.pieces.find(p => p.category === "cat");
+      const original = draft.pieces.find(p => p.id === piece.id)!;
+      const movingPillow = piece.id === pillow?.id && piece.position.some((value, axis) => value !== original.position[axis]);
+      const companion = piece.category === "cat" ? pillow : movingPillow ? cat : undefined;
+      const movedCompanion = companion ? { ...companion, position: [piece.position[0], 0, piece.position[2]] as RoomPiece["position"] } : undefined;
+      if (movedCompanion && !isRoomPlacementValid(movedCompanion, draft.pieces, draft.roomSize)) {
         set({ invalid: true });
         return false;
       }
       commit({
         ...draft,
-        pieces: draft.pieces.map((p) => (p.id === piece.id ? piece : p)),
+        pieces: draft.pieces.map(p => p.id === piece.id ? piece : p.id === movedCompanion?.id ? movedCompanion : piece.category === "desk" && draft.pieces.find(item => item.category === "desk")?.id === piece.id && p.surface === "desk"
+          ? { ...p, position: [p.position[0], roomDeskHeight(piece.modelId) * Math.sqrt(2 / 3), p.position[2]] } : p),
       });
       return true;
     },
     add: (piece) => {
+      const owned = useCollectionPurchases.getState().owned;
+      if (lockedCollection(piece.modelId, owned) || lockedCollection(piece.color, owned)) return false;
       const draft = get().draft;
       if (!draft) return false;
-      const extras = draft.pieces.filter(
-        (p) =>
-          (p.category === "plant" && p.id !== "desk-plant") ||
-          (p.category === "frame" && !["frame", "poster"].includes(p.id)),
-      );
       if (
-        ((piece.category === "plant" || piece.category === "frame") &&
-          extras.length >= MAX_EXTRA_DECORATIONS) ||
-        !isRoomPlacementValid(piece, draft.pieces)
+        (piece.category !== "poster" && draft.pieces.filter(p => p.category !== "poster").length >= MAX_EXTRA_DECORATIONS) ||
+        (piece.category === "cat" && draft.pieces.some(p => p.category === "cat")) ||
+        !isRoomPlacementValid(piece, draft.pieces, draft.roomSize)
       ) {
         set({ invalid: true });
         return false;
@@ -165,8 +185,8 @@ export const useRoomEditor = create<RoomEditorState>((set, get) => {
       if (
         !draft ||
         !piece ||
-        !["plant", "frame", "window"].includes(piece.category) ||
-        id === "desk-plant"
+        piece.category === "cat" ||
+        (["desk", "bookcase"].includes(piece.category) && draft.pieces.filter(p => p.category === piece.category).length <= 1)
       )
         return;
       commit(
@@ -175,7 +195,17 @@ export const useRoomEditor = create<RoomEditorState>((set, get) => {
           ?.id ?? null,
       );
     },
-    restore: () => commit(createDefaultRoomLayout(), "desk"),
+    restore: () => {
+      const current = get().draft;
+      if (!current) return false;
+      const restored = createRestoredRoomLayout(current);
+      if (!restored) {
+        set({ invalid: true });
+        return false;
+      }
+      commit(restored, "desk");
+      return true;
+    },
     beginMove: () => {
       get().endMove();
       set({ moveStart: get().draft });
@@ -191,5 +221,16 @@ export const useRoomEditor = create<RoomEditorState>((set, get) => {
     },
     undo: () => travel("undo"),
     redo: () => travel("redo"),
+    resize: (roomSize) => {
+      const draft = get().draft;
+      if (!draft) return false;
+      const resized = resizeRoomLayout(draft, roomSize);
+      if (!resized) {
+        set({ invalid: true });
+        return false;
+      }
+      commit(resized);
+      return true;
+    },
   };
 });

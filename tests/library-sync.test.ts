@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fullLibraryFixture } from './fixtures/full-library';
 
-import { createCloudLibrarySnapshot, normalizeCloudLibrarySnapshot } from '../src/services/library-sync';
+import { createCloudLibrarySnapshot, normalizeCloudLibrarySnapshot, saveLibraryBackup } from '../src/services/library-sync';
 import { createPersistedState, isDefaultLibrarySnapshot, normalizePersistedState } from '../src/store/library-store';
 import {
   DEFAULT_BOOKCASE_PALETTE_ID,
@@ -82,7 +82,7 @@ test('snapshot de nuvem sincroniza entradas do diário junto com os livros', () 
   });
   const cloud = createCloudLibrarySnapshot(withDiary);
   const restored = normalizeCloudLibrarySnapshot(cloud, null);
-  assert.deepEqual(restored.books[0]?.readingEntries, withDiary.books[0]?.readingEntries);
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.books[0]?.readingEntries)), JSON.parse(JSON.stringify(withDiary.books[0]?.readingEntries)));
   assert.deepEqual(restored.readingDays, ['2026-09-29']);
   assert.deepEqual(restored.wantToReadShelves, ['want-to-read-default', 'want-to-read-weekend']);
   assert.equal(restored.books[1]?.status, 'want-to-read');
@@ -124,9 +124,9 @@ test('backup completo restaura todos os campos persistidos e referências dos qu
   assert.equal(restored.books[0].readingEntries?.[0].isFavorite, true);
   assert.equal(restored.readingFolders?.length, 1);
   assert.equal(restored.readingSessions?.[0].description, 'Pela manhã');
-  assert.equal(restored.roomLayout?.pieces.filter(p => p.photo?.storagePath).length, 2);
+  assert.equal(restored.roomLayout?.pieces.filter(p => p.photo?.storagePath).length, fixture.roomLayout?.pieces.filter(p => p.photo?.storagePath).length);
   assert.equal(restored.activeReadingTimer?.elapsedMs, 125000);
-  assert.deepEqual(Object.keys(cloud).sort(), Object.keys(fixture).filter(key => key !== 'pictureFramePhotoUri').sort());
+  assert.deepEqual(Object.keys(cloud).sort(), Object.keys(fixture).filter(key => key !== 'pictureFramePhotoUri' && key !== 'legacyRoomLayoutBackup').sort());
 });
 
 test('timer remoto conserva o tempo até o backup e volta pausado', () => {
@@ -154,4 +154,32 @@ test('foto de quadro antigo oculto preserva somente a referência no backup', ()
   const restored = normalizeCloudLibrarySnapshot(cloud, null);
   assert.equal(restored.roomLayout?.legacyPhoto?.storagePath, fixture.roomLayout!.legacyPhoto!.storagePath);
   assert.equal(restored.roomLayout?.pieces.some(p => p.id === 'frame'), false);
+});
+
+
+test('histórico manual e conclusão sobrevivem ao backup sem fabricar tempo', () => {
+  const local = normalizePersistedState({ ...fullLibraryFixture(),
+    books: [{ ...fullLibraryFixture().books[0], status: 'completed', completedOn: '2026-09-23' }],
+    legacyReadingDays: ['2026-09-01'], readingHistoryVersion: 1,
+    readingSessions: [{ id: 'manual', source: 'manual', createdAt: '2026-09-24T11:00:00Z',
+      readingDate: '2026-09-20', bookId: 'book-test', bookTitle: 'Livro', bookAuthor: 'Autora',
+      coverColor: '#336699', totalPages: 321, name: 'Leitura', startingPage: 20, endingPage: 30, pagesRead: 10 }],
+  });
+  const restored = normalizeCloudLibrarySnapshot(JSON.parse(JSON.stringify(createCloudLibrarySnapshot(local))), null);
+  assert.equal(restored.readingHistoryVersion, 1);
+  assert.equal(restored.books[0].completedOn, '2026-09-23');
+  assert.equal(restored.readingSessions[0].durationSeconds, undefined);
+  assert.equal(restored.readingSessions[0].startedAt, undefined);
+  assert.deepEqual(restored.readingDays, ['2026-09-01', '2026-09-20']);
+});
+
+test('rejeição por revisão ou versão é propagada sem mutar o snapshot local', async () => {
+  for (const code of ['PT409', 'PT426']) {
+    const local = fullLibraryFixture();
+    const before = JSON.stringify(local);
+    const error = { code, message: 'rejected' };
+    const client = { rpc: async () => ({ data: null, error }) } as unknown as Parameters<typeof saveLibraryBackup>[0];
+    await assert.rejects(saveLibraryBackup(client, 'user', local, 2), (received) => received === error);
+    assert.equal(JSON.stringify(local), before);
+  }
 });

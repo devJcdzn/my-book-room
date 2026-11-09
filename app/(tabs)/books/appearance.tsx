@@ -1,12 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
-import { Stack } from 'expo-router';
+import { Image } from 'expo-image';
+import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { ScreenHeader } from '@/src/components/screen-header';
+import { resolveAmbience } from '@/src/types/ambience';
 import { getLibraryPalette, LIBRARY_PALETTES } from '@/src/library-palette';
 import { useLibraryStore } from '@/src/store/library-store';
-import { colors, darkTheme, typography } from '@/src/theme';
+import { colors, darkTheme, radii, typography } from '@/src/theme';
 
 const paletteRows = Array.from({ length: Math.ceil(LIBRARY_PALETTES.length / 3) }, (_, index) =>
   LIBRARY_PALETTES.slice(index * 3, index * 3 + 3),
@@ -17,31 +19,29 @@ export default function LibraryAppearanceScreen() {
   const setSelectedId = useLibraryStore((state) => state.setLibraryBackgroundId);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
+  const accent = isNight ? darkTheme.selectionText : colors.sageDark;
   const palette = getLibraryPalette(selectedId)[isNight ? 'dark' : 'light'];
 
   return (
-    <>
-      <Stack.Screen options={{
-        title: 'Aparência',
-        headerBackButtonDisplayMode: 'minimal',
-        headerTintColor: isNight ? darkTheme.accent : colors.terracotta,
-        headerStyle: { backgroundColor: palette.background },
-        contentStyle: { backgroundColor: palette.background },
-      }} />
+    <View style={{ flex: 1, backgroundColor: palette.background }}>
+      <Stack.Screen options={{ title: 'Aparência', contentStyle: { backgroundColor: palette.background } }} />
+      <ScreenHeader
+        title="Aparência"
+        isNight={isNight}
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/books')}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         style={{ backgroundColor: palette.background }}
       >
-        <View style={styles.intro}>
-          <Text style={[styles.title, { color: palette.text }]}>Cor de fundo</Text>
-          <Text style={[styles.subtitle, { color: palette.mutedText }]}>Personaliza apenas a Biblioteca.</Text>
-        </View>
+        <Text accessibilityRole="header" style={[styles.title, { color: palette.text }]}>Fundos da Biblioteca</Text>
         <View style={styles.options}>
           {paletteRows.map((row, rowIndex) => (
             <View key={`palette-row-${rowIndex}`} style={styles.optionRow}>
               {row.map((option) => {
                 const selected = option.id === selectedId;
+                const preview = getLibraryPalette(option.id)[isNight ? 'dark' : 'light'];
                 return (
                   <Pressable
                     key={option.id}
@@ -52,9 +52,23 @@ export default function LibraryAppearanceScreen() {
                       if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
                       setSelectedId(option.id);
                     }}
-                    style={({ pressed }) => [styles.option, { backgroundColor: getLibraryPalette(option.id)[isNight ? 'dark' : 'light'].background, borderColor: selected ? (isNight ? darkTheme.accent : colors.terracotta) : palette.border }, selected && styles.selectedOption, pressed && styles.pressed]}
+                    style={({ pressed }) => [styles.option, pressed && styles.pressed]}
                   >
-                    {selected ? <Ionicons color={isNight ? darkTheme.accent : colors.terracotta} name="checkmark-circle" size={24} /> : null}
+                    <View style={[styles.preview, {
+                      backgroundColor: preview.background,
+                      borderColor: selected ? accent : palette.border,
+                    }, selected && styles.selectedOption]}>
+                      <View style={styles.shelf}>
+                        <Image source={require('@/assets/images/library-shelf.png')} contentFit="fill"
+                          style={[styles.wood, isNight && styles.nightWood]} accessible={false} />
+                      </View>
+                      {selected ? (
+                        <View style={[styles.check, { backgroundColor: accent }]}>
+                          <Ionicons name="checkmark" size={15} color={isNight ? darkTheme.bg : colors.paper} accessible={false} />
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.label, { color: selected ? accent : palette.mutedText }]}>{option.label}</Text>
                   </Pressable>
                 );
               })}
@@ -62,18 +76,22 @@ export default function LibraryAppearanceScreen() {
           ))}
         </View>
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 36, gap: 20 },
-  intro: { gap: 4 },
-  title: { fontFamily: typography.ui, fontSize: 16, fontWeight: '600', lineHeight: 22 },
-  subtitle: { fontSize: 13, lineHeight: 18 },
-  options: { gap: 12 },
-  optionRow: { flexDirection: 'row', justifyContent: 'flex-start', columnGap: 12 },
-  option: { width: '31%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 16, borderCurve: 'continuous' },
+  title: { fontFamily: typography.editorial, fontSize: 22, lineHeight: 29 },
+  options: { gap: 16 },
+  optionRow: { flexDirection: 'row', gap: 10 },
+  option: { width: '31%', gap: 5 },
+  preview: { aspectRatio: 1.2, borderWidth: 1, borderRadius: radii.medium, borderCurve: 'continuous', overflow: 'hidden' },
   selectedOption: { borderWidth: 2 },
-  pressed: { opacity: 0.75, transform: [{ scale: 0.99 }] },
+  shelf: { position: 'absolute', left: 5, right: 5, bottom: '24%', height: 10, overflow: 'hidden', borderRadius: 2 },
+  wood: { position: 'absolute', width: '104%', left: '-2%', height: 118, top: -55 },
+  nightWood: { opacity: 0.72 },
+  check: { position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  pressed: { opacity: 0.75 },
 });

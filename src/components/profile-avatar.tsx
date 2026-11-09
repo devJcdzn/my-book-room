@@ -7,7 +7,7 @@ import { supabase } from '@/src/services/supabase';
 import type { ProfileAvatar as Avatar } from '@/src/types/profile-avatar';
 import { colors, typography } from '@/src/theme';
 
-export function ProfileAvatar({ avatar, name, size = 72 }: { avatar?: Avatar; name: string; size?: number }) {
+export function ProfileAvatar({ avatar, name, size = 72, fallbackColor = colors.terracotta, fallbackTextColor = colors.paper }: { avatar?: Avatar; name: string; size?: number; fallbackColor?: string; fallbackTextColor?: string }) {
   const { user } = useAuth();
   const [failed, setFailed] = useState<string>();
   const [refresh, setRefresh] = useState(0);
@@ -28,8 +28,8 @@ export function ProfileAvatar({ avatar, name, size = 72 }: { avatar?: Avatar; na
   }, [avatar, user?.id, refresh]);
   const uri = avatar?.source === 'none' ? undefined : cached?.version === avatar?.version ? cached?.uri : avatar?.localUri ?? avatar?.providerUrl;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.terracotta, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-      {uri && failed !== avatar?.version ? <Image source={{ uri }} contentFit="cover" onError={() => setFailed(avatar?.version)} style={{ width: size, height: size }} accessibilityLabel="Foto de perfil" /> : <Text style={{ color: colors.paper, fontFamily: typography.editorial, fontSize: size * 0.44 }}>{name.trim().charAt(0).toUpperCase() || 'L'}</Text>}
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: fallbackColor, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+      {uri && failed !== avatar?.version ? <Image source={{ uri }} contentFit="cover" onError={() => setFailed(avatar?.version)} style={{ width: size, height: size }} accessibilityLabel="Foto de perfil" /> : <Text style={{ color: fallbackTextColor, fontFamily: typography.editorial, fontSize: size * 0.44 }}>{name.trim().charAt(0).toUpperCase() || 'L'}</Text>}
     </View>
   );
 }

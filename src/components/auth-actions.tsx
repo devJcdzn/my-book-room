@@ -8,7 +8,7 @@ import { useAuth } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
 import { colors, darkTheme, typography } from '@/src/theme';
 
-export function AuthActions({ isNight, showDescription = true }: { isNight: boolean; showDescription?: boolean }) {
+export function AuthActions({ isNight, showDescription = true, indicatorColor, accentColor }: { isNight: boolean; showDescription?: boolean; indicatorColor?: string; accentColor?: string }) {
   const { user, isAuthenticating, isLoading, errorMessage, signInWithApple, signInWithGoogle, syncStatus, retrySync } = useAuth();
   const pending = useLibraryStore(state => Boolean(state.profile.avatar?.pending || state.roomLayout.pieces.some(piece => piece.photo?.pending)));
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -18,6 +18,7 @@ export function AuthActions({ isNight, showDescription = true }: { isNight: bool
   if (!ACCOUNT_SYNC_ENABLED) return null;
   const textColor = isNight ? darkTheme.text : colors.ink;
   const mutedColor = isNight ? darkTheme.textMuted : colors.muted;
+  const accent = accentColor ?? (isNight ? darkTheme.accent : colors.terracottaDark);
   const busy = isAuthenticating || isLoading;
   if (user) return (
     <View style={[styles.panel, styles.connectedPanel, isNight && styles.nightPanel]}>
@@ -28,17 +29,17 @@ export function AuthActions({ isNight, showDescription = true }: { isNight: bool
         onPress={() => router.navigate('/account')}
         style={({ pressed }) => [styles.accountLink, pressed && { backgroundColor: isNight ? darkTheme.surfaceElevated : colors.softFill }]}
       >
-        <View style={[styles.accountIcon, { backgroundColor: isNight ? darkTheme.surfaceElevated : colors.terracottaSoft }]}>
-          <Ionicons name="person-circle-outline" size={25} color={isNight ? darkTheme.accent : colors.terracottaDark} />
+        <View style={[styles.accountIcon, { backgroundColor: isNight ? darkTheme.surfaceElevated : (accentColor ? colors.sageSoft : colors.terracottaSoft) }]}>
+          <Ionicons name="person-circle-outline" size={25} color={accent} />
         </View>
         <View style={styles.accountCopy}>
           <Text numberOfLines={1} style={[styles.accountLabel, { color: textColor }]}>{user.email || 'Sua conta'}</Text>
           <Text style={[styles.accountStatus, { color: mutedColor }]}>{pending ? 'Fotos aguardando envio' : syncStatus === 'synced' ? 'Sala salva na conta' : syncStatus === 'conflict' ? 'Escolha qual sala manter' : syncStatus === 'syncing' ? 'Salvando sua sala…' : 'Gerenciar sua conta'}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={isNight ? darkTheme.accent : colors.terracottaDark} />
+        <Ionicons name="chevron-forward" size={20} color={accent} />
       </Pressable>
-      {(pending || syncStatus === 'error' || syncStatus === 'offline') && <Pressable style={styles.retryLink} accessibilityRole="button" disabled={syncStatus === 'syncing'} onPress={() => { void retrySync(); }}><Text style={{ color: isNight ? darkTheme.accent : colors.terracotta }}>Tentar sincronizar</Text></Pressable>}
-      {errorMessage && <Text accessibilityRole="alert" style={[styles.connectedError, { color: isNight ? '#EE9B8D' : '#B64135' }]}>{errorMessage}</Text>}
+      {(pending || syncStatus === 'error' || syncStatus === 'offline') && <Pressable style={styles.retryLink} accessibilityRole="button" disabled={syncStatus === 'syncing'} onPress={() => { void retrySync(); }}><Text style={{ color: accent }}>Tentar sincronizar</Text></Pressable>}
+      {errorMessage && <Text accessibilityRole="alert" style={[styles.connectedError, { color: isNight ? darkTheme.danger : colors.danger }]}>{errorMessage}</Text>}
     </View>
   );
   return (
@@ -52,8 +53,8 @@ export function AuthActions({ isNight, showDescription = true }: { isNight: bool
           <Ionicons name="logo-google" size={18} color={textColor} /><Text style={[styles.buttonText, { color: textColor }]}>Continuar com Google</Text>
         </Pressable>}
       </View>
-      {busy && <ActivityIndicator color={colors.terracotta} />}
-      {errorMessage && <Text accessibilityRole="alert" style={{ color: isNight ? '#EE9B8D' : '#B64135' }}>{errorMessage}</Text>}
+      {busy && <ActivityIndicator color={indicatorColor ?? accentColor ?? colors.terracotta} />}
+      {errorMessage && <Text accessibilityRole="alert" style={{ color: isNight ? darkTheme.danger : colors.danger }}>{errorMessage}</Text>}
     </View>
   );
 }

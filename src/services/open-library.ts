@@ -1,3 +1,4 @@
+import { supabase } from '@/src/services/supabase';
 import type { BookSearchResult } from '@/src/types/book';
 
 const API_URL = 'https://openlibrary.org';
@@ -21,6 +22,7 @@ const BASE_FIELDS = [
 const EDITION_FIELDS = [
   'editions',
   'editions.key',
+  'editions.title',
   'editions.isbn',
   'editions.cover_i',
   'editions.language',
@@ -39,6 +41,7 @@ type SearchDocument = {
   editions?: {
     docs?: {
       key?: string;
+      title?: string;
       isbn?: string[];
       cover_i?: number;
       language?: string[];
@@ -56,6 +59,8 @@ type WorkDetailsResponse = {
 };
 
 type EditionDetailsResponse = {
+  description?: OpenLibraryDescription;
+  languages?: { key?: string }[];
   number_of_pages?: number;
   publishers?: string[];
   publish_date?: string;
@@ -88,7 +93,38 @@ const expoFetch: FetchLike = async (input, init) => {
   return fetch(input, init as Parameters<typeof fetch>[1]) as unknown as Promise<Response>;
 };
 
+type CachedBookText = {
+  description_pt_br: string | null;
+  subjects_pt_br: string[];
+  first_publish_date: string | null;
+};
+
+async function getCachedBookText(workKey: string, signal?: AbortSignal): Promise<CachedBookText | undefined> {
+  if (!supabase || !/^\/works\/OL\d{1,16}W$/.test(workKey)) return;
+  try {
+    const request = supabase.from('open_library_book_text')
+      .select('description_pt_br,subjects_pt_br,first_publish_date')
+      .eq('work_key', workKey);
+    if (signal) request.abortSignal(signal);
+    const { data, error } = await request.maybeSingle<CachedBookText>();
+    if (data) return data;
+    if (error || signal?.aborted) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || signal?.aborted) return;
+    const result = await supabase.functions.invoke<CachedBookText>('cache-book-text', {
+      body: { workKey },
+      signal,
+    });
+    return result.data ?? undefined;
+  } catch {
+    // Catalog details still load directly from Open Library if the cache is unavailable.
+    return undefined;
+  }
+}
+
 type ClientOptions = {
+  getBookText?: typeof getCachedBookText;
   fetcher?: FetchLike;
   minIntervalMs?: number;
   timeoutMs?: number;
@@ -118,6 +154,22 @@ const cleanTextList = (values: unknown, limit = 8) => Array.isArray(values)
     .map((value) => value.trim())
     .slice(0, limit)
   : [];
+
+const portugueseSubjects = new Map([
+  ['fiction', 'Ficção'],
+  ['fantasy', 'Fantasia'],
+  ['science fiction', 'Ficção científica'],
+  ['historical fiction', 'Ficção histórica'],
+  ['juvenile fiction', 'Ficção infantojuvenil'],
+  ['young adult fiction', 'Ficção juvenil'],
+  ['mystery', 'Mistério'],
+  ['horror', 'Terror'],
+  ['poetry', 'Poesia'],
+  ['biography', 'Biografia'],
+  ['history', 'História'],
+  ['self-help', 'Autoajuda'],
+  ['psychology', 'Psicologia'],
+]);
 
 const descriptionText = (value: OpenLibraryDescription | undefined) => {
   const description = typeof value === 'string' ? value : value?.value;
@@ -199,7 +251,7 @@ export const mapOpenLibraryDocument = (
   return {
     workKey,
     editionKey,
-    title,
+    title: cleanText((matchingEdition ?? portugueseEdition)?.title) ?? title,
     author: document.author_name?.find((author) => author.trim())?.trim() || 'Autor desconhecido',
     totalPages,
     ...(totalPages ? { totalPagesSource: 'open_library' as const } : {}),
@@ -239,6 +291,7 @@ const delay = (milliseconds: number, signal?: AbortSignal) => new Promise<void>(
 const isAbortError = (error: unknown) => error instanceof Error && error.name === 'AbortError';
 
 export const createOpenLibraryClient = ({
+  getBookText,
   fetcher = expoFetch,
   minIntervalMs = 1_100,
   timeoutMs = 15_000,
@@ -399,19 +452,28 @@ export const createOpenLibraryClient = ({
         : portugueseEdition?.key ?? match.edition_key?.[0], 'books');
     }
 
-    const work = workKey
-      ? await requestJson<WorkDetailsResponse>(`${API_URL}${workKey}.json`, SEARCH_TTL, signal)
-      : undefined;
-    const edition = editionKey
-      ? await requestJson<EditionDetailsResponse>(`${API_URL}${editionKey}.json`, SEARCH_TTL, signal)
+    const workDetails = async () => {
+      if (!workKey) return {};
+      const cached = await getBookText?.(workKey, signal);
+      if (cached) return { cached };
+      const work = await requestJson<WorkDetailsResponse>(`${API_URL}${workKey}.json`, SEARCH_TTL, signal);
+      return { work };
+    };
+    const [{ work, cached }, edition] = await Promise.all([
+      workDetails(),
+      editionKey ? requestJson<EditionDetailsResponse>(`${API_URL}${editionKey}.json`, SEARCH_TTL, signal) : undefined,
+    ]);
+    const portugueseDescription = edition?.languages?.some(({ key }) => key === '/languages/por')
+      ? descriptionText(edition.description)
       : undefined;
     const isbn = [edition?.isbn_13?.[0], edition?.isbn_10?.[0], book.isbn]
       .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
 
     return {
-      description: descriptionText(work?.description),
-      firstPublishDate: cleanText(work?.first_publish_date),
-      subjects: cleanTextList(work?.subjects),
+      description: portugueseDescription ?? cleanText(cached?.description_pt_br) ?? descriptionText(work?.description),
+      firstPublishDate: cleanText(cached?.first_publish_date ?? work?.first_publish_date),
+      subjects: [...new Set(cleanTextList(cached?.subjects_pt_br ?? work?.subjects).map(subject =>
+        portugueseSubjects.get(subject.toLowerCase()) ?? subject))],
       publishers: cleanTextList(edition?.publishers, 3),
       publishDate: cleanText(edition?.publish_date),
       editionPageCount: positivePageCount(edition?.number_of_pages),
@@ -490,4 +552,4 @@ export const createOpenLibraryClient = ({
   return { searchBooks, trendingBooks, getBookDetails };
 };
 
-export const openLibraryClient = createOpenLibraryClient();
+export const openLibraryClient = createOpenLibraryClient({ getBookText: getCachedBookText });

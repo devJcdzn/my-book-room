@@ -1,8 +1,10 @@
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TransitionModal } from '@/src/components/transition-modal';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ReactNode } from 'react';
 
-import { typography } from '@/src/theme';
+import { colors, controls, darkTheme, radii, typography } from '@/src/theme';
 
 export function LibrarySheet({
   children,
@@ -16,8 +18,8 @@ export function LibrarySheet({
   mutedColor,
 }: {
   children: ReactNode;
-  description: string;
-  height: number;
+  description?: string;
+  height?: number;
   onClose: () => void;
   title: string;
   visible: boolean;
@@ -28,21 +30,30 @@ export function LibrarySheet({
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal animationType="fade" onRequestClose={onClose} statusBarTranslucent transparent visible={visible}>
+    <TransitionModal onRequestClose={onClose} statusBarTranslucent transparent visible={visible}>
       <View style={styles.overlay}>
-        <Pressable accessibilityLabel="Fechar" onPress={onClose} style={StyleSheet.absoluteFill} />
+        <Pressable accessible={false} onPress={onClose} style={StyleSheet.absoluteFill} />
         <KeyboardAvoidingView behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
-          <View style={[styles.sheet, { backgroundColor, height, paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.sheet, { backgroundColor, borderColor: backgroundColor === darkTheme.surface ? darkTheme.borderSubtle : colors.lineSubtle, height, paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={styles.grabber} />
-            <Text style={[styles.title, { color: textColor }]}>{title}</Text>
-            <Text style={[styles.description, { color: mutedColor }]}>{description}</Text>
-            <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.scroll}>
-              {children}
-            </ScrollView>
+            <View style={styles.heading}>
+              <Text accessibilityRole="header" style={[styles.title, { color: textColor }]}>{title}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose}
+                style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
+                <Ionicons name="close" color={mutedColor} size={22} accessible={false} />
+              </Pressable>
+            </View>
+            {description ? <Text style={[styles.description, { color: mutedColor }]}>{description}</Text> : null}
+            {height === undefined ? children : (
+              <ScrollView key={title} contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.scroll}>
+                {children}
+              </ScrollView>
+            )}
           </View>
         </KeyboardAvoidingView>
       </View>
-    </Modal>
+    </TransitionModal>
   );
 }
 
@@ -53,12 +64,17 @@ const styles = StyleSheet.create({
     maxHeight: '88%',
     paddingTop: 10,
     paddingHorizontal: 22,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: radii.large,
+    borderTopRightRadius: radii.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
     borderCurve: 'continuous',
   },
   grabber: { width: 44, height: 5, alignSelf: 'center', marginBottom: 14, borderRadius: 3, backgroundColor: 'rgba(120, 108, 98, 0.36)' },
-  title: { marginBottom: 5, fontFamily: typography.editorial, fontSize: 25, fontWeight: '600', lineHeight: 32 },
+  heading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
+  close: controls.iconButton,
+  pressed: controls.buttonPressed,
+  title: { flex: 1, fontFamily: typography.editorial, fontSize: 25, fontWeight: '600', lineHeight: 32 },
   description: { marginBottom: 18, fontSize: 14, lineHeight: 20 },
   scroll: { flex: 1, flexShrink: 1 },
   scrollContent: { paddingBottom: 8 },

@@ -37,7 +37,7 @@ export type ReadingTimer = {
   endedAt?: string;
 };
 
-export type ReadingSession = {
+type ReadingSessionDetails = {
   id: string;
   bookId: string;
   bookTitle: string;
@@ -50,10 +50,14 @@ export type ReadingSession = {
   startingPage: number;
   endingPage: number;
   pagesRead: number;
-  startedAt: string;
-  endedAt: string;
-  durationSeconds: number;
+  readingDate: string;
+  createdAt: string;
 };
+
+export type ReadingSession = ReadingSessionDetails & (
+  | { source: 'timer'; startedAt: string; endedAt: string; durationSeconds: number }
+  | { source: 'manual'; startedAt?: never; endedAt?: never; durationSeconds?: number }
+);
 
 export type BookSearchResult = {
   workKey: string;
@@ -80,10 +84,12 @@ export type Book = {
   title: string;
   author: string;
   coverColor: string;
+  dominantCoverColor?: string;
   totalPages: number;
   currentPage: number;
   status: BookStatus;
   shelfId?: string;
+  completedOn?: string;
   rating?: number;
   notes?: string;
   readingEntries?: ReadingEntry[];

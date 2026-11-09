@@ -6,3 +6,6 @@ export const ACCOUNT_SYNC_ENABLED = process.env.EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC 
 
 // Keep Google login hidden during the initial Apple-only launch.
 export const GOOGLE_SIGN_IN_VISIBLE = false;
+
+// Absent or false keeps every collection available and skips RevenueCat entirely.
+export const IAP_ENABLED = process.env.EXPO_PUBLIC_ENABLE_IAP === 'true';

@@ -1,13 +1,12 @@
-import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { showAlert } from '@/src/components/app-dialog';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useContext } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { ScreenHeader } from '@/src/components/screen-header';
 import { DiaryEntryForm } from '@/src/components/diary-entry-form';
-import { TabBarContext } from '@/src/context/tab-bar-context';
 import { useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme } from '@/src/theme';
 import { READING_NOTE_COLORS } from '@/src/utils/reading-note';
@@ -23,17 +22,11 @@ export default function DiaryNoteScreen() {
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
   const background = isNight ? darkTheme.bg : colors.cream;
-  const accent = isNight ? darkTheme.accent : colors.terracottaDark;
-  const { setIsTabBarHidden } = useContext(TabBarContext);
-
-  useFocusEffect(useCallback(() => {
-    setIsTabBarHidden(true);
-    return () => setIsTabBarHidden(false);
-  }, [setIsTabBarHidden]));
+  const accent = isNight ? darkTheme.danger : colors.danger;
 
   const handleDelete = () => {
     if (!entryId || !entryBook) return;
-    Alert.alert('Excluir nota', 'Esta nota será removida do seu diário.', [
+    showAlert('Excluir nota', 'Esta nota será removida do seu diário.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Excluir', style: 'destructive', onPress: () => {
         removeEntry(entryBook.id, entryId);

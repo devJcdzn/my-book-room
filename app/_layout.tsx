@@ -1,11 +1,17 @@
+import { useReducedMotion } from 'react-native-reanimated';
+import { SaveFeedback } from '@/src/components/save-feedback';
+import { AppDialog } from '@/src/components/app-dialog';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo, useRef } from 'react';
-import { LogBox } from 'react-native';
-import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { ScreenBackButton } from '@/src/components/screen-header';
+import { resolveAmbience } from '@/src/types/ambience';
+import { CollectionPurchasesLifecycle } from '@/src/services/collection-purchases';
+import { useCollectionPurchases } from '@/src/services/collection-access';
+import { IAP_ENABLED } from '@/src/config/features';
 import { AnalyticsProvider } from '@/src/providers/analytics-provider';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 import { useLibraryStore } from '@/src/store/library-store';
@@ -13,31 +19,32 @@ import { colors, darkTheme, typography } from '@/src/theme';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({
-  duration: 400,
+  duration: 260,
   fade: true,
 });
 
-LogBox.ignoreLogs([
-  'THREE.WARNING: Multiple instances of Three.js being imported.',
-  'THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.',
-  'Clock: This module has been deprecated. Please use THREE.Timer instead.',
-]);
-
-if (typeof __DEV__ !== 'undefined' && __DEV__) {
-  const originalWarn = console.warn;
-  console.warn = (...args: unknown[]) => {
-    const first = typeof args[0] === 'string' ? args[0] : '';
-    if (
-      first.includes('Multiple instances of Three.js being imported') ||
-      first.includes('Clock: This module has been deprecated')
-    ) {
-      return;
-    }
-    originalWarn(...args);
-  };
-}
-
 export const unstable_settings = { anchor: '(tabs)' };
+
+function StartupSplash() {
+  const { isLoading } = useAuth();
+  const purchasesChecked = useCollectionPurchases(state => state.checked);
+  const onboardingStatus = useLibraryStore(state => state.onboardingStatus);
+  const dismissed = useRef(false);
+  const needsCollectionAccess = onboardingStatus === 'completed' || onboardingStatus === 'skipped';
+  const ready = !isLoading && (!needsCollectionAccess || !IAP_ENABLED || purchasesChecked);
+  useEffect(() => {
+    if (dismissed.current) return;
+    const dismiss = () => {
+      dismissed.current = true;
+      void SplashScreen.hideAsync().catch(() => undefined);
+    };
+    if (ready) { dismiss(); return; }
+    // A stalled network must not trap the user behind a native splash.
+    const timer = setTimeout(dismiss, 8000);
+    return () => clearTimeout(timer);
+  }, [ready]);
+  return null;
+}
 
 function OnboardingRedirect() {
   const { isLoading } = useAuth();
@@ -57,32 +64,31 @@ function OnboardingRedirect() {
 }
 
 export default function RootLayout() {
+  const reduceMotion = useReducedMotion();
+  const pathname = usePathname();
   const hasHydrated = useLibraryStore((state) => state._hasHydrated);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const onboardingStatus = useLibraryStore((state) => state.onboardingStatus);
-  const activeReadingTimer = useLibraryStore((state) => state.activeReadingTimer);
-  const pathname = usePathname();
   const router = useRouter();
   const isNight = resolveAmbience(ambienceMode) === 'night';
-  const restoredReadingTimer = useRef(false);
+  const completingBookId = useLibraryStore((state) => state.completingBookId);
+  const coverRewardBookId = useLibraryStore((state) => state.coverRewardBookId);
+
+  useEffect(() => {
+    if (completingBookId) useLibraryStore.getState().finalizeCompletion(completingBookId);
+  }, [completingBookId]);
+
+  useEffect(() => {
+    if (!hasHydrated || !coverRewardBookId) return;
+    useLibraryStore.getState().dismissCoverReward();
+    if (onboardingStatus !== 'completed' && onboardingStatus !== 'skipped') return;
+    router.push({ pathname: '/book-reward', params: { bookId: coverRewardBookId } } as Href);
+  }, [coverRewardBookId, hasHydrated, onboardingStatus, router]);
+
 
   useEffect(() => {
     void useLibraryStore.persist.rehydrate();
   }, []);
-
-  useEffect(() => {
-    if (hasHydrated) {
-      void SplashScreen.hideAsync().catch(() => undefined);
-    }
-  }, [hasHydrated]);
-
-  useEffect(() => {
-    const onboardingComplete = onboardingStatus === 'completed' || onboardingStatus === 'skipped';
-    const isHomeRoute = pathname === '/' || pathname === '/index' || pathname.startsWith('/(tabs)');
-    if (!hasHydrated || !onboardingComplete || !activeReadingTimer || restoredReadingTimer.current || !isHomeRoute) return;
-    restoredReadingTimer.current = true;
-    router.replace('/reading-timer' as Href);
-  }, [activeReadingTimer, hasHydrated, onboardingStatus, pathname, router]);
 
   const theme = useMemo(() => {
     if (isNight) {
@@ -114,25 +120,32 @@ export default function RootLayout() {
   if (!hasHydrated) return null;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
+      <CollectionPurchasesLifecycle />
+      <StartupSplash />
       <AnalyticsProvider>
       <OnboardingRedirect />
       <ThemeProvider value={theme}>
         <StatusBar animated style={isNight ? 'light' : 'dark'} />
         <Stack
           screenOptions={{
+            animation: reduceMotion ? 'none' : 'default',
             contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
             headerShadowVisible: false,
             headerStyle: { backgroundColor: isNight ? darkTheme.surface : colors.paper },
+            headerBackVisible: false,
+            headerLeft: ({ canGoBack }) => canGoBack ? <ScreenBackButton isNight={isNight} onPress={() => router.back()} /> : null,
             headerTintColor: isNight ? darkTheme.text : colors.ink,
             headerTitleStyle: { fontWeight: '700', color: isNight ? darkTheme.text : colors.ink },
           }}
         >
+        <Stack.Screen name="book-reward" options={{ headerShown: false, presentation: 'fullScreenModal', animation: reduceMotion ? 'none' : 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="onboarding"
           options={{
-            animation: 'fade',
+            animation: reduceMotion ? 'none' : 'fade',
             gestureEnabled: false,
             headerShown: false,
           }}
@@ -143,6 +156,7 @@ export default function RootLayout() {
             presentation: process.env.EXPO_OS === 'ios' ? 'formSheet' : 'modal',
             sheetAllowedDetents: [0.75, 1],
             sheetGrabberVisible: true,
+            headerShown: false,
             title: 'Conta e sincronização',
             contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.cream },
           }}
@@ -161,19 +175,21 @@ export default function RootLayout() {
           name="book-progress"
           options={{
             presentation: 'card',
-            animation: 'slide_from_right',
+            animation: reduceMotion ? 'none' : 'slide_from_right',
             gestureEnabled: true,
             headerShown: false,
             contentStyle: { backgroundColor: isNight ? darkTheme.bg : colors.terracotta },
           }}
         />
-        <Stack.Screen name="reading-timer" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="reading-session" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="reading-log" options={{ headerBackButtonDisplayMode: 'minimal', animation: reduceMotion ? 'none' : 'slide_from_right' }} />
+        {/* The timer confirms exit before starting a pop. An interactive swipe would expose the previous screen first. */}
+        <Stack.Screen name="reading-timer" options={{ headerShown: false, animation: reduceMotion ? 'none' : 'slide_from_right', gestureEnabled: false }} />
+        <Stack.Screen name="reading-session" options={{ headerShown: false, animation: reduceMotion ? 'none' : 'slide_from_right' }} />
         <Stack.Screen
           name="edit-profile"
           options={{
             presentation: 'card',
-            animation: 'slide_from_right',
+            animation: reduceMotion ? 'none' : 'slide_from_right',
             gestureEnabled: true,
             title: 'Editar perfil',
             headerShown: true,
@@ -200,8 +216,11 @@ export default function RootLayout() {
           }}
         />
         </Stack>
+        <SaveFeedback />
+        <AppDialog enabled={pathname !== '/account' && pathname !== '/book-reward' && pathname !== '/reading-session'} />
       </ThemeProvider>
       </AnalyticsProvider>
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

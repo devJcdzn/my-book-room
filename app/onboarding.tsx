@@ -1,20 +1,20 @@
+import { AppTextInput, FieldError } from '@/src/components/app-text-input';
+import { showAlert } from '@/src/components/app-dialog';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, useGlobalSearchParams, usePathname, useNavigation, type NativeStackNavigationProp } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import Animated, { FadeInRight, FadeOutLeft, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthActions } from '@/src/components/auth-actions';
@@ -22,50 +22,67 @@ import { ACCOUNT_SYNC_ENABLED } from '@/src/config/features';
 import { useAuth } from '@/src/providers/auth-provider';
 import { ProfileAvatar } from '@/src/components/profile-avatar';
 import { READING_NOTE_COLORS } from '@/src/utils/reading-note';
-import { PrimaryButton } from '@/src/components/primary-button';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { BookCover } from '@/src/components/book-cover';
+import { resolveAmbience } from '@/src/types/ambience';
 import { PROFILE_LIMITS, useLibraryStore, type AmbienceMode } from '@/src/store/library-store';
 import { controls, colors, darkTheme, getReadingNotePalette, radii, typography } from '@/src/theme';
 
 import { HABIT_QUESTIONS, ONBOARDING_STEPS, getOnboardingMessage } from '@/src/utils/onboarding';
 
+function OnboardingButton({ label, color, backgroundColor, disabled, icon, onPress, compact }: {
+  label: string;
+  color: string;
+  backgroundColor: string;
+  disabled?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label}
+      accessibilityState={{ disabled }} disabled={disabled} onPress={onPress}
+      style={({ pressed }) => [styles.actionButton, compact && styles.flexAction,
+        { backgroundColor }, disabled && controls.buttonDisabled, pressed && controls.buttonPressed]}>
+      <Text style={[styles.actionLabel, { color }]}>{label}</Text>
+      <Ionicons name={icon} size={19} color={color} accessible={false} />
+    </Pressable>
+  );
+}
+
 const TOTAL_STEPS = ONBOARDING_STEPS;
 const NIKO_IMAGES = [
-  require('@/assets/onboarding/niko-welcome.png'),
-  require('@/assets/onboarding/niko-rhythm.png'),
-  require('@/assets/onboarding/niko-intention.png'),
-  require('@/assets/onboarding/niko-moment.png'),
-  require('@/assets/onboarding/niko-reading.png'),
+  require('@/assets/onboarding/niko-welcome.webp'),
+  require('@/assets/onboarding/niko-rhythm.webp'),
+  require('@/assets/onboarding/niko-intention.webp'),
+  require('@/assets/onboarding/niko-moment.webp'),
+  require('@/assets/onboarding/niko-reading.webp'),
 ];
 
-const BOOK_IMAGE = require('@/assets/onboarding/niko-book.png');
+const BOOK_IMAGE = require('@/assets/onboarding/book-stack.webp');
 const FEATURE_STEPS = [
   {
-    image: require('@/assets/onboarding/niko-timer.png'),
+    image: require('@/assets/onboarding/reading-timer.webp'),
     title: 'Um tempo só para ler',
     body: 'Abra seu livro e inicie o timer. Pause quando precisar e, ao terminar, registre até onde leu.',
-    hint: 'O timer acompanha o tempo. A leitura acontece no seu livro.',
   },
   {
-    image: require('@/assets/onboarding/niko-notes.png'),
+    image: require('@/assets/onboarding/reading-journal.webp'),
     title: 'Guarde o que fica da leitura',
     body: 'Ideias, trechos e impressões ficam ligados ao livro e reunidos no Diário.',
-    hint: 'Durante a sessão, o botão de nota rápida fica ao lado do timer.',
   },
   {
-    image: require('@/assets/onboarding/niko-frame.png'),
+    image: require('@/assets/onboarding/niko-frame.webp'),
     title: 'Uma leitura que fica na sala',
-    body: 'Ao marcar um livro como concluído, sua capa fica disponível para os quadros da sala.',
-    hint: 'Na personalização, escolha um quadro e selecione a capa de um livro concluído.',
+    body: 'Ao marcar um livro como concluído, sua capa fica disponível para os pôsteres da sala.',
+    hint: 'Na personalização, adicione um pôster e selecione a capa de um livro concluído.',
   },
   {
-    image: require('@/assets/onboarding/niko-room.png'),
+    image: require('@/assets/onboarding/niko-room-cozy.webp'),
     title: 'Seu espaço de leitura',
     body: 'Escolha os móveis, encontre um lugar para cada peça e deixe seu cantinho com a sua cara.',
-    hint: 'Na tela Ambiente, abra a personalização da sala. Você pode mudar tudo depois.',
   },
 ];
-const WINDOW_IMAGE = require('@/assets/images/onboarding-window.jpg');
+const LAMP_IMAGE = require('@/assets/onboarding/reading-lamp.webp');
 
 const HABIT_ICONS: Record<string, (keyof typeof Ionicons.glyphMap)[]> = {
   frequency: ['book-outline', 'bookmarks-outline', 'refresh-outline'],
@@ -137,7 +154,11 @@ export default function OnboardingScreen() {
   const step = Math.min(TOTAL_STEPS - 1, Math.max(0, onboardingStep));
   const [name, setName] = useState(profile.name === 'Leitor(a)' ? '' : profile.name);
   const [answers, setAnswers] = useState(savedAnswers);
+  const [focusedField, setFocusedField] = useState<'name' | 'book'>();
   const [bookQuery, setBookQuery] = useState('');
+  const [nameChecked, setNameChecked] = useState(false);
+  const nameError = nameChecked && !name.trim() ? 'Digite seu nome para continuar.' : undefined;
+  const bookQueryError = bookQuery.trim().length === 1 ? 'Digite pelo menos dois caracteres para buscar.' : undefined;
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerElapsed = useRef(0);
@@ -163,12 +184,13 @@ export default function OnboardingScreen() {
   const palette = {
     background: isNight ? darkTheme.bg : colors.cream,
     surface: isNight ? darkTheme.surface : colors.paper,
-    surfaceSelected: isNight ? darkTheme.surfaceElevated : colors.terracottaSoft,
+    surfaceSelected: isNight ? darkTheme.selection : colors.sageSoft,
     text: isNight ? darkTheme.text : colors.ink,
     textSoft: isNight ? darkTheme.textMuted : colors.inkSoft,
     muted: isNight ? darkTheme.textMuted : colors.muted,
     border: isNight ? darkTheme.border : colors.line,
-    accent: isNight ? darkTheme.accent : colors.terracotta,
+    accent: isNight ? darkTheme.selectionText : colors.sageDark,
+    action: isNight ? darkTheme.primary : colors.ink,
   };
 
   useEffect(() => {
@@ -182,6 +204,7 @@ export default function OnboardingScreen() {
   const examplePalette = getReadingNotePalette(READING_NOTE_COLORS[5], isNight);
 
   const searchFirstBook = (query = bookQuery) => {
+    if (query.trim().length === 1) return;
     tapFeedback();
     Keyboard.dismiss();
     router.push({ pathname: '/books/catalog', params: { from: 'onboarding', query: query.trim() } });
@@ -200,6 +223,7 @@ export default function OnboardingScreen() {
     if (authBusy) return;
     if (step === 0) {
       const normalizedName = name.trim();
+      setNameChecked(true);
       if (!normalizedName) return;
       updateProfile({ name: normalizedName });
     }
@@ -237,7 +261,7 @@ export default function OnboardingScreen() {
     };
 
     if (step === 6 && books.length === 0) {
-      Alert.alert(
+      showAlert(
         'Entrar sem livro na mesa?',
         'Você poderá adicionar ou buscar livros a qualquer momento dentro da sua sala.',
         [
@@ -303,22 +327,21 @@ export default function OnboardingScreen() {
         >
           <Animated.View
             key={step}
-            entering={reducedMotion ? undefined : FadeInRight.duration(200)}
-            exiting={reducedMotion ? undefined : FadeOutLeft.duration(140)}
+            entering={reducedMotion ? undefined : FadeIn.duration(180)}
             style={styles.stepContainer}
           >
             {step < 5 && (
               <Animated.View style={[styles.mascot, step === 0 && styles.mascotWelcome, step === 4 && styles.mascotLarge, nikoMotion]}>
-                <Image source={NIKO_IMAGES[step]} contentFit="contain" style={styles.mascotImage} accessible={false} />
+                <Image priority="high" transition={0} source={NIKO_IMAGES[step]} contentFit="contain" style={styles.mascotImage} accessible={false} />
               </Animated.View>
             )}
             {question && (
               <View style={styles.stepBlock}>
                 <View style={styles.headerBlock}>
-                  <Text style={[styles.title, { color: palette.text }]}>{question.title}</Text>
+                  <Text style={[styles.title, styles.questionTitle, { color: palette.text }]}>{question.title}</Text>
                   <Text style={[styles.subtitle, { color: palette.muted }]}>{question.subtitle}</Text>
                 </View>
-                <View style={styles.optionsStack}>
+                <View style={[styles.optionsStack, { backgroundColor: palette.surface, borderColor: palette.border }]}>
                   {question.options.map((option, index) => {
                     const selected = answers[question.key] === option.id;
                     return (
@@ -333,14 +356,15 @@ export default function OnboardingScreen() {
                           if (!reducedMotion) nikoScale.value = withSequence(withTiming(1.04, { duration: 110 }), withTiming(1, { duration: 160 }));
                         }}
                         style={({ pressed }) => [styles.optionCard, {
-                          backgroundColor: selected ? palette.surfaceSelected : palette.surface,
-                          borderColor: selected ? palette.accent : palette.border,
+                          backgroundColor: selected || pressed ? palette.surfaceSelected : palette.surface,
+                          borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                          borderColor: palette.border,
                         }, pressed && styles.pressed]}
                       >
                         <Ionicons name={HABIT_ICONS[question.key][index]} size={22} color={selected ? palette.accent : palette.muted} />
                         <Text style={[styles.habitLabel, { color: palette.text }]}>{option.label}</Text>
-                        <View style={[styles.radioCircle, { borderColor: selected ? palette.accent : palette.border }]}>
-                          {selected && <View style={[styles.radioDot, { backgroundColor: palette.accent }]} />}
+                        <View style={styles.selectionMark}>
+                          {selected && <Ionicons name="checkmark" size={22} color={palette.accent} accessible={false} />}
                         </View>
                       </Pressable>
                     );
@@ -359,10 +383,10 @@ export default function OnboardingScreen() {
               <View style={styles.stepBlock}>
                 <View style={styles.headerBlock}>
                   <Text selectable style={[styles.title, { color: palette.text }]}>
-                    Como podemos te chamar?
+                    Seu cantinho de leitura
                   </Text>
                   <Text selectable style={[styles.subtitle, { color: palette.muted }]}>
-                    Vamos deixar seu cantinho com a sua cara.
+                    Um lugar para seus livros, suas leituras e as ideias que ficam.
                   </Text>
                 </View>
 
@@ -370,9 +394,17 @@ export default function OnboardingScreen() {
                   <Text selectable style={[styles.fieldLabel, { color: palette.text }]}>
                     Seu nome
                   </Text>
-                  <View style={[styles.inputWrapper, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-                    <TextInput
+                  <View style={[styles.inputWrapper, {
+                    backgroundColor: palette.surface,
+                    borderColor: nameError ? (isNight ? darkTheme.danger : colors.danger) : focusedField === 'name' ? palette.accent : palette.border,
+                  }]}>
+                    <Ionicons name="person-outline" size={20} color={palette.muted} accessible={false} />
+                    <AppTextInput
                       accessibilityLabel="Seu nome"
+                      onFocus={() => setFocusedField('name')}
+                      onBlur={() => setFocusedField(undefined)}
+                      keyboardAppearance={isNight ? 'dark' : 'light'}
+                      selectionColor={palette.accent}
                       autoCapitalize="words"
                       maxLength={PROFILE_LIMITS.name}
                       onChangeText={setName}
@@ -395,6 +427,7 @@ export default function OnboardingScreen() {
                       </Pressable>
                     )}
                   </View>
+                  <FieldError isNight={isNight} message={nameError} />
                   <Text selectable style={[styles.helperCaption, { color: palette.muted }]}>
                     Você poderá mudar isso no seu perfil a qualquer momento.
                   </Text>
@@ -403,8 +436,8 @@ export default function OnboardingScreen() {
             )}
             {step === 5 && (
               <View style={styles.stepBlock}>
-                <View style={[styles.bannerImageFrame, { borderColor: palette.border }]}>
-                  <Image source={WINDOW_IMAGE} contentFit="cover" style={StyleSheet.absoluteFill} />
+                <View style={[styles.ambienceArtwork, { backgroundColor: isNight ? darkTheme.surfaceElevated : colors.softFill }]}>
+                  <Image source={LAMP_IMAGE} contentFit="contain" style={styles.mascotImage} accessible={false} transition={0} />
                 </View>
                 <View style={styles.headerBlock}>
                   <Text selectable style={[styles.title, { color: palette.text }]}>
@@ -415,10 +448,10 @@ export default function OnboardingScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.optionsStack}>
-                  {AMBIENCE_OPTIONS.map((option) => {
+                <View style={[styles.optionsStack, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                  {AMBIENCE_OPTIONS.map((option, index) => {
                     const selected = ambienceMode === option.id;
-                    const selectedColor = isNight ? darkTheme.accent : colors.terracottaDark;
+                    const selectedColor = palette.accent;
                     return (
                       <Pressable
                         key={option.id}
@@ -433,8 +466,9 @@ export default function OnboardingScreen() {
                         style={({ pressed }) => [
                           styles.optionCard,
                           {
-                            backgroundColor: selected ? palette.surfaceSelected : palette.surface,
-                            borderColor: selected ? palette.accent : palette.border,
+                            backgroundColor: selected || pressed ? palette.surfaceSelected : palette.surface,
+                            borderTopWidth: index ? StyleSheet.hairlineWidth : 0,
+                            borderColor: palette.border,
                           },
                           pressed && styles.pressed,
                         ]}
@@ -448,8 +482,8 @@ export default function OnboardingScreen() {
                             {option.description}
                           </Text>
                         </View>
-                        <View style={[styles.radioCircle, { borderColor: selected ? palette.accent : palette.border }]}>
-                          {selected && <View style={[styles.radioDot, { backgroundColor: palette.accent }]} />}
+                        <View style={styles.selectionMark}>
+                          {selected && <Ionicons name="checkmark" size={22} color={palette.accent} accessible={false} />}
                         </View>
                       </Pressable>
                     );
@@ -460,7 +494,7 @@ export default function OnboardingScreen() {
             {step === 6 && (
               <View style={styles.stepBlock}>
                 <View style={styles.featureMascot}>
-                  <Image source={BOOK_IMAGE} contentFit="contain" style={styles.mascotImage} accessible={false} />
+                  <Image source={BOOK_IMAGE} transition={0} contentFit="contain" style={styles.mascotImage} accessible={false} />
                 </View>
 
                 <View style={styles.headerBlock}>
@@ -468,14 +502,21 @@ export default function OnboardingScreen() {
                     Seu primeiro livro na estante
                   </Text>
                   <Text selectable style={[styles.subtitle, { color: palette.muted }]}>
-                    Busque por título ou autor no catálogo e toque em Adicionar. Seu livro passa a fazer parte da biblioteca e da sala.
+                    {books.length ? 'Seu livro já faz parte da sua biblioteca.' : 'Busque por título ou autor para adicionar um livro.'}
                   </Text>
                 </View>
 
                 <View style={styles.formGroup}>
-                  <View style={[styles.inputWrapper, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-                    <TextInput
+                  <View style={[styles.inputWrapper, {
+                    backgroundColor: palette.surface,
+                    borderColor: bookQueryError ? (isNight ? darkTheme.danger : colors.danger) : focusedField === 'book' ? palette.accent : palette.border,
+                  }]}>
+                    <AppTextInput
                       accessibilityLabel="Buscar seu primeiro livro"
+                      onFocus={() => setFocusedField('book')}
+                      onBlur={() => setFocusedField(undefined)}
+                      keyboardAppearance={isNight ? 'dark' : 'light'}
+                      selectionColor={palette.accent}
                       placeholder="Título ou autor"
                       placeholderTextColor={palette.muted}
                       value={bookQuery}
@@ -490,6 +531,7 @@ export default function OnboardingScreen() {
                       <Ionicons name="search-outline" size={22} color={palette.accent} />
                     </Pressable>
                   </View>
+                  <FieldError isNight={isNight} message={bookQueryError} />
                   <Text style={[styles.helperCaption, { color: palette.muted }]}>Experimente uma busca:</Text>
                   <View style={styles.previewChoices}>
                     {['O Pequeno Príncipe', 'Dom Casmurro', '1984'].map((title) => (
@@ -502,11 +544,11 @@ export default function OnboardingScreen() {
                 {books.length > 0 && books[0] ? (
                   <View style={styles.activeBookContainer}>
                     <View style={[styles.activeBookCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-                      <View style={[styles.activeBookCover, { backgroundColor: books[0].coverColor }]}>
-                        <Ionicons color="rgba(255,255,255,0.92)" name="book-outline" size={22} />
-                      </View>
+                      <BookCover style={styles.activeBookCover} color={books[0].coverColor} coverUrl={books[0].coverUrl}>
+                        {!books[0].coverUrl && <Ionicons color={colors.paper} name="book-outline" size={22} />}
+                      </BookCover>
                       <View style={styles.activeBookCopy}>
-                        <Text numberOfLines={1} selectable style={[styles.activeBookTitle, { color: palette.text }]}>
+                        <Text selectable style={[styles.activeBookTitle, { color: palette.text }]}>
                           {books[0].title}
                         </Text>
                         <Text numberOfLines={1} selectable style={[styles.activeBookAuthor, { color: palette.muted }]}>
@@ -519,8 +561,6 @@ export default function OnboardingScreen() {
                         )}
                       </View>
                     </View>
-
-
                   </View>
                 ) : (
                   <View style={styles.starterContainer}>
@@ -549,9 +589,9 @@ export default function OnboardingScreen() {
             )}
             {step >= 7 && FEATURE_STEPS[step - 7] && (
               <View style={styles.stepBlock}>
-                {step !== 10 && step !== 8 && (
+                {step === 9 && (
                   <View style={[styles.featureMascot, styles.interactiveMascot]}>
-                    <Image source={FEATURE_STEPS[step - 7].image} contentFit="contain" style={styles.mascotImage} accessible={false} />
+                    <Image source={FEATURE_STEPS[step - 7].image} transition={0} contentFit="contain" style={styles.mascotImage} accessible={false} />
                   </View>
                 )}
                 <View style={styles.headerBlock}>
@@ -565,7 +605,7 @@ export default function OnboardingScreen() {
                       {`${String(Math.floor(timerSeconds / 60)).padStart(2, '0')}:${String(timerSeconds % 60).padStart(2, '0')}`}
                     </Text>
                     <View style={styles.demoActions}>
-                      <PrimaryButton label={timerRunning ? 'Pausar' : timerSeconds ? 'Continuar' : 'Iniciar'} onPress={() => { tapFeedback(); setTimerRunning((value) => !value); }} style={styles.flexAction} />
+                      <OnboardingButton compact color={palette.accent} backgroundColor={palette.surfaceSelected} icon={timerRunning ? "pause" : "play"} label={timerRunning ? 'Pausar' : timerSeconds ? 'Continuar' : 'Iniciar'} onPress={() => { tapFeedback(); setTimerRunning((value) => !value); }} />
                       <Pressable accessibilityRole="button" accessibilityLabel="Reiniciar demonstração do timer" onPress={() => { setTimerRunning(false); setTimerSeconds(0); }} style={[styles.demoReset, { borderColor: palette.border }]}>
                         <Ionicons name="refresh-outline" size={22} color={palette.accent} />
                       </Pressable>
@@ -582,7 +622,7 @@ export default function OnboardingScreen() {
                     </View>
                     <View style={[styles.sampleNote, { backgroundColor: notePalette.surface, borderColor: notePalette.border }]}>
                       {notePreview ? <Text selectable style={[styles.noteText, { color: notePalette.text }]}>{noteDraft.trim()}</Text> : (
-                        <TextInput
+                        <AppTextInput
                           accessibilityLabel="Experimentar uma nota de leitura"
                           multiline maxLength={500} value={noteDraft} onChangeText={setNoteDraft}
                           placeholder="Escreva uma ideia ou impressão sua…" placeholderTextColor={notePalette.muted}
@@ -600,62 +640,56 @@ export default function OnboardingScreen() {
                         </Pressable>;
                       })}
                     </View>
-                    <PrimaryButton disabled={!noteDraft.trim()} label={notePreview ? 'Editar exemplo' : 'Criar nota de exemplo'} onPress={() => { Keyboard.dismiss(); tapFeedback(); setNotePreview((value) => !value); }} />
+                    <OnboardingButton color={palette.accent} backgroundColor={palette.surfaceSelected} icon={notePreview ? "pencil-outline" : "checkmark"} disabled={!noteDraft.trim()} label={notePreview ? 'Editar exemplo' : 'Criar nota de exemplo'} onPress={() => { Keyboard.dismiss(); tapFeedback(); setNotePreview((value) => !value); }} />
                     <Text style={[styles.helperCaption, { color: palette.muted }]}>Só para experimentar. Esta nota não é salva no Diário.</Text>
                   </View>
                 )}
                 {step === 10 && (
                   <View style={styles.roomStory}>
-                    <Image source={require('@/assets/onboarding/niko-room-cozy.png')} contentFit="contain" style={styles.roomIllustration} accessible={false} />
+                    <Image source={FEATURE_STEPS[3].image} transition={0} contentFit="contain" style={styles.roomIllustration} accessible={false} />
                     <View style={[styles.roomInstructions, { borderColor: palette.border }]}>
                       <Text style={[styles.accountBenefitTitle, { color: palette.text }]}>Móveis que combinam com você</Text>
-                      <Text style={[styles.subtitle, { color: palette.textSoft }]}>Misture as coleções e escolha seus objetos favoritos.</Text>
-                      <Text style={[styles.accountBenefitTitle, { color: palette.text }]}>Cada peça no seu lugar</Text>
-                      <Text style={[styles.subtitle, { color: palette.textSoft }]}>Na sala, abra a personalização para mover e organizar os móveis.</Text>
+                      <Text style={[styles.subtitle, { color: palette.textSoft }]}>Misture coleções e mova seus móveis na personalização da sala.</Text>
                     </View>
                     <Text style={[styles.helperCaption, { color: palette.muted }]}>Você pode mudar tudo depois, no seu ritmo.</Text>
                   </View>
                 )}
 
-                {step !== 10 && step !== 8 && <Text style={[styles.subtitle, { color: palette.muted }]}>{FEATURE_STEPS[step - 7].hint}</Text>}
+                {step === 9 && <Text style={[styles.subtitle, { color: palette.muted }]}>{FEATURE_STEPS[step - 7].hint}</Text>}
               </View>
             )}
             {step === TOTAL_STEPS - 1 && (
               <View style={styles.accountStep}>
                 <View style={styles.accountHero}>
-                  {user ? <ProfileAvatar avatar={profile.avatar} name={profile.name} size={72} /> : (
-                    <Image source={NIKO_IMAGES[0]} contentFit="contain" style={styles.accountMascot} accessible={false} />
-                  )}
-                  <Text style={[styles.title, styles.centered, { color: palette.text }]}>{user ? 'Tudo pronto para começar' : 'Sua sala acompanha você'}</Text>
-                  <Text style={[styles.subtitle, styles.centered, { color: palette.textSoft }]}>{user ? 'Sua conta está conectada. Vamos para o seu cantinho?' : 'Entre para guardar suas leituras na conta. Se preferir, siga sem login.'}</Text>
+                  <Image
+                    source={user ? FEATURE_STEPS[3].image : NIKO_IMAGES[0]}
+                    contentFit="contain"
+                    transition={0}
+                    style={styles.accountArtwork}
+                    accessible={false}
+                  />
+                  <Text style={[styles.title, styles.centered, { color: palette.text }]}>{user ? 'Seu cantinho está pronto' : 'Seu cantinho de leitura'}</Text>
+                  <Text style={[styles.subtitle, styles.centered, { color: palette.textSoft }]}>{user ? 'Você já pode entrar na sua sala.' : ACCOUNT_SYNC_ENABLED ? 'Conecte sua conta para levar suas leituras e sua sala a outros aparelhos.' : 'Suas leituras ficam salvas neste aparelho.'}</Text>
                 </View>
                 {user ? (
                   <View style={[styles.connectedAccount, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-                    <Text style={[styles.accountBenefitTitle, { color: palette.text }]}>{profile.name}</Text>
-                    {user.email && <Text selectable style={[styles.accountBenefitCopy, { color: palette.textSoft }]}>{user.email}</Text>}
+                    <View style={styles.accountIdentity}>
+                      <ProfileAvatar avatar={profile.avatar} name={profile.name} size={48}
+                        fallbackColor={palette.surfaceSelected} fallbackTextColor={palette.accent} />
+                      <View style={styles.flexAction}>
+                        <Text style={[styles.accountBenefitTitle, { color: palette.text }]}>{profile.name}</Text>
+                        {user.email && <Text selectable style={[styles.accountBenefitCopy, { color: palette.textSoft }]}>{user.email}</Text>}
+                      </View>
+                      <Ionicons name="checkmark-circle" size={23} color={palette.accent} accessible={false} />
+                    </View>
                     <View style={[styles.noteDivider, { backgroundColor: palette.border }]} />
                     <Text accessibilityLiveRegion="polite" style={[styles.accountBenefitCopy, { color: palette.textSoft }]}>
                       {syncStatus === 'conflict' ? 'Há duas versões da sala. Escolha qual manter em Perfil → Conta.' : syncStatus === 'synced' ? 'Sua sala está salva na conta.' : syncStatus === 'syncing' ? 'Salvando sua sala na conta…' : 'Acompanhe o salvamento da sua sala em Perfil → Conta.'}
                     </Text>
                   </View>
                 ) : ACCOUNT_SYNC_ENABLED ? (
-                  <>
-                    <View style={styles.accountBenefits}>
-                      {[
-                        { icon: 'cloud-outline' as const, title: 'Suas leituras guardadas', text: 'Livros, notas, progresso e sala salvos na conta.' },
-                        { icon: 'phone-portrait-outline' as const, title: 'Em outro aparelho também', text: 'Acesse tudo com a mesma conta no iPhone ou Android.' },
-                      ].map((benefit) => <View key={benefit.title} style={styles.accountBenefitRow}>
-                        <Ionicons name={benefit.icon} size={23} color={palette.accent} />
-                        <View style={styles.flexAction}>
-                          <Text style={[styles.accountBenefitTitle, { color: palette.text }]}>{benefit.title}</Text>
-                          <Text style={[styles.accountBenefitCopy, { color: palette.textSoft }]}>{benefit.text}</Text>
-                        </View>
-                      </View>)}
-                    </View>
-                    <AuthActions isNight={isNight} showDescription={false} />
-                  </>
-                ) : <Text style={[styles.subtitle, { color: palette.textSoft }]}>O login ainda não está disponível nesta versão. Você pode usar o app sem conta.</Text>}
-                {!user && <Text style={[styles.helperCaption, styles.centered, { color: palette.muted }]}>{ACCOUNT_SYNC_ENABLED ? 'Login opcional. Sem conta, seus dados ficam neste aparelho. Você pode entrar depois pelo Perfil.' : 'Sem conta, seus dados ficam salvos neste aparelho.'}</Text>}
+                  <AuthActions isNight={isNight} showDescription={false} indicatorColor={palette.accent} />
+                ) : null}
               </View>
             )}
           </Animated.View>
@@ -670,8 +704,16 @@ export default function OnboardingScreen() {
             },
           ]}
         >
-          <PrimaryButton
-            disabled={authBusy || (step === 0 && !name.trim()) || Boolean(question && !answers[question.key])}
+          {step === TOTAL_STEPS - 1 && !user && ACCOUNT_SYNC_ENABLED && (
+            <Text style={[styles.helperCaption, styles.centered, { color: palette.muted }]}>
+              Sem conta, seus dados ficam neste aparelho. Você pode entrar depois pelo Perfil.
+            </Text>
+          )}
+          <OnboardingButton
+            color={isNight ? darkTheme.actionText : colors.paper}
+            backgroundColor={palette.action}
+            icon={step === TOTAL_STEPS - 1 ? "arrow-forward" : "chevron-forward"}
+            disabled={authBusy || Boolean(question && !answers[question.key])}
             label={step === TOTAL_STEPS - 1 ? (user ? 'Entrar na minha sala' : 'Continuar sem conta') : step === 6 && books.length === 0 ? 'Buscar no catálogo' : 'Continuar'}
             onPress={handleNext}
           />
@@ -750,19 +792,18 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     letterSpacing: -0.4,
   },
+  questionTitle: { fontFamily: typography.ui, fontWeight: '600', fontSize: 27, lineHeight: 34 },
   subtitle: {
     fontSize: 16,
     lineHeight: 24,
   },
 
-  bannerImageFrame: {
+  ambienceArtwork: {
     width: '100%',
-    height: 124,
+    height: 154,
+    padding: 8,
     borderRadius: radii.large,
     borderCurve: 'continuous',
-    borderWidth: 1,
-    overflow: 'hidden',
-    boxShadow: '0 6px 18px rgba(50, 37, 31, 0.07)',
   },
 
   featureMascot: { width: '100%', height: 230 },
@@ -772,7 +813,7 @@ const styles = StyleSheet.create({
   notesDemo: { gap: 14 },
   sampleNote: { padding: 16, borderRadius: 20, borderWidth: 1, gap: 12 },
   noteDivider: { height: StyleSheet.hairlineWidth },
-  noteColors: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
+  noteColors: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
   noteSwatch: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   interactiveMascot: { height: 148 },
   demoActions: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -781,11 +822,10 @@ const styles = StyleSheet.create({
   demoNoteInput: { minHeight: 80, fontSize: 17, lineHeight: 25, padding: 0, textAlignVertical: 'top' },
   accountStep: { gap: 22 },
   accountHero: { alignItems: 'center', gap: 12 },
-  accountMascot: { height: 116, width: '100%' },
+  accountArtwork: { height: 148, width: '100%' },
   connectedAccount: { borderWidth: 1, borderRadius: radii.large, padding: 20, gap: 10 },
-  accountBenefitRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  accountIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   accountBenefitCopy: { fontSize: 14, lineHeight: 21 },
-  accountBenefits: { gap: 18 },
   accountBenefitTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600', marginTop: 4 },
   roomStory: { gap: 16 },
   roomIllustration: { width: '100%', height: 230 },
@@ -815,7 +855,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: controls.input.borderRadius,
+    borderRadius: radii.medium,
+    borderCurve: 'continuous',
+    gap: 10,
     paddingHorizontal: controls.input.paddingHorizontal,
     minHeight: controls.input.minHeight,
   },
@@ -831,19 +873,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  optionsStack: {
-    gap: 9,
-  },
+  optionsStack: { borderRadius: radii.large, borderCurve: 'continuous', borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   optionCard: {
-    minHeight: 72,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: radii.large,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
+    paddingVertical: 14,
   },
   optionCopy: {
     flex: 1,
@@ -858,19 +895,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+  selectionMark: { width: 24, alignItems: 'center' },
+
+  actionButton: {
+    ...controls.button,
+    flexDirection: 'row',
+    gap: 10,
   },
-  radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
+  actionLabel: { ...controls.buttonText, flexShrink: 1, textAlign: 'center', fontFamily: typography.ui },
 
   // Etapa 3: Livro na Mesa
   activeBookContainer: {
@@ -886,8 +918,8 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   activeBookCover: {
-    width: 46,
-    height: 64,
+    width: 56,
+    height: 80,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -897,6 +929,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   activeBookTitle: {
+    fontSize: 17,
     fontFamily: typography.editorial,
     lineHeight: 21,
   },
@@ -930,7 +963,10 @@ const styles = StyleSheet.create({
   // Rodapé Docked
   dockedFooter: {
     paddingHorizontal: 24,
-    paddingTop: 10,
+    paddingTop: 12,
+    width: '100%',
+    maxWidth: 528,
+    alignSelf: 'center',
     gap: 8,
   },
   replayNote: {
@@ -938,8 +974,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  pressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.985 }],
-  },
+  pressed: controls.buttonPressed,
 });

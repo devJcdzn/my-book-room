@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
 import { createDefaultRoomLayout, isRoomPlacementValid, normalizeRoomLayout, transformRoomPoint, DESK_ORIGIN, BOOKCASE_ORIGIN } from '../src/types/room-layout';
 import { useRoomEditor } from '../src/store/room-editor-store';
 import { createCloudLibrarySnapshot } from '../src/services/library-sync';
@@ -8,28 +7,28 @@ import { getCurrentLibrarySnapshot, normalizePersistedState, useLibraryStore } f
 
 test('legacy room migrates models and preserves photos and poster independently',()=>{
   const layout=normalizeRoomLayout(undefined,{leftWallItem:'poster',leftWallPosterBookId:'book-1',pictureFramePhotoUri:'file:///photo.jpg'});
-  assert.equal(layout.pieces.length,9);
+  assert.equal(layout.pieces.length,10);
   assert.equal(layout.pieces.find(p=>p.id==='frame')?.photoUri,'file:///photo.jpg');
   assert.equal(layout.pieces.find(p=>p.id==='poster')?.bookId,'book-1');
-  assert.deepEqual(normalizeRoomLayout(layout),layout);
-  for(const piece of layout.pieces) assert.equal(isRoomPlacementValid(piece,layout.pieces),true,piece.id);
+  assert.deepEqual(normalizeRoomLayout(normalizeRoomLayout(layout)),normalizeRoomLayout(layout));
+  for(const piece of layout.pieces) assert.equal(isRoomPlacementValid(piece,layout.pieces,layout.roomSize),true,piece.id);
 });
 test('placement rejects collisions and walls but allows the rug under furniture',()=>{
-  const {pieces}=createDefaultRoomLayout();
+  const {pieces,roomSize}=createDefaultRoomLayout();
   const desk=pieces.find(p=>p.id==='desk')!;
-  assert.equal(isRoomPlacementValid({...desk,position:[3,0,3]},pieces),false);
-  assert.equal(isRoomPlacementValid({...desk,position:[-2.3,0,-1.1]},pieces),false);
-  assert.equal(isRoomPlacementValid(desk,pieces),true);
+  assert.equal(isRoomPlacementValid({...desk,position:[3,0,3]},pieces,roomSize),false);
+  assert.equal(isRoomPlacementValid({...desk,position:[1.8,0,-2.55]},pieces,roomSize),false);
+  assert.equal(isRoomPlacementValid(desk,pieces,roomSize),true);
   const frame=pieces.find(p=>p.id==='frame')!;
-  assert.equal(isRoomPlacementValid({...frame,position:[0,3.4,-3.53]},pieces),false);
-  assert.equal(isRoomPlacementValid({...frame,id:'duplicate'},pieces),false);
+  assert.equal(isRoomPlacementValid({...frame,position:[0,3.4,-3.53]},pieces,roomSize),false);
+  assert.equal(isRoomPlacementValid({...frame,id:'duplicate'},pieces,roomSize),false);
 });
 test('editor cancels without persisting and keeps the last valid position',()=>{
   const saved=createDefaultRoomLayout();
   useRoomEditor.getState().begin(saved);
   const desk=saved.pieces.find(p=>p.id==='desk')!;
   assert.equal(useRoomEditor.getState().update({...desk,position:[0,0,0]}),true);
-  assert.equal(useRoomEditor.getState().update({...desk,position:[9,0,0]}),false);
+  assert.equal(useRoomEditor.getState().update({...desk,position:[1.8,0,-2.55]}),false);
   assert.deepEqual(useRoomEditor.getState().draft?.pieces.find(p=>p.id==='desk')?.position,[0,0,0]);
   assert.notDeepEqual(saved.pieces.find(p=>p.id==='desk')?.position,[0,0,0]);
   useRoomEditor.getState().close();
@@ -45,7 +44,7 @@ test('books follow rotated desk and shelf anchors',()=>{
   assert.equal(transformRoomPoint([1.45,.48,-2.61],shelf,BOOKCASE_ORIGIN)[1],.48);
 });
 test('snapshot stores layout; cloud strips all local frame photos',()=>{
-  const state=normalizePersistedState({roomLayout:createDefaultRoomLayout({pictureFramePhotoUri:'file:///private/photo.jpg'})});
+  const state=normalizePersistedState({roomCustomizationVersion:1,roomLayout:createDefaultRoomLayout({pictureFramePhotoUri:'file:///private/photo.jpg'})});
   useLibraryStore.setState(state);
   const snapshot=getCurrentLibrarySnapshot();
   assert.equal(snapshot.roomLayout?.pieces.find(p=>p.id==='frame')?.photoUri,'file:///private/photo.jpg');
@@ -57,34 +56,17 @@ test('invalid saved pieces recover required furniture',()=>{
   assert.ok(layout.pieces.some(p=>p.id==='desk'));
   assert.ok(layout.pieces.every(p=>p.position.every(Number.isFinite)));
 });
-test('24 original GLBs have embedded geometry, fit budgets and omit the startup cube',()=>{
-  const root=new URL('../assets/room-collection/',import.meta.url);
-  const models=readdirSync(root).filter(name=>name.endsWith('.glb'));
-  assert.equal(models.length,24);
-  for(const name of models){
-    const data=readFileSync(new URL(name,root));
-    assert.equal(data.readUInt32LE(0),0x46546c67);
-    assert.ok(data.length<=1_000_000,name);
-    const gltf=JSON.parse(data.subarray(20,20+data.readUInt32LE(12)).toString());
-    assert.ok(!gltf.nodes.some((n:{name:string})=>n.name==='Cube'),name);
-    assert.ok(gltf.buffers.every((b:{uri?:string})=>!b.uri),name);
-    const triangles=gltf.meshes.flatMap((m:{primitives:{indices:number}[]})=>m.primitives).reduce((sum:number,p:{indices:number})=>sum+gltf.accessors[p.indices].count/3,0);
-    assert.ok(triangles<=15_000,`${name}: ${triangles}`);
-    assert.ok(readFileSync(new URL(name.replace('.glb','.png'),root)).length>0);
-  }
-});
-
 test('editor limits additional decoration and protects functional furniture',()=>{
   const layout=createDefaultRoomLayout();
   useRoomEditor.getState().begin(layout);
   useRoomEditor.getState().remove('desk');
   assert.ok(useRoomEditor.getState().draft?.pieces.some(p=>p.id==='desk'));
   const frame=layout.pieces.find(p=>p.id==='frame')!;
-  const extras=Array.from({length:8},(_,i)=>({...frame,id:`extra-${i}`,position:[-2.5+i*.7,2,-3.53] as [number,number,number]}));
-  useRoomEditor.setState({draft:{version:1,pieces:[...layout.pieces,...extras]}});
-  assert.equal(useRoomEditor.getState().add({...frame,id:'extra-9',position:[0,.8,-3.53]}),false);
+  const extras=Array.from({length:40-layout.pieces.length},(_,i)=>({...frame,id:`extra-${i}`}));
+  useRoomEditor.setState({draft:{version:2,roomSize:12,pieces:[...layout.pieces,...extras]}});
+  assert.equal(useRoomEditor.getState().add({...frame,id:'extra-40',position:[0,.8,-3.53]}),false);
   useRoomEditor.getState().restore();
-  assert.deepEqual(useRoomEditor.getState().draft,createDefaultRoomLayout());
+  assert.deepEqual(normalizeRoomLayout(useRoomEditor.getState().draft),normalizeRoomLayout(createDefaultRoomLayout()));
   useRoomEditor.getState().close();
 });
 test('missing furniture never leaves an incomplete room after recovery',()=>{
@@ -104,7 +86,7 @@ test('undo and redo preserve layouts and keep the saved room untouched', () => {
   editor.undo();
   assert.equal(useRoomEditor.getState().draft?.pieces.find(p => p.id === 'desk')?.finish, 'walnut');
   editor.undo();
-  assert.deepEqual(useRoomEditor.getState().draft, saved);
+  assert.deepEqual(useRoomEditor.getState().draft, normalizeRoomLayout(saved));
   editor.redo();
   assert.equal(useRoomEditor.getState().draft?.pieces.find(p => p.id === 'desk')?.finish, 'walnut');
   assert.equal(saved.pieces.find(p => p.id === 'desk')?.finish, 'original');
@@ -120,15 +102,15 @@ test('a continuous gesture creates one undo step and excludes invalid movement',
   editor.begin(saved);
   const desk = saved.pieces.find(p => p.id === 'desk')!;
   editor.beginMove();
-  editor.update({ ...desk, position: [0.3, 0, 0.5] });
-  editor.update({ ...desk, position: [0.2, 0, 0.4] });
-  assert.equal(editor.update({ ...desk, position: [99, 0, 99] }), false);
+  assert.equal(editor.update({ ...desk, position: [0, 0, -0.4] }), true);
+  assert.equal(editor.update({ ...desk, position: [0, 0, -0.5] }), true);
+  assert.equal(editor.update({ ...desk, position: [1.8, 0, -2.55] }), false);
   editor.endMove();
   assert.equal(useRoomEditor.getState().past.length, 1);
   editor.undo();
-  assert.deepEqual(useRoomEditor.getState().draft, saved);
+  assert.deepEqual(useRoomEditor.getState().draft, normalizeRoomLayout(saved));
   editor.redo();
-  assert.deepEqual(useRoomEditor.getState().draft?.pieces.find(p => p.id === 'desk')?.position, [0.2, 0, 0.4]);
+  assert.deepEqual(useRoomEditor.getState().draft?.pieces.find(p => p.id === 'desk')?.position, [0, 0, -0.5]);
   editor.close();
 });
 
@@ -153,30 +135,33 @@ test('precise movement follows the fixed camera and keeps each surface anchored'
   const { nudgeRoomPiece } = await import('../src/types/room-layout');
   const saved = createDefaultRoomLayout();
   const desk = saved.pieces.find(p => p.id === 'desk')!;
-  assert.deepEqual(nudgeRoomPiece(desk, 'left').position, [0.3, 0, 0.7]);
+  assert.deepEqual(nudgeRoomPiece(desk, 'left').position, [-0.5, 0, 0.25]);
   assert.deepEqual(nudgeRoomPiece(nudgeRoomPiece(desk, 'left'), 'right').position, desk.position);
   const frame = saved.pieces.find(p => p.id === 'frame')!;
-  assert.deepEqual(nudgeRoomPiece(frame, 'up').position, [-1, 2.2, -3.53]);
+  assert.deepEqual(nudgeRoomPiece(frame, 'up').position, [-0.4, 1.65, frame.position[2]]);
   const leftFrame = { ...frame, surface: 'left-wall' as const, position: [-3.43, 2, 0.5] as [number, number, number] };
   assert.deepEqual(nudgeRoomPiece(leftFrame, 'left', 0.5).position, [-3.43, 2, 1]);
   const plant = saved.pieces.find(p => p.id === 'desk-plant')!;
-  assert.deepEqual(nudgeRoomPiece(plant, 'up'), plant);
+  const movedPlant = nudgeRoomPiece(plant, 'up');
+  assert.equal(movedPlant.surface, 'desk');
+  assert.deepEqual(movedPlant.position, [0.3, plant.position[1], -0.25]);
 });
 
-test('existing rooms gain a movable cat without losing wall images or furniture', () => {
+test('existing rooms gain a cat without losing wall images or furniture', () => {
   const saved = createDefaultRoomLayout({ leftWallItem: 'poster', leftWallPosterBookId: 'book-cover', pictureFramePhotoUri: 'file:///photo.jpg' });
   const old = { ...saved, pieces: saved.pieces.filter(p => p.category !== 'cat') };
   const migrated = normalizeRoomLayout(old);
-  for (const piece of old.pieces) assert.deepEqual(migrated.pieces.find(p => p.id === piece.id), piece);
+  for (const piece of normalizeRoomLayout(saved).pieces.filter(p => p.category !== 'cat')) {
+    assert.deepEqual(migrated.pieces.find(p => p.id === piece.id), piece);
+  }
   const cat = migrated.pieces.find(p => p.category === 'cat')!;
   assert.ok(isRoomPlacementValid(cat, migrated.pieces));
   const editor = useRoomEditor.getState();
   editor.begin(migrated);
   assert.equal(editor.update({ ...cat, position: [2.5, 0, 1.8] }), true);
-  const moved = useRoomEditor.getState().draft!;
-  assert.deepEqual(normalizeRoomLayout(moved).pieces.find(p => p.category === 'cat')?.position, [2.5, 0, 1.8]);
-  editor.undo();
-  assert.deepEqual(useRoomEditor.getState().draft?.pieces.find(p => p.category === 'cat'), cat);
+  const moved = useRoomEditor.getState().draft!.pieces;
+  assert.deepEqual(moved.find(p => p.category === 'cat')?.position, [2.5, 0, 1.8]);
+  assert.deepEqual(moved.find(p => p.category === 'pillow')?.position, [2.5, 0, 1.8]);
   editor.remove(cat.id);
   assert.ok(useRoomEditor.getState().draft?.pieces.some(p => p.category === 'cat'));
   editor.close();

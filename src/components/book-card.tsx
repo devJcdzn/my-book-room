@@ -1,11 +1,12 @@
+import { showAlert } from '@/src/components/app-dialog';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, LinearTransition } from 'react-native-reanimated';
 
 import { BookCover } from '@/src/components/book-cover';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
@@ -46,12 +47,12 @@ export function BookCard({ book, index, isActiveOnDesk }: Props) {
   const handleSelectActive = () => {
     triggerHaptic();
     if (!selectActiveBook(book.id)) {
-      Alert.alert('Mesa cheia', 'A mesa comporta até três livros. Remova um livro da mesa antes de começar outro.');
+      showAlert('Mesa cheia', 'A mesa comporta até três livros. Remova um livro da mesa antes de começar outro.');
     }
   };
 
   const handleConfirmDelete = () => {
-    Alert.alert(
+    showAlert(
       'Remover livro',
       `Deseja remover "${book.title}" da sua biblioteca?`,
       [
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(185, 95, 59, 0.08)',
   },
   activeBadgeText: {
-    color: colors.terracotta,
+    color: colors.terracottaDark,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sageSoft,
   },
   completedText: {
-    color: colors.sage,
+    color: colors.sageDark,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   ratingText: {
-    color: colors.terracotta,
+    color: colors.terracottaDark,
     fontSize: 11,
     fontWeight: '700',
   },

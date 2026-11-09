@@ -1,8 +1,9 @@
+import { AppTextInput } from '@/src/components/app-text-input';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '@/src/components/primary-button';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book } from '@/src/types/book';
@@ -77,7 +78,7 @@ export function ProgressEditor({ book, completionLocked, showIdentity = true, on
               <Text style={[styles.stepLabel, isNight && styles.darkText]}>−10</Text>
             </Pressable>
             <View style={[styles.pageInputWrap, isNight && styles.darkPageInputWrap]}>
-              <TextInput
+              <AppTextInput
                 accessibilityLabel={`Página atual de ${book.title}`}
                 editable={canEdit}
                 keyboardType="number-pad"
@@ -106,6 +107,7 @@ export function ProgressEditor({ book, completionLocked, showIdentity = true, on
             </Pressable>
           </View>
           <PrimaryButton
+            isNight={isNight}
             disabled={completionLocked || !canEdit}
             label={book.status === 'completing' ? 'Guardando…' : 'Concluir leitura'}
             loading={book.status === 'completing'}
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
   author: { color: colors.muted, fontSize: 13 },
   progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pagesReadLabel: { color: colors.muted, fontSize: 13, fontWeight: '500' },
-  percent: { color: colors.terracotta, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  percent: { color: colors.terracottaDark, fontSize: 14, fontWeight: '600', fontVariant: ['tabular-nums'] },
   darkPercent: { color: darkTheme.accent },
   track: { height: 6, overflow: 'hidden', borderRadius: 3, backgroundColor: colors.softFill },
   darkTrack: { backgroundColor: darkTheme.surfaceElevated },
@@ -150,7 +152,7 @@ const styles = StyleSheet.create({
   darkPageInputWrap: { backgroundColor: darkTheme.surfaceElevated },
   pageInput: { ...controls.pageValue, color: colors.ink },
   pageTotal: { color: colors.muted, fontSize: 14, fontVariant: ['tabular-nums'] },
-  completed: { color: colors.sage, fontSize: 14, fontWeight: '600', textAlign: 'center', paddingVertical: 4 },
+  completed: { color: colors.sageDark, fontSize: 14, fontWeight: '600', textAlign: 'center', paddingVertical: 4 },
   darkText: { color: darkTheme.text },
   darkMutedText: { color: darkTheme.textMuted },
 });

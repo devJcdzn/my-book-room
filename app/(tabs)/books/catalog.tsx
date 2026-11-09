@@ -1,16 +1,17 @@
+import { AppTextInput } from '@/src/components/app-text-input';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenHeader } from '@/src/components/screen-header';
 import { CatalogBookGrid } from '@/src/components/catalog-book-grid';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { useBookSearch } from '@/src/hooks/use-book-search';
 import { useLibraryStore } from '@/src/store/library-store';
-import { controls, colors, darkTheme, typography } from '@/src/theme';
+import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { BookSearchResult } from '@/src/types/book';
 
 const categories = [
@@ -24,12 +25,14 @@ const categories = [
 export default function CatalogScreen() {
   const { from, query: initialQuery, shelfId, status: targetStatus } = useLocalSearchParams<{ from?: string; query?: string; shelfId?: string; status?: string }>();
   const [query, setQuery] = useState(typeof initialQuery === 'string' ? initialQuery : '');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [categoryIndex, setCategoryIndex] = useState(0);
   const insets = useSafeAreaInsets();
   const category = categories[categoryIndex];
   const books = useLibraryStore((state) => state.books);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
+  const accent = isNight ? darkTheme.selectionText : colors.sageDark;
   const { error, hasMore, loadMore, loadMoreError, results, retry, status } = useBookSearch(query.trim() ? query : category.query);
   const addedWorkKeys = useMemo(
     () => new Set(books.map((book) => book.openLibraryWorkKey).filter((key): key is string => Boolean(key))),
@@ -79,10 +82,14 @@ export default function CatalogScreen() {
         showsVerticalScrollIndicator={false}
         style={[styles.screen, isNight && styles.darkScreen]}
       >
-        <View style={[styles.searchField, isNight && styles.darkSearchField]}>
+        <View style={[styles.searchField, isNight && styles.darkSearchField, searchFocused && { borderColor: accent }]}>
           <Ionicons color={isNight ? darkTheme.textMuted : colors.muted} name="search" size={19} />
-          <TextInput
+          <AppTextInput
             accessibilityLabel="Buscar livros no catálogo"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            selectionColor={accent}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
             autoCapitalize="none"
             autoCorrect={false}
             onChangeText={setQuery}
@@ -108,9 +115,9 @@ export default function CatalogScreen() {
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
                 onPress={() => { setQuery(''); setCategoryIndex(index); }}
-                style={({ pressed }) => [styles.category, isNight && styles.darkCategory, selected && { backgroundColor: isNight ? darkTheme.accent : colors.terracotta, borderColor: 'transparent' }, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.category, isNight && styles.darkCategory, selected && { backgroundColor: isNight ? darkTheme.selection : colors.sageSoft, borderColor: accent }, pressed && styles.pressed]}
               >
-                <Text style={[styles.categoryText, isNight && styles.darkText, selected && { color: isNight ? darkTheme.actionText : colors.white }]}>{item.label}</Text>
+                <Text style={[styles.categoryText, isNight && styles.darkText, selected && { color: accent, fontWeight: '700' }]}>{item.label}</Text>
               </Pressable>
             );
           })}
@@ -130,7 +137,7 @@ export default function CatalogScreen() {
           <Text style={[styles.feedback, isNight && styles.darkMuted]}>Digite mais uma letra para buscar.</Text>
         ) : null}
         {status === 'loading' ? (
-          <ActivityIndicator color={isNight ? darkTheme.accent : colors.terracotta} style={styles.loading} />
+          <ActivityIndicator color={accent} style={styles.loading} />
         ) : null}
         {error ? (
           <View style={styles.feedbackGroup}>
@@ -152,7 +159,7 @@ export default function CatalogScreen() {
         {hasMore && results.length && !isShortQuery ? (
           <Pressable accessibilityRole="button" disabled={status === 'loadingMore'} onPress={loadMore} style={styles.loadMore}>
             {status === 'loadingMore' ? (
-              <ActivityIndicator color={isNight ? darkTheme.accent : colors.terracotta} />
+              <ActivityIndicator color={accent} />
             ) : (
               <Text style={[styles.retry, isNight && styles.darkAccent]}>Carregar mais</Text>
             )}
@@ -167,7 +174,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   darkScreen: { backgroundColor: darkTheme.bg },
   content: { paddingHorizontal: 20, paddingTop: 8, gap: 20 },
-  searchField: { minHeight: controls.input.minHeight, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: controls.input.paddingHorizontal, borderRadius: controls.input.borderRadius, borderCurve: 'continuous', borderWidth: controls.input.borderWidth, borderColor: colors.line, backgroundColor: colors.paper },
+  searchField: { minHeight: controls.input.minHeight, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: controls.input.paddingHorizontal, borderRadius: radii.medium, borderCurve: 'continuous', borderWidth: controls.input.borderWidth, borderColor: colors.line, backgroundColor: colors.paper },
   darkSearchField: { backgroundColor: darkTheme.inputBg, borderColor: darkTheme.inputBorder },
   searchInput: { flex: 1, minHeight: controls.input.minHeight, paddingVertical: controls.input.paddingVertical, color: colors.ink, fontSize: controls.input.fontSize },
   darkSearchInput: { color: darkTheme.text },
@@ -179,10 +186,10 @@ const styles = StyleSheet.create({
   loading: { paddingVertical: 24 },
   feedbackGroup: { alignItems: 'flex-start', gap: 8 },
   feedback: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  retry: { color: colors.terracotta, fontSize: 14, fontWeight: '600' },
+  retry: { color: colors.sageDark, fontSize: 14, fontWeight: '600' },
   darkText: { color: darkTheme.text },
   darkMuted: { color: darkTheme.textMuted },
-  darkAccent: { color: darkTheme.accent },
+  darkAccent: { color: colors.sageSoft },
   loadMore: { ...controls.button },
   clearButton: { ...controls.iconButton, marginRight: -8 },
   categoryScroll: { marginHorizontal: -20 },
@@ -190,5 +197,5 @@ const styles = StyleSheet.create({
   category: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, backgroundColor: colors.paper },
   darkCategory: { backgroundColor: darkTheme.surface, borderColor: darkTheme.border },
   categoryText: { color: colors.inkSoft, fontSize: 13, fontWeight: '500' },
-  pressed: { opacity: 0.7 },
+  pressed: controls.buttonPressed,
 });

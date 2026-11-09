@@ -27,3 +27,17 @@ export const getReadingWeek = (date: Date, readDays: string[]): ReadingWeekDay[]
     return { key, number: current.getDate(), label, isToday: key === todayKey, isRead: readDays.includes(key), isFuture: key > todayKey };
   });
 };
+
+export const isReadingDate = (value: unknown): value is string =>
+  typeof value === 'string' && normalizeReadingDays([value]).length === 1;
+
+export const parseReadingDate = (value: string) => {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  const key = match ? `${match[3]}-${match[2]}-${match[1]}` : '';
+  return isReadingDate(key) ? key : undefined;
+};
+
+export const displayReadingDate = (key: string) => key.split('-').reverse().join('/');
+
+export const readingHistoryDays = (legacy: string[], sessions: { readingDate: string; pagesRead: number; durationSeconds?: number }[]) =>
+  normalizeReadingDays([...legacy, ...sessions.filter((session) => session.pagesRead > 0 || (session.durationSeconds ?? 0) > 0).map((session) => session.readingDate)]);

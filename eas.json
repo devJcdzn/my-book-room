@@ -18,6 +18,13 @@
         "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true"
       }
     },
+    "sandbox": {
+      "extends": "development",
+      "environment": "development",
+      "env": {
+        "EXPO_PUBLIC_ENABLE_IAP": "true"
+      }
+    },
     "beta-android": {
       "distribution": "internal",
       "channel": "preview",
@@ -34,7 +41,8 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_ENABLE_ACCOUNT_SYNC": "true",
-        "EXPO_PUBLIC_ENABLE_ANALYTICS": "true"
+        "EXPO_PUBLIC_ENABLE_ANALYTICS": "true",
+        "EXPO_PUBLIC_ENABLE_IAP": "true"
       },
       "environment": "production"
     }

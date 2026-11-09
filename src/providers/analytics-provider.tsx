@@ -2,11 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HimetricaProvider, useHimetrica } from '@himetrica/tracker-react-native/react';
 import Constants from 'expo-constants';
 import { useSegments } from 'expo-router';
-import { useEffect, type PropsWithChildren } from 'react';
+import { useEffect, useRef, type PropsWithChildren } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { useAuth } from './auth-provider';
-import { connectAnalytics, initializeAnalytics, identifyAnalytics, retryAnalyticsIdentity, trackAnalyticsScreen } from '../services/analytics';
+import { connectAnalytics, initializeAnalytics, identifyAnalytics, retryAnalyticsIdentity, trackAnalyticsScreen, trackEvent } from '../services/analytics';
 import { useLibraryStore } from '../store/library-store';
 
 const apiKey = process.env.EXPO_PUBLIC_HIMETRICA_API_KEY;
@@ -20,13 +20,14 @@ function AnalyticsBridge() {
   const name = useLibraryStore((state) => state.profile.name);
   const segments = useSegments();
   const route = JSON.stringify(segments);
+  const recordedLaunch = useRef(false);
 
   useEffect(() => {
     const disconnect = connectAnalytics(client, { platform: Platform.OS, app_version: appVersion },
       initializeAnalytics(client).then(() => AsyncStorage.getItem(accountKey)),
       (id) => id ? AsyncStorage.setItem(accountKey, id) : AsyncStorage.removeItem(accountKey));
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void retryAnalyticsIdentity();
+      if (state === 'active') void retryAnalyticsIdentity()?.then(() => trackEvent('app_opened'));
     });
     return () => { subscription.remove(); disconnect(); };
   }, [client]);
@@ -38,7 +39,12 @@ function AnalyticsBridge() {
       ...(name ? { name } : {}),
       ...(user.email ? { email: user.email } : {}),
       metadata: { ...(provider ? { provider } : {}), ...(user.created_at ? { created_at: user.created_at } : {}) },
-    } : null);
+    } : null)?.then(() => {
+      if (!recordedLaunch.current) {
+        recordedLaunch.current = true;
+        trackEvent('app_opened');
+      }
+    });
   }, [isLoading, isAuthenticating, name, provider, user]);
 
   useEffect(() => {

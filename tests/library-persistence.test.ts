@@ -26,6 +26,8 @@ import {
   DEFAULT_WALL_PALETTE_ID,
   DEFAULT_WINDOW_STYLE_ID,
 } from '../src/types/room-customization';
+import { createDefaultRoomLayout, normalizeRoomLayout } from '../src/types/room-layout';
+import { createCloudLibrarySnapshot, normalizeCloudLibrarySnapshot } from '../src/services/library-sync';
 
 const readingBook: Book = {
   id: '/works/OL1W',
@@ -40,6 +42,54 @@ const readingBook: Book = {
   rating: 4,
   notes: 'Retomar no próximo capítulo.',
 };
+
+test('migração preserva sala sem marcador de versão e o progresso', () => {
+  const old = { ...getCurrentLibrarySnapshot(), roomCustomizationVersion: undefined,
+    books: [readingBook], wallPaletteId: 'observatory-blue', floorPaletteId: 'teahouse-wood',
+    roomLayout: { ...createDefaultRoomLayout(), roomSize: 12 },
+    pictureFramePhotoUri: 'file:///old-frame.jpg', legacyRoomLayoutBackup: { old: true },
+  };
+  const migrated = normalizePersistedState(old);
+  assert.deepEqual(migrated.roomLayout, normalizeRoomLayout(old.roomLayout));
+  assert.equal(migrated.wallPaletteId, 'observatory-blue');
+  assert.equal(migrated.floorPaletteId, 'teahouse-wood');
+  assert.equal(migrated.pictureFramePhotoUri, old.pictureFramePhotoUri);
+  assert.deepEqual(migrated.legacyRoomLayoutBackup, old.legacyRoomLayoutBackup);
+  assert.equal(migrated.books[0].currentPage, readingBook.currentPage);
+  assert.deepEqual(migrated.profile, old.profile);
+  assert.equal(old.wallPaletteId, 'observatory-blue');
+});
+
+test('migração da sala preserva novas personalizações no storage e na nuvem', () => {
+  const migrated = normalizePersistedState({ books: [readingBook] });
+  const edited = { ...migrated, wallPaletteId: 'observatory-blue',
+    roomLayout: normalizeRoomLayout({ ...createDefaultRoomLayout(), roomSize: 8 }) };
+  const saved = createPersistedState(edited);
+  for (const restored of [normalizePersistedState(saved), normalizeCloudLibrarySnapshot(createCloudLibrarySnapshot(saved), null)]) {
+    assert.deepEqual(restored.roomLayout, edited.roomLayout);
+    assert.equal(restored.wallPaletteId, edited.wallPaletteId);
+  }
+});
+
+test('restauração preserva personalização de backups antigos da nuvem', () => {
+  const old = { ...getCurrentLibrarySnapshot(), roomCustomizationVersion: undefined,
+    wallPaletteId: 'teahouse-sand', books: [readingBook] };
+  const restored = normalizeCloudLibrarySnapshot(old, null);
+  assert.equal(restored.wallPaletteId, 'teahouse-sand');
+  assert.deepEqual(restored.roomLayout, normalizeRoomLayout(createDefaultRoomLayout()));
+  assert.equal(restored.pictureFramePhotoUri, null);
+  assert.equal(restored.books[0].id, readingBook.id);
+});
+
+test('migração da sala não reaproveita fotos antigas ao restaurar uma conta', () => {
+  const current = useLibraryStore.getState();
+  try {
+    useLibraryStore.setState({ pictureFramePhotoUri: 'file:///old-photo.jpg', legacyRoomLayoutBackup: { old: true } });
+    replaceLibrarySnapshot({ ...getCurrentLibrarySnapshot(), roomCustomizationVersion: undefined, pictureFramePhotoUri: null, legacyRoomLayoutBackup: undefined }, true);
+    assert.equal(useLibraryStore.getState().pictureFramePhotoUri, null);
+    assert.equal(useLibraryStore.getState().legacyRoomLayoutBackup, undefined);
+  } finally { useLibraryStore.setState(current); }
+});
 
 test('troca de conta preserva os dados salvos e mantém a interface pronta', async () => {
   const originalState = useLibraryStore.getState();
@@ -60,10 +110,15 @@ test('troca de conta preserva os dados salvos e mantém a interface pronta', asy
     assert.equal(hydrationStates.includes(false), false);
 
     useLibraryStore.getState().updateProfile({ name: 'Conta atualizada' });
+    useLibraryStore.getState().setRoomLayout({ ...createDefaultRoomLayout(), roomSize: 12 });
+    useLibraryStore.getState().setWallPaletteId('observatory-blue');
+    await overwriteLibraryStorageScope('user:login-regression', getCurrentLibrarySnapshot());
     await switchLibraryStorageScope('user:guest-regression');
     assert.deepEqual(getCurrentLibrarySnapshot(), normalizePersistedState(guest));
     await switchLibraryStorageScope('user:login-regression');
     assert.equal(useLibraryStore.getState().profile.name, 'Conta atualizada');
+    assert.equal(useLibraryStore.getState().roomLayout.roomSize, 12);
+    assert.equal(useLibraryStore.getState().wallPaletteId, 'observatory-blue');
     assert.equal(hydrationStates.includes(false), false);
   } finally {
     unsubscribe();
@@ -337,21 +392,21 @@ test('normaliza dias locais e monta semana de segunda a domingo entre meses', ()
   assert.equal(week[2]?.isToday, true);
 });
 
-test('progresso marca leitura uma vez por dia e conclusão registra avanço final', () => {
+test('corrigir marcador e concluir sem registro não inventam dias de leitura', () => {
   const original = useLibraryStore.getState();
   const secondBook = { ...readingBook, id: 'book-2', currentPage: 2 };
   useLibraryStore.setState({ books: [{ ...readingBook, currentPage: 10 }, secondBook], readingDays: [] });
   try {
     useLibraryStore.getState().updateProgress(readingBook.id, 11);
     const markedDay = useLibraryStore.getState().readingDays;
-    assert.equal(markedDay.length, 1);
+    assert.equal(markedDay.length, 0);
     useLibraryStore.getState().updateProgress(secondBook.id, 3);
     assert.deepEqual(useLibraryStore.getState().readingDays, markedDay);
     useLibraryStore.getState().updateProgress(secondBook.id, 1);
     assert.deepEqual(useLibraryStore.getState().readingDays, markedDay);
     useLibraryStore.setState({ readingDays: [] });
     useLibraryStore.getState().requestCompletion(secondBook.id);
-    assert.equal(useLibraryStore.getState().readingDays.length, 1);
+    assert.equal(useLibraryStore.getState().readingDays.length, 0);
   } finally {
     useLibraryStore.setState(original);
   }
@@ -397,11 +452,15 @@ test('restaura entradas do diário e preserva resenha antiga, ignorando entradas
   }] });
 
   assert.equal(normalized.books[0]?.notes, 'Minha resenha final.');
-  assert.deepEqual(normalized.books[0]?.readingEntries, [entry, {
-    ...entry,
-    id: 'entry-2',
-    page: undefined,
-  }]);
+  const entries = normalized.books[0]?.readingEntries;
+  assert.equal(entries?.length, 2);
+  assert.equal(entries?.[0].id, 'entry-1');
+  assert.equal(entries?.[0].text, entry.text);
+  assert.equal(entries?.[0].createdAt, entry.createdAt);
+  assert.equal(entries?.[0].page, 42);
+  assert.equal(entries?.[1].id, 'entry-2');
+  assert.equal(entries?.[1].page, undefined);
+
 });
 
 test('store cria, edita, favorita e remove entradas junto com o livro', () => {
@@ -429,7 +488,7 @@ test('store cria, edita, favorita e remove entradas junto com o livro', () => {
   }
 });
 
-test('rehidrata do storage assíncrono e restaura perfil, progresso e personalização', async () => {
+test('rehidrata do storage assíncrono e restaura perfil e progresso e preserva a sala antiga', async () => {
   let storedValue = JSON.stringify({
     state: {
       profile: { name: 'Bia', bio: 'Lendo o mundo', bioAttribution: 'Autora' },
@@ -469,17 +528,10 @@ test('rehidrata do storage assíncrono e restaura perfil, progresso e personaliz
   assert.equal(state.activeBookId, readingBook.id);
   assert.equal(state.isLampOn, false);
   assert.equal(state.ambienceMode, 'sunset');
-  assert.equal(state.wallPaletteId, 'warm-terracotta');
-  assert.equal(state.floorPaletteId, 'warm-cherry');
-  assert.equal(state.rugPaletteId, 'velvet-burgundy');
-  assert.equal(state.bookcasePaletteId, 'rustic-mahogany');
   assert.equal(state.catId, 'black-catnap');
-  assert.equal(state.leftWallItem, 'window');
-  assert.equal(state.leftWallWindowStyle, 'golden-oak');
-  assert.equal(state.leftWallFrameColor, 'antique-gold');
-  assert.equal(state.pictureFrameSize, '2:1');
-  assert.equal(state.pictureFrameStyleId, 'antique-gold');
   assert.equal(state.pictureFramePhotoUri, 'file:///storage/rehydrated-photo.jpg');
+  assert.equal(state.leftWallItem, 'window');
+  assert.equal(state.roomCustomizationVersion, 1);
   assert.deepEqual(state.readingDays, ['2026-09-29']);
   assert.equal(state._hasHydrated, true);
 
@@ -521,4 +573,51 @@ test('updateProfile aplica trim e rejeita nome vazio', () => {
   assert.equal(useLibraryStore.getState().profile.name, 'Clara');
 
   store.updateProfile({ name: 'Leitor(a)', bio: 'Sempre imaginei que o paraíso fosse uma espécie de biblioteca.', bioAttribution: 'Jorge Luis Borges' });
+});
+
+test('favoritos preservam a ordem, limitam três livros e descartam referências inválidas', () => {
+  const books = Array.from({ length: 4 }, (_, index) => ({ ...readingBook, id: `favorite-${index}` }));
+  const snapshot = normalizePersistedState({ books, favoriteBookIds: ['favorite-2', 'missing', 'favorite-2', 'favorite-0', 'favorite-1', 'favorite-3'] });
+  assert.deepEqual(snapshot.favoriteBookIds, ['favorite-2', 'favorite-0', 'favorite-1']);
+  assert.deepEqual(createPersistedState(snapshot).favoriteBookIds, snapshot.favoriteBookIds);
+  assert.deepEqual(normalizePersistedState({ books }).favoriteBookIds, []);
+});
+
+test('favoritos podem ser trocados e são removidos quando o livro sai do acervo', () => {
+  const original = useLibraryStore.getState();
+  const books = Array.from({ length: 4 }, (_, index) => ({ ...readingBook, id: `favorite-${index}` }));
+  try {
+    useLibraryStore.setState({ books, favoriteBookIds: [] });
+    for (const book of books) useLibraryStore.getState().toggleFavoriteBook(book.id);
+    useLibraryStore.getState().toggleFavoriteBook('missing');
+    assert.deepEqual(useLibraryStore.getState().favoriteBookIds, ['favorite-0', 'favorite-1', 'favorite-2']);
+    useLibraryStore.getState().toggleFavoriteBook('favorite-1');
+    useLibraryStore.getState().toggleFavoriteBook('favorite-3');
+    assert.deepEqual(useLibraryStore.getState().favoriteBookIds, ['favorite-0', 'favorite-2', 'favorite-3']);
+    useLibraryStore.getState().removeBook('favorite-0');
+    assert.deepEqual(useLibraryStore.getState().favoriteBookIds, ['favorite-2', 'favorite-3']);
+  } finally {
+    useLibraryStore.setState(original);
+  }
+});
+
+test('concluir um livro oferece a capa uma vez sem persistir a apresentação', () => {
+  const original = useLibraryStore.getState();
+  try {
+    useLibraryStore.setState({ books: [readingBook], completingBookId: undefined, coverRewardBookId: undefined });
+    useLibraryStore.getState().requestCompletion(readingBook.id);
+    useLibraryStore.getState().finalizeCompletion(readingBook.id);
+    assert.equal(useLibraryStore.getState().books[0].status, 'completed');
+    assert.equal(useLibraryStore.getState().coverRewardBookId, readingBook.id);
+    assert.equal('coverRewardBookId' in getCurrentLibrarySnapshot(), false);
+    useLibraryStore.getState().dismissCoverReward();
+    useLibraryStore.getState().completeBook(readingBook.id);
+    assert.equal(useLibraryStore.getState().coverRewardBookId, undefined);
+
+    useLibraryStore.setState({ books: [{ ...readingBook, status: 'want-to-read' }] });
+    useLibraryStore.getState().completeBook(readingBook.id);
+    assert.equal(useLibraryStore.getState().coverRewardBookId, readingBook.id);
+  } finally {
+    useLibraryStore.setState(original);
+  }
 });

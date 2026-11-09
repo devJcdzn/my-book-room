@@ -35,7 +35,7 @@ export const clearRoomSnapshotCache = () => {
   cachedAmbienceUris.night = null;
 };
 
-export const captureRoomSnapshot = async (options?: SnapshotOptions): Promise<string | null> => {
+const performCapture = async (options?: SnapshotOptions): Promise<string | null> => {
   if (options?.ambience && cachedAmbienceUris[options.ambience]) {
     return cachedAmbienceUris[options.ambience]!;
   }
@@ -51,11 +51,20 @@ export const captureRoomSnapshot = async (options?: SnapshotOptions): Promise<st
         return uri;
       }
     } catch (err) {
-      console.warn('Erro ao capturar snapshot 3D da sala:', err);
+      console.warn('Erro ao capturar imagem do quarto:', err);
     }
   }
 
   return options?.ambience
     ? (cachedAmbienceUris[options.ambience] ?? null)
     : lastCapturedUri;
+};
+
+
+// Serialize captures so temporary theme/framing overrides never overlap.
+let captureQueue: Promise<unknown> = Promise.resolve();
+export const captureRoomSnapshot = (options?: SnapshotOptions): Promise<string | null> => {
+  const capture = captureQueue.then(() => performCapture(options));
+  captureQueue = capture.catch(() => null);
+  return capture;
 };

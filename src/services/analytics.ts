@@ -5,8 +5,9 @@ type Identity = { userId: string; name?: string; email?: string; metadata: { pro
 const eventProperties = {
   onboarding_started: ['version'], onboarding_completed: ['final_step'], onboarding_skipped: ['final_step'],
   login_started: ['provider'], login_succeeded: ['provider'], login_cancelled: ['provider'], login_failed: ['provider', 'failure_category'],
-  book_added: ['source', 'status'], book_completed: [], reading_session_saved: ['duration_seconds', 'pages_read'],
+  book_added: ['source', 'status'], book_completed: [], reading_session_saved: ['duration_seconds', 'pages_read', 'source', 'reading_date', 'reading_week', 'first_reading'], reading_marker_corrected: [], reading_session_started: [], reading_session_resumed: [],
   reading_note_created: [], room_customization_saved: ['piece_count'], profile_updated: ['photo_changed'],
+  app_opened: [], reading_action_used: ['action', 'surface'], amazon_affiliate_link_opened: ['surface'],
   account_signed_out: [], account_deleted: [],
 } as const;
 

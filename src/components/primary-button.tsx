@@ -1,17 +1,20 @@
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
-import { controls, colors } from '@/src/theme';
+import { controls, colors, darkTheme, typography } from '@/src/theme';
 
 type Props = ComponentProps<typeof Pressable> & {
   label: string;
   loading?: boolean;
+  isNight?: boolean;
   tone?: 'primary' | 'secondary';
 };
 
-export function PrimaryButton({ label, loading = false, tone = 'primary', disabled, style, accessibilityLabel, ...props }: Props) {
+export function PrimaryButton({ label, loading = false, tone = 'primary', isNight = false, disabled, style, accessibilityLabel, ...props }: Props) {
   const isDisabled = disabled || loading;
   const secondary = tone === 'secondary';
+  const backgroundColor = secondary ? (isNight ? darkTheme.selection : colors.sageSoft) : (isNight ? darkTheme.primary : colors.ink);
+  const color = secondary ? (isNight ? darkTheme.selectionText : colors.ink) : (isNight ? darkTheme.actionText : colors.white);
   return (
     <Pressable
       {...props}
@@ -21,23 +24,20 @@ export function PrimaryButton({ label, loading = false, tone = 'primary', disabl
       accessibilityState={{ ...props.accessibilityState, disabled: Boolean(isDisabled), busy: loading }}
       disabled={isDisabled}
       style={(state) => [
-        styles.base, secondary ? styles.secondary : styles.primary,
-        isDisabled && styles.disabled, state.pressed && !isDisabled && styles.pressed,
+        styles.base, { backgroundColor },
+        disabled && !loading && styles.disabled, state.pressed && !isDisabled && styles.pressed,
         typeof style === 'function' ? style(state) : style,
       ]}
     >
-      {loading && <ActivityIndicator color={secondary ? colors.ink : colors.white} />}
-      <Text style={[styles.label, secondary && styles.secondaryLabel]}>{label}</Text>
+      {loading && <ActivityIndicator size="small" accessible={false} color={color} />}
+      <Text style={[styles.label, { color }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: { ...controls.button, flexDirection: 'row', gap: 8 },
-  primary: { backgroundColor: colors.terracotta },
-  secondary: { backgroundColor: colors.sageSoft },
-  label: { ...controls.buttonText, color: colors.white },
-  secondaryLabel: { color: colors.ink },
-  disabled: { opacity: 0.45 },
-  pressed: { opacity: 0.78, transform: [{ scale: 0.99 }] },
+  label: { ...controls.buttonText, flexShrink: 1, textAlign: 'center', fontFamily: typography.ui, color: colors.white },
+  disabled: controls.buttonDisabled,
+  pressed: controls.buttonPressed,
 });

@@ -8,7 +8,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Book, BookSearchResult, ReadingEntry, ReadingFolder, ReadingSession, ReadingTimer } from '@/src/types/book';
 import { READING_FOLDER_COLORS, READING_NOTE_COLORS } from '@/src/utils/reading-note';
 import { DEFAULT_LIBRARY_PALETTE_ID, LIBRARY_PALETTES } from '@/src/library-palette';
-import { localDateKey, normalizeReadingDays } from '@/src/utils/reading-days';
+import { isReadingDate, readingHistoryDays, localDateKey, normalizeReadingDays } from '@/src/utils/reading-days';
 import {
   BOOKCASE_PALETTES,
   CAT_OPTIONS,
@@ -24,6 +24,7 @@ import {
   DEFAULT_WINDOW_STYLE_ID,
   FLOOR_PALETTES,
   LeftWallItemType,
+  migrateLegacyRoomPaletteSelection,
   PICTURE_FRAME_STYLES,
   PictureFrameSize,
   POSTER_FRAME_OPTIONS,
@@ -32,29 +33,46 @@ import {
   WINDOW_STYLES,
 } from '@/src/types/room-customization';
 
-export type AmbienceMode = 'auto' | 'day' | 'night';
+import type { AmbienceMode } from '@/src/types/ambience';
+export type { AmbienceMode } from '@/src/types/ambience';
 export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 
 export { ONBOARDING_VERSION } from '@/src/utils/onboarding';
 export const READING_DESK_CAPACITY = 3;
 
+const readingEventProperties = (session: ReadingSession, count: number) => {
+  const day = new Date(`${session.readingDate}T12:00:00`);
+  day.setDate(day.getDate() - (day.getDay() + 6) % 7);
+  return { reading_date: session.readingDate, reading_week: localDateKey(day), first_reading: count === 1 };
+};
+
+export type ManualReadingInput = { id: string; name: string; description?: string; startingPage: number; endingPage: number; readingDate: string; durationSeconds?: number };
+
 type LibraryState = {
   _hasHydrated: boolean;
   roomLayout: RoomLayout;
+  roomCustomizationVersion?: number;
+  legacyRoomLayoutBackup?: unknown;
   setRoomLayout: (layout: RoomLayout) => void;
   books: Book[];
   readingFolders: ReadingFolder[];
   readingSessions: ReadingSession[];
   activeReadingTimer?: ReadingTimer;
   readingDays: string[];
+  legacyReadingDays?: string[];
+  readingHistoryVersion?: number;
   wantToReadShelves: string[];
   readingShelves: string[];
   completedShelves: string[];
   shelfNames: Record<string, string>;
   libraryBackgroundId: string;
   deskBookIds: string[];
+  favoriteBookIds: string[];
+  toggleFavoriteBook: (bookId: string) => void;
   activeBookId?: string;
   completingBookId?: string;
+  coverRewardBookId?: string;
+  dismissCoverReward: () => void;
   isLampOn: boolean;
   ambienceMode: AmbienceMode;
   wallPaletteId: string;
@@ -76,7 +94,6 @@ type LibraryState = {
   onboardingAnswers: OnboardingAnswers;
   setOnboardingAnswers: (answers: Partial<OnboardingAnswers>) => void;
   setAmbienceMode: (mode: AmbienceMode) => void;
-  cycleAmbienceMode: () => void;
   toggleLamp: () => void;
   setWallPaletteId: (id: string) => void;
   setFloorPaletteId: (id: string) => void;
@@ -102,6 +119,7 @@ type LibraryState = {
   restartOnboarding: () => void;
   addOpenLibraryBook: (book: BookSearchResult & { totalPages: number }, options?: { status?: 'want-to-read' | 'reading' | 'completed'; shelfId?: string; rating?: number; notes?: string }) => void;
   addCustomBook: (book: { title: string; author: string; coverColor: string; totalPages: number; isbn?: string }, shelfId?: string, status?: 'want-to-read' | 'reading') => void;
+  setDominantCoverColor: (bookId: string, coverUrl: string, color: string) => void;
   updateBookCoverColor: (bookId: string, color: string) => void;
   removeBook: (bookId: string) => void;
   removeFromDesk: (bookId: string) => void;
@@ -111,8 +129,11 @@ type LibraryState = {
   resumeReadingTimer: () => void;
   finishReadingTimer: () => void;
   discardReadingTimer: () => void;
-  saveReadingSession: (input: { name: string; description?: string; endingPage: number }) => ReadingSession | undefined;
-  updateReadingSession: (sessionId: string, input: { name: string; description?: string; endingPage: number }) => void;
+  saveReadingSession: (input: { name: string; description?: string; endingPage: number }) => (ReadingSession & { source: 'timer'; endedAt: string; startedAt: string; durationSeconds: number }) | undefined;
+  addManualReading: (bookId: string, input: ManualReadingInput) => ReadingSession | undefined;
+  updateCompletedOn: (bookId: string, date: string) => void;
+  reopenBook: (bookId: string) => void;
+  updateReadingSession: (sessionId: string, input: { name: string; description?: string; endingPage: number; startingPage?: number; readingDate?: string; durationSeconds?: number }) => void;
   removeReadingSession: (sessionId: string) => void;
   updateProgress: (bookId: string, currentPage: number) => void;
   updateTotalPages: (bookId: string, totalPages: number) => void;
@@ -148,7 +169,8 @@ const DEFAULT_PROFILE: Profile = {
   bioAttribution: 'Jorge Luis Borges',
 };
 
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 3;
+const ROOM_CUSTOMIZATION_VERSION = 1;
 const GUEST_STORAGE_KEY = 'bookroom-library-v1';
 
 export type LibraryStorageScope = 'guest' | `user:${string}`;
@@ -159,17 +181,22 @@ const storageKeyForScope = (scope: LibraryStorageScope) =>
 type PersistedLibraryFields = Pick<
   LibraryState,
   | 'roomLayout'
+  | 'roomCustomizationVersion'
+  | 'legacyRoomLayoutBackup'
   | 'profile'
   | 'books'
   | 'readingFolders'
   | 'readingSessions'
   | 'activeReadingTimer'
   | 'readingDays'
+  | 'legacyReadingDays'
+  | 'readingHistoryVersion'
   | 'wantToReadShelves'
   | 'readingShelves'
   | 'completedShelves'
   | 'shelfNames'
   | 'libraryBackgroundId'
+  | 'favoriteBookIds'
   | 'deskBookIds'
   | 'activeBookId'
   | 'isLampOn'
@@ -194,26 +221,43 @@ type PersistedLibraryFields = Pick<
 
 export type PersistedLibraryState = Omit<
   PersistedLibraryFields,
-  'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders'
-> & Partial<Pick<PersistedLibraryFields, 'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'deskBookIds' | 'readingFolders' | 'readingSessions' | 'activeReadingTimer'>>;
+  'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders' | 'favoriteBookIds'
+> & Partial<Pick<PersistedLibraryFields, 'roomLayout' | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays' | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'deskBookIds' | 'readingFolders' | 'readingSessions' | 'activeReadingTimer' | 'favoriteBookIds'>>;
 
 const memoryStorage = new Map<string, string>();
+let latestNativeWrite = 0;
+let nativeWrites: Promise<void> = Promise.resolve();
 
 const isNativeRuntime = () => process.env.EXPO_OS === 'ios' || process.env.EXPO_OS === 'android';
 
 const storage = {
   getItem: async (key: string) => {
     if (!isNativeRuntime()) return memoryStorage.get(key) ?? null;
+    await nativeWrites;
     const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
     return sqliteStorage.getItem(key);
   },
-  setItem: async (key: string, value: string) => {
+  setItem: async (key: string, value: string, strict = false) => {
     if (!isNativeRuntime()) {
       memoryStorage.set(key, value);
       return;
     }
-    const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
-    await sqliteStorage.setItem(key, value);
+    const write = ++latestNativeWrite;
+    const pending = nativeWrites.then(async () => {
+      const { default: sqliteStorage } = await import('expo-sqlite/kv-store');
+      await sqliteStorage.setItem(key, value);
+    });
+    nativeWrites = pending.catch(() => undefined);
+    try {
+      await pending;
+    } catch (error) {
+      if (strict) throw error;
+      const { showSaveFailure } = await import('@/src/components/save-feedback');
+      if (write !== latestNativeWrite || useLibraryStore.persist.getOptions().name !== key) return;
+      showSaveFailure('Não foi possível gravar as alterações neste aparelho.', () => {
+        if (useLibraryStore.persist.getOptions().name === key) useLibraryStore.setState({});
+      });
+    }
   },
   removeItem: async (key: string) => {
     if (!isNativeRuntime()) {
@@ -371,9 +415,12 @@ const normalizeBook = (value: unknown): Book | undefined => {
     title: candidate.title.trim(),
     author: candidate.author.trim() || 'Autor desconhecido',
     coverColor: candidate.coverColor,
+    ...(typeof candidate.dominantCoverColor === 'string' && /^#[0-9A-F]{6}$/i.test(candidate.dominantCoverColor)
+      ? { dominantCoverColor: candidate.dominantCoverColor } : { dominantCoverColor: undefined }),
     totalPages,
     currentPage,
     status,
+    completedOn: status === 'completed' && isReadingDate(candidate.completedOn) && candidate.completedOn <= localDateKey(new Date()) ? candidate.completedOn : undefined,
     rating: typeof candidate.rating === 'number' ? Math.min(5, Math.max(1, Math.round(candidate.rating))) : undefined,
     notes: typeof candidate.notes === 'string' ? candidate.notes : undefined,
     readingEntries: Array.isArray(candidate.readingEntries)
@@ -433,9 +480,15 @@ const normalizeReadingSession = (value: unknown): ReadingSession | undefined => 
     || !Number.isInteger(session.endingPage) || (session.endingPage ?? -1) < (session.startingPage ?? 0)
     || (session.endingPage ?? 0) > (session.totalPages ?? 0)
     || session.pagesRead !== (session.endingPage ?? 0) - (session.startingPage ?? 0)
-    || !isValidDate(session.startedAt) || !isValidDate(session.endedAt)
-    || typeof session.durationSeconds !== 'number' || !Number.isInteger(session.durationSeconds) || session.durationSeconds < 0) return undefined;
+    || (session.source !== 'manual' && (!isValidDate(session.startedAt) || !isValidDate(session.endedAt)
+      || typeof session.durationSeconds !== 'number'))
+    || (session.source !== undefined && session.source !== 'timer' && session.source !== 'manual')
+    || (session.source === 'manual' && (!isReadingDate(session.readingDate) || !isValidDate(session.createdAt)))
+    || (session.durationSeconds !== undefined && (!Number.isSafeInteger(session.durationSeconds) || session.durationSeconds < 0))) return undefined;
   return {
+    source: session.source === 'manual' ? 'manual' : 'timer',
+    readingDate: isReadingDate(session.readingDate) ? session.readingDate : localDateKey(new Date(session.endedAt!)),
+    createdAt: session.createdAt ?? session.endedAt!,
     id: session.id,
     bookId: session.bookId,
     bookTitle: session.bookTitle.trim(),
@@ -448,10 +501,9 @@ const normalizeReadingSession = (value: unknown): ReadingSession | undefined => 
     startingPage: session.startingPage!,
     endingPage: session.endingPage!,
     pagesRead: session.pagesRead!,
-    startedAt: session.startedAt,
-    endedAt: session.endedAt,
-    durationSeconds: session.durationSeconds,
-  };
+    ...(session.source === 'manual' ? { durationSeconds: session.durationSeconds }
+      : { startedAt: session.startedAt!, endedAt: session.endedAt!, durationSeconds: session.durationSeconds! }),
+  } as ReadingSession;
 };
 
 export const getReadingTimerElapsedMs = (timer: ReadingTimer, now = Date.now()) => {
@@ -463,6 +515,13 @@ export const getReadingTimerElapsedMs = (timer: ReadingTimer, now = Date.now()) 
 
 export const normalizePersistedState = (value: unknown): PersistedLibraryState => {
   const candidate = value && typeof value === 'object' ? value as Partial<PersistedLibraryState> : {};
+  // The layout normalizer migrates older pieces without discarding an existing room.
+  const palettes = migrateLegacyRoomPaletteSelection(candidate);
+  const roomLayoutVersion = candidate.roomLayout && typeof candidate.roomLayout === 'object'
+    ? (candidate.roomLayout as { version?: unknown }).version
+    : undefined;
+  const legacyRoomLayoutBackup = candidate.legacyRoomLayoutBackup ??
+    (roomLayoutVersion !== 2 ? candidate.roomLayout : undefined);
   const requestedAmbience = (candidate as { ambienceMode?: unknown }).ambienceMode;
   const books = Array.isArray(candidate.books)
     ? candidate.books.map(normalizeBook).filter((book): book is Book => Boolean(book))
@@ -502,16 +561,22 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
     ? requestedActive.id
     : undefined;
 
+  const readingSessions = Array.isArray(candidate.readingSessions)
+    ? candidate.readingSessions.map(normalizeReadingSession).filter((session): session is ReadingSession => Boolean(session)) : [];
+  const legacyReadingDays = normalizeReadingDays(candidate.readingHistoryVersion === 1 ? candidate.legacyReadingDays : candidate.readingDays);
   return {
+    readingHistoryVersion: 1,
+    legacyReadingDays,
     roomLayout: normalizeRoomLayout(candidate.roomLayout, candidate),
+    roomCustomizationVersion: ROOM_CUSTOMIZATION_VERSION,
+    legacyRoomLayoutBackup,
     profile: normalizeProfile(candidate.profile),
     books: normalizedBooks,
+    favoriteBookIds: normalizeFavoriteBookIds(candidate.favoriteBookIds, normalizedBooks),
     readingFolders,
-    readingSessions: Array.isArray(candidate.readingSessions)
-      ? candidate.readingSessions.map(normalizeReadingSession).filter((session): session is ReadingSession => Boolean(session))
-      : [],
+    readingSessions,
     activeReadingTimer: normalizeReadingTimer(candidate.activeReadingTimer),
-    readingDays: normalizeReadingDays(candidate.readingDays),
+    readingDays: readingHistoryDays(legacyReadingDays, readingSessions),
     wantToReadShelves,
     readingShelves,
     completedShelves,
@@ -522,22 +587,20 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
     deskBookIds,
     activeBookId,
     isLampOn: typeof candidate.isLampOn === 'boolean' ? candidate.isLampOn : true,
-    ambienceMode: requestedAmbience === 'sunset'
-      ? 'day'
-      : requestedAmbience === 'day' || requestedAmbience === 'night'
-        ? requestedAmbience
-        : 'auto',
+    ambienceMode: requestedAmbience === 'day' || requestedAmbience === 'sunset' || requestedAmbience === 'night'
+      ? requestedAmbience
+      : 'auto',
     wallPaletteId: WALL_PALETTES.some((palette) => palette.id === candidate.wallPaletteId)
-      ? candidate.wallPaletteId!
+      ? palettes.wallPaletteId!
       : DEFAULT_WALL_PALETTE_ID,
     floorPaletteId: FLOOR_PALETTES.some((palette) => palette.id === candidate.floorPaletteId)
-      ? candidate.floorPaletteId!
+      ? palettes.floorPaletteId!
       : DEFAULT_FLOOR_PALETTE_ID,
     rugPaletteId: RUG_PALETTES.some((palette) => palette.id === candidate.rugPaletteId)
-      ? candidate.rugPaletteId!
+      ? palettes.rugPaletteId!
       : DEFAULT_RUG_PALETTE_ID,
     bookcasePaletteId: BOOKCASE_PALETTES.some((palette) => palette.id === candidate.bookcasePaletteId)
-      ? candidate.bookcasePaletteId!
+      ? palettes.bookcasePaletteId!
       : DEFAULT_BOOKCASE_PALETTE_ID,
     catId: CAT_OPTIONS.some((cat) => cat.id === candidate.catId)
       ? candidate.catId!
@@ -582,6 +645,11 @@ export const normalizePersistedState = (value: unknown): PersistedLibraryState =
   };
 };
 
+const normalizeFavoriteBookIds = (value: unknown, books: Book[]) => {
+  const ids = new Set(books.map((book) => book.id));
+  return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === 'string' && ids.has(id)))].slice(0, 3) : [];
+};
+
 export const createPersistedState = (state: Omit<PersistedLibraryState, 'readingDays' | 'deskBookIds' | 'readingSessions' | 'activeReadingTimer'> & Partial<Pick<PersistedLibraryState, 'readingSessions' | 'activeReadingTimer'>> & { readingDays?: string[]; deskBookIds?: string[]; completingBookId?: string }): PersistedLibraryState => {
   const readingFolders = normalizeReadingFolders(state.readingFolders);
   const readingFolderIds = new Set(readingFolders.map((folder) => folder.id));
@@ -599,6 +667,8 @@ export const createPersistedState = (state: Omit<PersistedLibraryState, 'reading
   const wantToReadShelves = normalizeShelfIds(state.wantToReadShelves, 'want-to-read-default');
   const shelfIds = new Set([...wantToReadShelves, ...readingShelves, ...completedShelves]);
   return {
+    legacyRoomLayoutBackup: state.legacyRoomLayoutBackup,
+    roomCustomizationVersion: state.roomCustomizationVersion ?? ROOM_CUSTOMIZATION_VERSION,
     profile: state.profile,
     readingFolders,
     readingSessions: (state.readingSessions ?? []).map(normalizeReadingSession)
@@ -615,7 +685,10 @@ export const createPersistedState = (state: Omit<PersistedLibraryState, 'reading
         })),
       };
     }),
-    readingDays: state.readingDays ?? [],
+    favoriteBookIds: normalizeFavoriteBookIds(state.favoriteBookIds, stableBooks),
+    readingHistoryVersion: 1,
+    legacyReadingDays: normalizeReadingDays(state.readingHistoryVersion === 1 ? state.legacyReadingDays : state.readingDays),
+    readingDays: readingHistoryDays(normalizeReadingDays(state.readingHistoryVersion === 1 ? state.legacyReadingDays : state.readingDays), state.readingSessions ?? []),
     wantToReadShelves,
     readingShelves,
     completedShelves,
@@ -670,39 +743,39 @@ export const deriveBookColor = (workKey: string) => {
   return BOOK_COLORS[Math.abs(hash) % BOOK_COLORS.length];
 };
 
-const NEXT_AMBIENCE: Record<AmbienceMode, AmbienceMode> = {
-  auto: 'day',
-  day: 'night',
-  night: 'auto',
-};
-
 type LibraryDataState = Pick<
   LibraryState,
-  'roomLayout' | '_hasHydrated' | 'books' | 'deskBookIds' | 'activeBookId' | 'completingBookId' | 'isLampOn'
+  'roomLayout' | 'roomCustomizationVersion' | 'legacyRoomLayoutBackup' | '_hasHydrated' | 'books' | 'favoriteBookIds' | 'deskBookIds' | 'activeBookId' | 'completingBookId' | 'coverRewardBookId' | 'isLampOn'
     | 'readingSessions' | 'activeReadingTimer'
     | 'ambienceMode' | 'wallPaletteId' | 'floorPaletteId' | 'rugPaletteId' | 'bookcasePaletteId'
     | 'catId' | 'leftWallItem' | 'leftWallPosterBookId' | 'leftWallWindowStyle' | 'leftWallFrameColor'
     | 'pictureFrameSize' | 'pictureFrameStyleId' | 'pictureFramePhotoUri' | 'profile'
-    | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays'
+    | 'onboardingVersion' | 'onboardingStatus' | 'onboardingStep' | 'onboardingAnswers' | 'readingDays' | 'legacyReadingDays' | 'readingHistoryVersion'
     | 'wantToReadShelves' | 'readingShelves' | 'completedShelves' | 'shelfNames' | 'libraryBackgroundId' | 'readingFolders'
 >;
 
 const initialState: LibraryDataState = {
   _hasHydrated: false,
   roomLayout: createDefaultRoomLayout(),
+  roomCustomizationVersion: ROOM_CUSTOMIZATION_VERSION,
+  legacyRoomLayoutBackup: undefined,
   books: [],
   readingFolders: [],
   readingSessions: [],
   activeReadingTimer: undefined,
   readingDays: [],
+  legacyReadingDays: [],
+  readingHistoryVersion: 1,
   wantToReadShelves: ['want-to-read-default'],
   readingShelves: ['reading-default'],
   completedShelves: ['completed-default'],
   shelfNames: {},
   libraryBackgroundId: DEFAULT_LIBRARY_PALETTE_ID,
   deskBookIds: [],
+  favoriteBookIds: [],
   activeBookId: undefined,
   completingBookId: undefined,
+  coverRewardBookId: undefined,
   isLampOn: true,
   ambienceMode: 'auto',
   wallPaletteId: DEFAULT_WALL_PALETTE_ID,
@@ -724,8 +797,19 @@ const initialState: LibraryDataState = {
   onboardingAnswers: {},
 };
 
-export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
+export const isDefaultRoomSnapshot = (snapshot: PersistedLibraryState) => (
   JSON.stringify(snapshot.roomLayout ?? createDefaultRoomLayout()) === JSON.stringify(createDefaultRoomLayout())
+  && snapshot.wallPaletteId === DEFAULT_WALL_PALETTE_ID
+  && snapshot.floorPaletteId === DEFAULT_FLOOR_PALETTE_ID
+  && snapshot.rugPaletteId === DEFAULT_RUG_PALETTE_ID
+  && snapshot.bookcasePaletteId === DEFAULT_BOOKCASE_PALETTE_ID
+  && snapshot.catId === DEFAULT_CAT_ID
+  && snapshot.leftWallItem === DEFAULT_LEFT_WALL_ITEM
+  && snapshot.pictureFramePhotoUri === null
+);
+
+export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
+  isDefaultRoomSnapshot(snapshot)
   && snapshot.books.length === 0
   && (snapshot.readingFolders?.length ?? 0) === 0
   && (snapshot.readingSessions?.length ?? 0) === 0
@@ -740,22 +824,14 @@ export const isDefaultLibrarySnapshot = (snapshot: PersistedLibraryState) => (
   && snapshot.profile.name === DEFAULT_PROFILE.name
   && snapshot.profile.bio === DEFAULT_PROFILE.bio
   && snapshot.profile.bioAttribution === DEFAULT_PROFILE.bioAttribution
-  && snapshot.wallPaletteId === DEFAULT_WALL_PALETTE_ID
-  && snapshot.floorPaletteId === DEFAULT_FLOOR_PALETTE_ID
-  && snapshot.rugPaletteId === DEFAULT_RUG_PALETTE_ID
-  && snapshot.bookcasePaletteId === DEFAULT_BOOKCASE_PALETTE_ID
-  && snapshot.catId === DEFAULT_CAT_ID
-  && snapshot.leftWallItem === DEFAULT_LEFT_WALL_ITEM
-  && snapshot.pictureFramePhotoUri === null
   && snapshot.onboardingStatus === 'not_started'
   && snapshot.onboardingStep === 0
   && Object.keys(snapshot.onboardingAnswers ?? {}).length === 0
 );
 
-export const useLibraryStore = create<LibraryState>()(persist((set) => ({
+export const useLibraryStore = create<LibraryState>()(persist((set, get) => ({
   ...initialState,
   setAmbienceMode: (mode) => set({ ambienceMode: mode }),
-  cycleAmbienceMode: () => set((state) => ({ ambienceMode: NEXT_AMBIENCE[state.ambienceMode] })),
   toggleLamp: () => set((state) => ({ isLampOn: !state.isLampOn })),
   setRoomLayout: (layout) => set({ roomLayout: normalizeRoomLayout(layout) }),
   setWallPaletteId: (id) => set({ wallPaletteId: id }),
@@ -893,7 +969,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       notes: options.notes?.trim() || undefined,
     };
     trackEvent('book_added', { source: 'catalog', status });
-    return { ...allocation, books: [...state.books, newBook] };
+    return { ...allocation, books: [...state.books, newBook], coverRewardBookId: status === 'completed' ? newBook.id : state.coverRewardBookId };
   }),
   addCustomBook: (bookData, requestedShelfId, status = 'reading') => set((state) => {
     if (!bookData.title.trim() || !Number.isInteger(bookData.totalPages)
@@ -915,17 +991,29 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     trackEvent('book_added', { source: 'manual', status });
     return { ...allocation, books: [...state.books, newBook] };
   }),
+  setDominantCoverColor: (bookId, coverUrl, color) => set((state) => {
+    if (!/^#[0-9A-F]{6}$/i.test(color)) return state;
+    const book = state.books.find(item => item.id === bookId && item.coverUrl === coverUrl);
+    if (!book || book.dominantCoverColor === color) return state;
+    return { books: state.books.map(item => item === book ? { ...item, dominantCoverColor: color } : item) };
+  }),
   updateBookCoverColor: (bookId, color) => set((state) => {
     if (!/^#[0-9A-F]{6}$/i.test(color)) return state;
     return {
       books: state.books.map((book) => book.id === bookId ? { ...book, coverColor: color } : book),
     };
   }),
+  toggleFavoriteBook: (bookId) => set((state) => {
+    if (state.favoriteBookIds.includes(bookId)) return { favoriteBookIds: state.favoriteBookIds.filter((id) => id !== bookId) };
+    if (state.favoriteBookIds.length >= 3 || !state.books.some((book) => book.id === bookId)) return state;
+    return { favoriteBookIds: [...state.favoriteBookIds, bookId] };
+  }),
   removeBook: (bookId) => set((state) => {
     const nextBooks = state.books.filter((book) => book.id !== bookId);
     const nextActive = state.activeBookId === bookId ? undefined : state.activeBookId;
     return {
       books: nextBooks,
+      favoriteBookIds: state.favoriteBookIds.filter((id) => id !== bookId),
       deskBookIds: state.deskBookIds.filter((id) => id !== bookId),
       activeBookId: nextActive,
       completingBookId: state.completingBookId === bookId ? undefined : state.completingBookId,
@@ -986,6 +1074,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
         },
       };
     });
+    if (started) trackEvent('reading_session_started');
     return started;
   },
   pauseReadingTimer: () => set((state) => {
@@ -1004,6 +1093,7 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
   resumeReadingTimer: () => set((state) => {
     const timer = state.activeReadingTimer;
     if (!timer || timer.phase === 'running') return state;
+    trackEvent('reading_session_resumed');
     return {
       activeReadingTimer: {
         ...timer,
@@ -1030,19 +1120,22 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     ? { activeReadingTimer: undefined }
     : state),
   saveReadingSession: (input) => {
-    let saved: ReadingSession | undefined;
+    let saved: (ReadingSession & { source: 'timer'; endedAt: string; startedAt: string; durationSeconds: number }) | undefined;
     set((state) => {
       const timer = state.activeReadingTimer;
       const name = input.name.trim().slice(0, 80);
       const book = timer ? state.books.find((item) => item.id === timer.bookId) : undefined;
       if (!timer || timer.phase !== 'review' || !name
         || !Number.isInteger(input.endingPage)
-        || input.endingPage < timer.startingPage || input.endingPage > timer.totalPages
+        || input.endingPage < timer.startingPage || input.endingPage > Math.min(timer.totalPages, book?.totalPages ?? timer.totalPages)
         || !timer.endedAt) return state;
 
       const description = input.description?.trim().slice(0, 500) || undefined;
       const pagesRead = input.endingPage - timer.startingPage;
       saved = {
+        source: 'timer',
+        readingDate: localDateKey(new Date(timer.endedAt)),
+        createdAt: timer.endedAt,
         id: timer.id,
         bookId: timer.bookId,
         bookTitle: timer.bookTitle,
@@ -1061,11 +1154,9 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       };
 
       const books = book && book.status === 'reading'
-        ? state.books.map((item) => item.id === book.id ? { ...item, currentPage: input.endingPage } : item)
+        ? state.books.map((item) => item.id === book.id ? { ...item, currentPage: Math.max(item.currentPage, input.endingPage) } : item)
         : state.books;
-      const readingDays = book && book.status === 'reading' && input.endingPage > book.currentPage
-        ? [...new Set([...state.readingDays, localDateKey(new Date(timer.endedAt))])].sort()
-        : state.readingDays;
+      const readingDays = readingHistoryDays(state.legacyReadingDays ?? [], [saved, ...state.readingSessions]);
       return {
         activeReadingTimer: undefined,
         readingSessions: [saved, ...state.readingSessions],
@@ -1073,39 +1164,65 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
         readingDays,
       };
     });
-    if (saved) trackEvent('reading_session_saved', { duration_seconds: saved.durationSeconds, pages_read: saved.pagesRead });
+    if (saved) trackEvent('reading_session_saved', { ...readingEventProperties(saved, get().readingSessions.length), source: 'timer', duration_seconds: saved.durationSeconds ?? 0, pages_read: saved.pagesRead });
+    return saved;
+  },
+  addManualReading: (bookId, input) => {
+    let saved: ReadingSession | undefined;
+    set((state) => {
+      const book = state.books.find((item) => item.id === bookId);
+      if (!book || book.status === 'completing' || state.activeReadingTimer?.bookId === bookId
+        || state.readingSessions.some((session) => session.id === input.id)) return state;
+      saved = normalizeReadingSession({ ...input, source: 'manual', createdAt: new Date().toISOString(),
+        bookId, bookTitle: book.title, bookAuthor: book.author, coverUrl: book.coverUrl,
+        coverColor: book.coverColor, totalPages: book.totalPages, name: input.name.trim() || 'Leitura',
+        pagesRead: input.endingPage - input.startingPage });
+      if (!saved || (saved.durationSeconds !== undefined && saved.durationSeconds <= 0) || saved.readingDate > localDateKey(new Date()) || (saved.pagesRead === 0 && !(saved.durationSeconds && saved.durationSeconds > 0))) { saved = undefined; return state; }
+      const readingSessions = [saved, ...state.readingSessions];
+      return { readingSessions, readingDays: readingHistoryDays(state.legacyReadingDays ?? [], readingSessions),
+        books: state.books.map((item) => item.id === bookId && item.status === 'reading'
+          ? { ...item, currentPage: Math.max(item.currentPage, input.endingPage) } : item) };
+    });
+    if (saved) trackEvent('reading_session_saved', { ...readingEventProperties(saved, get().readingSessions.length), source: 'manual', pages_read: saved.pagesRead,
+      ...(saved.durationSeconds === undefined ? {} : { duration_seconds: saved.durationSeconds }) });
     return saved;
   },
   updateReadingSession: (sessionId, input) => set((state) => {
-    const name = input.name.trim().slice(0, 80);
     const existing = state.readingSessions.find((session) => session.id === sessionId);
-    if (!name || !existing || !Number.isInteger(input.endingPage)
-      || input.endingPage < existing.startingPage || input.endingPage > existing.totalPages) return state;
-    const description = input.description?.trim().slice(0, 500) || undefined;
-    const updated = { ...existing, name, description, endingPage: input.endingPage, pagesRead: input.endingPage - existing.startingPage };
+    if (!existing) return state;
     const book = state.books.find((item) => item.id === existing.bookId);
-    return {
-      readingSessions: state.readingSessions.map((session) => session.id === sessionId
-        ? updated
-        : session),
-      ...(book?.status === 'reading' && book.currentPage === existing.endingPage
-        ? { books: state.books.map((item) => item.id === book.id ? { ...item, currentPage: input.endingPage } : item) }
-        : {}),
-    };
+    if (book && input.endingPage > book.totalPages) return state;
+    const updated = normalizeReadingSession({ ...existing, ...input, name: input.name.trim() || 'Leitura',
+      ...(existing.source === 'timer' ? { durationSeconds: existing.durationSeconds } : {}),
+      pagesRead: input.endingPage - (input.startingPage ?? existing.startingPage) });
+    if (!updated || updated.readingDate > localDateKey(new Date())
+      || (updated.pagesRead === 0 && !(updated.durationSeconds && updated.durationSeconds > 0))) return state;
+    const readingSessions = state.readingSessions.map((session) => session.id === sessionId ? updated : session);
+    return { readingSessions, readingDays: readingHistoryDays(state.legacyReadingDays ?? [], readingSessions),
+      books: state.books.map((item) => item.id === existing.bookId && item.status === 'reading'
+        ? { ...item, currentPage: Math.max(item.currentPage, updated.endingPage) } : item) };
   }),
-  removeReadingSession: (sessionId) => set((state) => state.readingSessions.some((session) => session.id === sessionId)
-    ? { readingSessions: state.readingSessions.filter((session) => session.id !== sessionId) }
-    : state),
+  removeReadingSession: (sessionId) => set((state) => {
+    const readingSessions = state.readingSessions.filter((session) => session.id !== sessionId);
+    return { readingSessions, readingDays: readingHistoryDays(state.legacyReadingDays ?? [], readingSessions) };
+  }),
   updateProgress: (bookId, page) => set((state) => {
-    const books = state.books.map((book) => book.id === bookId && book.status === 'reading'
-      ? { ...book, currentPage: clampPage(page, book.totalPages) }
-      : book);
-    const previous = state.books.find((book) => book.id === bookId);
-    const updated = books.find((book) => book.id === bookId);
-    const advanced = previous && updated && updated.currentPage > previous.currentPage;
-    const todayKey = localDateKey(new Date());
-    return { books, readingDays: advanced && !state.readingDays.includes(todayKey)
-      ? [...state.readingDays, todayKey].sort() : state.readingDays };
+    if (!Number.isInteger(page)) return state;
+    const book = state.books.find((item) => item.id === bookId && item.status === 'reading');
+    if (!book || page < 0 || page > book.totalPages || page === book.currentPage) return state;
+    trackEvent('reading_marker_corrected');
+    return { books: state.books.map((item) => item.id === bookId ? { ...item, currentPage: page } : item) };
+  }),
+  reopenBook: (bookId) => set((state) => {
+    const book = state.books.find((item) => item.id === bookId);
+    if (!book || book.status !== 'completed') return state;
+    const allocation = allocateBookShelf(state, 'reading', state.readingShelves[0], bookId);
+    return { ...allocation, books: state.books.map((item) => item.id === bookId
+      ? { ...item, status: 'reading', completedOn: undefined, shelfId: allocation.shelfId } : item) };
+  }),
+  updateCompletedOn: (bookId, date) => set((state) => {
+    if (!isReadingDate(date) || date > localDateKey(new Date())) return state;
+    return { books: state.books.map((book) => book.id === bookId && book.status === 'completed' ? { ...book, completedOn: date } : book) };
   }),
   updateTotalPages: (bookId, totalPages) => set((state) => {
     if (!Number.isInteger(totalPages) || totalPages < 1 || totalPages > 99_999
@@ -1130,18 +1247,21 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
       notes: input.notes === undefined ? book.notes : input.notes,
   } : book),
   })),
+  dismissCoverReward: () => set({ coverRewardBookId: undefined }),
   completeBook: (bookId, input = {}) => set((state) => {
     const book = state.books.find((item) => item.id === bookId);
     if (!book || book.status === 'completed' || state.completingBookId === bookId) return state;
     trackEvent('book_completed');
     const allocation = allocateBookShelf(state, 'completed', state.completedShelves[0], bookId);
     return {
+      coverRewardBookId: bookId,
       activeBookId: state.activeBookId === bookId ? undefined : state.activeBookId,
       deskBookIds: state.deskBookIds.filter((id) => id !== bookId),
       ...allocation,
       books: state.books.map((item) => item.id === bookId ? {
         ...item,
         status: 'completed',
+        completedOn: localDateKey(new Date()),
         currentPage: item.totalPages,
         shelfId: allocation.shelfId,
         rating: input.rating === undefined ? item.rating
@@ -1219,14 +1339,11 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     if (state.completingBookId) return state;
     const book = state.books.find((item) => item.id === bookId);
     if (!book || book.status !== 'reading') return state;
-    const todayKey = localDateKey(new Date());
     return {
       activeBookId: bookId,
       completingBookId: bookId,
-      readingDays: book.currentPage < book.totalPages && !state.readingDays.includes(todayKey)
-        ? [...state.readingDays, todayKey].sort() : state.readingDays,
       books: state.books.map((item) => item.id === bookId
-        ? { ...item, currentPage: item.totalPages, status: 'completing' }
+        ? { ...item, currentPage: item.totalPages, status: 'completing', completedOn: localDateKey(new Date()) }
         : item),
     };
   }),
@@ -1238,11 +1355,12 @@ export const useLibraryStore = create<LibraryState>()(persist((set) => ({
     const remainingBooks = state.books.filter((item) => item.id !== bookId);
     const allocation = allocateBookShelf(state, 'completed', state.completedShelves[0], bookId);
     return {
+      coverRewardBookId: bookId,
       ...allocation,
       activeBookId: undefined,
       deskBookIds: state.deskBookIds.filter((id) => id !== bookId),
       completingBookId: undefined,
-      books: [...remainingBooks, { ...book, status: 'completed', shelfId: allocation.shelfId }],
+      books: [...remainingBooks, { ...book, status: 'completed', completedOn: localDateKey(new Date()), shelfId: allocation.shelfId }],
     };
   }),
 }), {
@@ -1282,10 +1400,12 @@ export const overwriteLibraryStorageScope = async (
   await storage.setItem(storageKeyForScope(scope), JSON.stringify({
     state: normalizePersistedState(snapshot),
     version: STORAGE_VERSION,
-  }));
+  }), true);
 };
 
 export const replaceLibrarySnapshot = (snapshot: unknown, preservePhoto = false) => {
+  preservePhoto = preservePhoto && Boolean(snapshot && typeof snapshot === 'object'
+    && (snapshot as Partial<PersistedLibraryState>).roomCustomizationVersion === ROOM_CUSTOMIZATION_VERSION);
   const current = useLibraryStore.getState();
   const currentPhoto = useLibraryStore.getState().pictureFramePhotoUri;
   const localPieces = useLibraryStore.getState().roomLayout.pieces;
@@ -1299,12 +1419,17 @@ export const replaceLibrarySnapshot = (snapshot: unknown, preservePhoto = false)
   }
   useLibraryStore.setState({
     ...normalized,
+    legacyRoomLayoutBackup: normalized.legacyRoomLayoutBackup,
     pictureFramePhotoUri: preservePhoto ? currentPhoto : normalized.pictureFramePhotoUri,
     roomLayout: preservePhoto ? { ...normalized.roomLayout!, pieces:normalized.roomLayout!.pieces.map(piece=>({...piece,photoUri:localPieces.find(local=>local.id===piece.id)?.photoUri})) } : normalized.roomLayout!,
     completingBookId: undefined,
+    coverRewardBookId: undefined,
     _hasHydrated: true,
   });
 };
+
+export const isLibraryStorageScope = (scope: LibraryStorageScope) =>
+  useLibraryStore.persist.getOptions().name === storageKeyForScope(scope);
 
 export const switchLibraryStorageScope = async (
   scope: LibraryStorageScope,

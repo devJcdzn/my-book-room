@@ -1,19 +1,24 @@
+import { AppTextInput, FieldError } from '@/src/components/app-text-input';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/src/components/book-cover';
 import { PrimaryButton } from '@/src/components/primary-button';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
+import { resolveAmbience } from '@/src/types/ambience';
 import { bookCatalogClient } from '@/src/services/book-catalog';
 import { extractCoverColor } from '@/src/services/cover-color';
 import { deriveBookColor, useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { BookSearchResult } from '@/src/types/book';
 
-const PALETTE = ['#B95F3B', '#4F7480', '#6D7657', '#6A4D61', '#C58A3C', '#2E4057'];
+const PALETTE = [
+  { color: '#6D7657', label: 'Sálvia' }, { color: '#2E4057', label: 'Azul escuro' },
+  { color: '#4F7480', label: 'Azul petróleo' }, { color: '#6A4D61', label: 'Ameixa' },
+  { color: '#C58A3C', label: 'Ocre' }, { color: '#B95F3B', label: 'Terracota' },
+];
 
 export default function AddBookScreen() {
   const {
@@ -54,14 +59,17 @@ export default function AddBookScreen() {
     };
   }, [catalogAuthor, catalogCoverId, catalogCoverUrl, catalogEditionKey, catalogWorkKey, catalogYear, initialQuery]);
 
+  const [focusedField, setFocusedField] = useState<"title" | "author" | "pages" | "isbn">();
   const [customTitle, setCustomTitle] = useState(initialCatalogResult?.title ?? (typeof initialQuery === 'string' ? initialQuery : ''));
   const [customAuthor, setCustomAuthor] = useState(
     initialCatalogResult?.author === 'Autor desconhecido' ? '' : initialCatalogResult?.author ?? '',
   );
   const [customIsbn, setCustomIsbn] = useState('');
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [pagesTouched, setPagesTouched] = useState(false);
   const [customPages, setCustomPages] = useState('');
   const [customColor, setCustomColor] = useState(
-    initialCatalogResult ? deriveBookColor(initialCatalogResult.workKey) : PALETTE[0],
+    initialCatalogResult ? deriveBookColor(initialCatalogResult.workKey) : PALETTE[0].color,
   );
 
   const addOpenLibraryBook = useLibraryStore((state) => state.addOpenLibraryBook);
@@ -69,8 +77,15 @@ export default function AddBookScreen() {
   const updateBookCoverColor = useLibraryStore((state) => state.updateBookCoverColor);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
+  const accent = isNight ? darkTheme.selectionText : colors.sageDark;
+  const inputStyle = (field: typeof focusedField) => [
+    styles.input, isNight && styles.darkInput, focusedField === field && { borderColor: accent },
+  ];
+  const shelfName = useLibraryStore(state => shelfId ? state.shelfNames[shelfId] : undefined);
   const parsedPages = Number(customPages);
   const validPages = Number.isInteger(parsedPages) && parsedPages >= 1 && parsedPages <= 99_999;
+  const titleError = titleTouched && !customTitle.trim() ? 'Digite o título do livro.' : undefined;
+  const pagesError = pagesTouched && !validPages ? 'Informe um total entre 1 e 99.999 páginas.' : undefined;
   const targetStatus = status === 'want-to-read' ? 'want-to-read' : 'reading';
 
   const handleAdd = () => {
@@ -113,6 +128,8 @@ export default function AddBookScreen() {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={styles.content}
+      automaticallyAdjustKeyboardInsets
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={[styles.screen, isNight && styles.darkScreen]}
@@ -121,7 +138,7 @@ export default function AddBookScreen() {
         <View style={styles.headerCopy}>
           <Text style={[styles.title, isNight && styles.darkTitle]}>Adicionar livro</Text>
           <Text style={[styles.subtitle, isNight && styles.darkMuted]}>
-            {initialCatalogResult ? 'Só falta informar o total de páginas.' : 'Inclua um livro que ainda não está no catálogo.'}
+            {initialCatalogResult ? 'Só falta informar o total de páginas.' : 'Cadastro manual'}
           </Text>
         </View>
         <Pressable
@@ -135,98 +152,131 @@ export default function AddBookScreen() {
         </Pressable>
       </View>
 
-      <View style={[styles.form, isNight && styles.darkForm]}>
-        <Text style={[styles.sectionTitle, isNight && styles.darkTitle]}>
-          {initialCatalogResult ? 'Detalhes da edição' : 'Detalhes do livro'}
-        </Text>
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, isNight && styles.darkMuted]}>Título *</Text>
-          <TextInput
-            autoCapitalize="sentences"
-            onChangeText={setCustomTitle}
-            placeholder="Ex.: Cem Anos de Solidão"
-            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
-            style={[styles.input, isNight && styles.darkInput]}
-            value={customTitle}
-          />
-        </View>
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, isNight && styles.darkMuted]}>Autor(a)</Text>
-          <TextInput
-            autoCapitalize="words"
-            onChangeText={setCustomAuthor}
-            placeholder="Nome do autor"
-            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
-            style={[styles.input, isNight && styles.darkInput]}
-            value={customAuthor}
-          />
-        </View>
-        {!initialCatalogResult ? (
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.label, isNight && styles.darkMuted]}>ISBN (opcional)</Text>
-            <TextInput
-              autoCapitalize="characters"
-              autoCorrect={false}
-              onChangeText={setCustomIsbn}
-              placeholder="Ex.: 9780140328721"
-              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
-              style={[styles.input, isNight && styles.darkInput]}
-              value={customIsbn}
-            />
-          </View>
-        ) : null}
-        <View style={styles.fieldGroup}>
-          <Text style={[styles.label, isNight && styles.darkMuted]}>Total de páginas *</Text>
-          <TextInput
-            keyboardType="number-pad"
-            maxLength={5}
-            onChangeText={setCustomPages}
-            placeholder="Ex.: 350"
-            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
-            style={[styles.input, isNight && styles.darkInput]}
-            value={customPages}
-          />
-        </View>
-
-        {!initialCatalogResult ? (
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.label, isNight && styles.darkMuted]}>Cor do livro na sala</Text>
-            <View style={styles.palette}>
-              {PALETTE.map((color) => {
-                const selected = customColor === color;
-                return (
-                  <Pressable
-                    key={color}
-                    accessibilityLabel={`Selecionar cor ${color}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
-                      setCustomColor(color);
-                    }}
-                    style={[styles.swatch, { backgroundColor: color }, selected && styles.selectedSwatch]}
-                  >
-                    {selected ? <Ionicons color="#FFFFFF" name="checkmark" size={18} /> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
+      <View style={[styles.coverSection, isNight && styles.darkForm]}>
         <View style={[styles.preview, isNight && styles.darkPreview]}>
           <BookCover
             color={initialCatalogResult ? deriveBookColor(initialCatalogResult.workKey) : customColor}
             coverUrl={initialCatalogResult?.coverUrl}
             style={styles.previewCover}
-          />
+          >
+            {!initialCatalogResult?.coverUrl && (
+              <Text allowFontScaling={false} numberOfLines={4} style={styles.coverLabel}>{customTitle.trim() || 'Seu livro'}</Text>
+            )}
+          </BookCover>
           <View style={styles.previewCopy}>
             <Text numberOfLines={2} style={[styles.previewTitle, isNight && styles.darkTitle]}>{customTitle.trim() || 'Título do livro'}</Text>
             <Text numberOfLines={1} style={[styles.previewAuthor, isNight && styles.darkMuted]}>{customAuthor.trim() || 'Autor(a)'}</Text>
             <Text style={[styles.previewPages, isNight && styles.darkMuted]}>{customPages ? `${customPages} páginas` : 'Páginas a definir'}</Text>
           </View>
         </View>
-        <PrimaryButton disabled={!customTitle.trim() || !validPages} label="Adicionar à biblioteca" onPress={handleAdd} />
+        {!initialCatalogResult ? (
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, isNight && styles.darkMuted]}>Cor da capa</Text>
+            <View style={styles.palette}>
+              {PALETTE.map(({ color, label }) => {
+                const selected = customColor === color;
+                return (
+                  <Pressable
+                    key={color}
+                    accessibilityLabel={`Selecionar cor ${label}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+                      setCustomColor(color);
+                    }}
+                    style={[styles.swatch, { backgroundColor: color }, selected && { borderWidth: 2, borderColor: accent }]}
+                  >
+                    {selected ? <View style={styles.swatchCheck}><Ionicons color={colors.ink} name="checkmark" size={15} accessible={false} /></View> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={[styles.form, isNight && styles.darkForm]}>
+        <Text style={[styles.sectionTitle, isNight && styles.darkTitle]}>
+          {initialCatalogResult ? 'Detalhes da edição' : 'Detalhes do livro'}
+        </Text>
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, isNight && styles.darkMuted]}>Título</Text>
+          <AppTextInput
+            autoCapitalize="sentences"
+            accessibilityLabel="Título"
+            invalid={Boolean(titleError)}
+            onFocus={() => setFocusedField('title')}
+            onBlur={() => { setFocusedField(undefined); setTitleTouched(true); }}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
+            selectionColor={accent}
+            onChangeText={setCustomTitle}
+            placeholder="Ex.: Cem Anos de Solidão"
+            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
+            style={inputStyle('title')}
+            value={customTitle}
+          />
+          <FieldError isNight={isNight} message={titleError} />
+        </View>
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, isNight && styles.darkMuted]}>Autor(a) · opcional</Text>
+          <AppTextInput
+            autoCapitalize="words"
+            accessibilityLabel="Autor ou autora"
+            onFocus={() => setFocusedField('author')}
+            onBlur={() => setFocusedField(undefined)}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
+            selectionColor={accent}
+            onChangeText={setCustomAuthor}
+            placeholder="Nome do autor"
+            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
+            style={inputStyle('author')}
+            value={customAuthor}
+          />
+        </View>
+        <View style={styles.fieldGroup}>
+          <Text style={[styles.label, isNight && styles.darkMuted]}>Total de páginas</Text>
+          <AppTextInput
+            keyboardType="number-pad"
+            maxLength={5}
+            accessibilityLabel="Total de páginas"
+            invalid={Boolean(pagesError)}
+            onFocus={() => setFocusedField('pages')}
+            onBlur={() => { setFocusedField(undefined); setPagesTouched(true); }}
+            keyboardAppearance={isNight ? 'dark' : 'light'}
+            selectionColor={accent}
+            onChangeText={setCustomPages}
+            placeholder="Ex.: 350"
+            placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
+            style={inputStyle('pages')}
+            value={customPages}
+          />
+          <FieldError isNight={isNight} message={pagesError} />
+        </View>
+
+        {!initialCatalogResult ? (
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, isNight && styles.darkMuted]}>ISBN (opcional)</Text>
+            <AppTextInput
+              autoCapitalize="characters"
+              autoCorrect={false}
+              accessibilityLabel="ISBN opcional"
+              onFocus={() => setFocusedField('isbn')}
+              onBlur={() => setFocusedField(undefined)}
+              keyboardAppearance={isNight ? 'dark' : 'light'}
+              selectionColor={accent}
+              onChangeText={setCustomIsbn}
+              placeholder="Ex.: 9780140328721"
+              placeholderTextColor={isNight ? darkTheme.textSubtle : colors.mutedLight}
+              style={inputStyle('isbn')}
+              value={customIsbn}
+            />
+          </View>
+        ) : null}
+        {shelfName ? <Text style={[styles.destination, isNight && styles.darkMuted]}>Destino: {shelfName}</Text> : null}
+        <PrimaryButton disabled={!customTitle.trim() || !validPages}
+          label="Salvar na prateleira" onPress={handleAdd}
+          isNight={isNight} />
       </View>
     </ScrollView>
   );
@@ -242,23 +292,26 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.muted, fontSize: 14, lineHeight: 19 },
   closeButton: { ...controls.iconButton, backgroundColor: colors.softFill },
   darkCloseButton: { backgroundColor: darkTheme.surfaceElevated },
+  coverSection: { padding: 14, gap: 12, backgroundColor: colors.paper, borderRadius: radii.large, borderCurve: 'continuous' },
   form: { gap: 18, padding: 18, borderRadius: radii.large, borderCurve: 'continuous', backgroundColor: colors.paper },
   darkForm: { backgroundColor: darkTheme.surface },
   sectionTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 19 },
   fieldGroup: { gap: 7 },
   label: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  input: { ...controls.input, borderColor: colors.line, color: colors.ink, backgroundColor: colors.paper },
+  input: { ...controls.input, borderRadius: radii.medium, borderCurve: 'continuous', borderColor: colors.line, color: colors.ink, backgroundColor: colors.paper },
   darkInput: { color: darkTheme.text, borderColor: darkTheme.inputBorder, backgroundColor: darkTheme.inputBg },
   palette: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  swatch: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18 },
-  selectedSwatch: { borderWidth: 2, borderColor: colors.ink },
+  swatch: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radii.full },
+  swatchCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
   preview: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: 14, borderCurve: 'continuous', backgroundColor: colors.softFill },
   darkPreview: { backgroundColor: darkTheme.surfaceElevated },
-  previewCover: { width: 46, height: 66, borderRadius: 4, borderCurve: 'continuous' },
+  previewCover: { width: 84, height: 126, borderRadius: radii.small, borderCurve: 'continuous', justifyContent: 'center', padding: 8 },
+  coverLabel: { color: colors.ink, backgroundColor: colors.paper, borderRadius: 4, overflow: 'hidden', padding: 4, fontFamily: typography.editorial, fontSize: 12, textAlign: 'center' },
   previewCopy: { flex: 1, gap: 4 },
-  previewTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 16 },
+  previewTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 20 },
   previewAuthor: { color: colors.muted, fontSize: 13 },
   previewPages: { color: colors.muted, fontSize: 12 },
+  destination: { color: colors.muted, fontSize: 13, textAlign: 'center' },
   darkTitle: { color: darkTheme.text },
   darkMuted: { color: darkTheme.textMuted },
 });

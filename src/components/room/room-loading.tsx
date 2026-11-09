@@ -1,133 +1,95 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
+import { Canvas, Circle, Group, Path, RadialGradient, Skia, vec } from '@shopify/react-native-skia';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  cancelAnimation, Easing, useAnimatedStyle, useReducedMotion,
-  useSharedValue, withRepeat, withTiming, type SharedValue,
-} from 'react-native-reanimated';
+import { useCallback, useMemo } from 'react';
+import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { cancelAnimation, Easing, useDerivedValue, useReducedMotion, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 
+import scene from '@/assets/room-loading-scene.json';
 import { colors, darkTheme, radii, typography } from '@/src/theme';
 
 export type RoomLoadingPhase = 'library' | 'furniture' | 'lighting';
 export type RoomLoadingAmbience = 'day' | 'night';
+type RoomLoadingProps = { ambience: RoomLoadingAmbience; phase: RoomLoadingPhase; isSlow: boolean; onRetry: () => void };
+type ScenePart = { id: string; delay: number; paths: { d: string; fill: string; stroke?: string }[] };
+const DURATION = 2800;
 
-type RoomLoadingProps = {
-  ambience: RoomLoadingAmbience;
-  phase: RoomLoadingPhase;
-  isSlow: boolean;
-  onRetry: () => void;
-};
-
-const phaseCopy: Record<RoomLoadingPhase, { title: string; subtitle: string }> = {
-  library: {
-    title: 'Preparando sua sala',
-    subtitle: 'Carregando os modelos do seu cantinho.',
-  },
-  furniture: {
-    title: 'Montando seu cantinho',
-    subtitle: 'Carregando a mesa, a estante e seus livros.',
-  },
-  lighting: {
-    title: 'Quase em casa',
-    subtitle: 'Finalizando a cena para você entrar.',
-  },
-};
-
-function LoadingDot({ clock, index, color, reducedMotion }: {
-  clock: SharedValue<number>;
-  index: number;
-  color: string;
-  reducedMotion: boolean;
-}) {
-  const motion = useAnimatedStyle(() => {
-    const pulse = reducedMotion ? 0 : Math.pow(Math.max(0, Math.sin(clock.get() * Math.PI * 4 - index * 0.8)), 2);
-    return { opacity: 0.35 + pulse * 0.65, transform: [{ translateY: -3 * pulse }] };
+function AssemblingPart({ part, progress }: { part: ScenePart; progress: SharedValue<number> }) {
+  const paths = useMemo(() => part.paths.map(path => ({ ...path, shape: Skia.Path.MakeFromSVGString(path.d) })), [part]);
+  const reveal = useDerivedValue(() => {
+    const t = Math.max(0, Math.min(1, (progress.value * DURATION / 1000 - part.delay) / .45));
+    return 1 - Math.pow(1 - t, 3);
   });
-  return <Animated.View style={[styles.dot, { backgroundColor: color }, motion]} />;
+  const transform = useDerivedValue(() => [{ translateY: (1 - reveal.value) * 5 }]);
+  return <Group opacity={reveal} transform={transform}>
+    {paths.map((path, index) => path.shape ? <Group key={index}>
+      {path.fill !== 'none' ? <Path path={path.shape} color={path.fill} /> : null}
+      <Path path={path.shape} color={path.stroke ?? scene.stroke} style="stroke" strokeWidth={scene.strokeWidth} strokeJoin="round" strokeCap="round" />
+    </Group> : null)}
+  </Group>;
 }
 
 export function RoomLoading({ ambience, phase, isSlow, onRetry }: RoomLoadingProps) {
-  const copy = phaseCopy[phase];
+  const { width, height } = useWindowDimensions();
+  const size = Math.min(320, width - 48, height * 0.46);
   const night = ambience === 'night';
-  const accent = night ? darkTheme.accent : colors.terracotta;
   const reducedMotion = useReducedMotion();
-  const clock = useSharedValue(0);
+  const progress = useSharedValue(reducedMotion ? 1 : 0);
+  const muted = night ? darkTheme.textMuted : colors.muted;
 
   useFocusEffect(useCallback(() => {
-    const updateAnimation = () => {
-      cancelAnimation(clock);
-      clock.set(0);
-      if (!reducedMotion && AppState.currentState === 'active') {
-        clock.set(withRepeat(withTiming(1, { duration: 3200, easing: Easing.linear }), -1));
+    const update = () => {
+      cancelAnimation(progress);
+      if (reducedMotion) progress.set(1);
+      else if (AppState.currentState === 'active') {
+        progress.set(withTiming(1, { duration: DURATION * (1 - progress.get()), easing: Easing.linear }));
       }
     };
-    updateAnimation();
-    const subscription = AppState.addEventListener('change', updateAnimation);
-    return () => {
-      subscription.remove();
-      cancelAnimation(clock);
-      clock.set(0);
-    };
-  }, [clock, reducedMotion]));
+    update();
+    const subscription = AppState.addEventListener('change', update);
+    return () => { subscription.remove(); cancelAnimation(progress); };
+  }, [progress, reducedMotion]));
 
-  const mascotMotion = useAnimatedStyle(() => {
-    const angle = clock.get() * Math.PI * 2;
-    const breath = (1 - Math.cos(angle)) / 2;
-    return {
-      transform: [
-        { translateY: -8 * breath },
-        { rotate: `${2 * Math.sin(angle)}deg` },
-        { scale: 1 + 0.025 * breath },
-      ],
-    };
-  });
-
-  return (
-    <View pointerEvents={isSlow ? 'auto' : 'none'} style={[styles.overlay, { backgroundColor: night ? darkTheme.bg : colors.cream }]}>
-      <View style={styles.content}>
-        <Animated.View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.mascot, mascotMotion]}>
-          <Image source={require('../../../assets/niko-loading.png')} contentFit="contain" style={styles.image} />
-        </Animated.View>
-        <View accessibilityLiveRegion="polite" style={styles.copy}>
-          <Text accessibilityRole="header" style={[styles.title, { color: night ? darkTheme.text : colors.ink }]}>
-            {isSlow ? 'Seu cantinho está a caminho' : copy.title}
-          </Text>
-          <Text style={[styles.subtitle, { color: night ? darkTheme.textMuted : colors.inkSoft }]}>
-            {isSlow ? 'O carregamento está demorando mais que o habitual. Você pode tentar novamente.' : copy.subtitle}
-          </Text>
-        </View>
-        <View style={styles.status}>
-          {isSlow ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Tentar carregar a sala novamente" onPress={onRetry}
-              style={({ pressed }) => [styles.retry, { borderColor: accent }, pressed && styles.pressed]}>
-              <Ionicons color={accent} name="refresh-outline" size={17} />
-              <Text style={[styles.retryLabel, { color: accent }]}>Tentar novamente</Text>
-            </Pressable>
-          ) : (
-            <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.dots}>
-              {[0, 1, 2].map((index) => <LoadingDot key={index} clock={clock} index={index} color={accent} reducedMotion={reducedMotion} />)}
-            </View>
-          )}
-        </View>
+  const light = useDerivedValue(() => Math.max(0, Math.min(1, (progress.value - .8) * 5)));
+  const labels = { library: 'Carregando sua biblioteca', furniture: 'Preparando os móveis', lighting: 'Finalizando a iluminação' };
+  return <View style={[styles.overlay, { backgroundColor: night ? darkTheme.bg : colors.softFill }]}>
+    <View style={styles.content}>
+      <View style={{ width: size, height: size * scene.height / scene.width }} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Canvas style={StyleSheet.absoluteFill}>
+          <Group transform={[{ scale: size / scene.width }]}>
+            {scene.groups.map(part => <AssemblingPart key={part.id} part={part} progress={progress} />)}
+            <Group opacity={light}>
+              <Circle cx={84} cy={101} r={38}>
+                <RadialGradient c={vec(84, 101)} r={38} colors={['#FFE9A840', '#FFE9A800']} />
+              </Circle>
+            </Group>
+          </Group>
+        </Canvas>
       </View>
+      <View style={styles.copy} accessibilityLiveRegion="polite">
+        <Text accessibilityRole="header" style={[styles.title, { color: night ? darkTheme.text : colors.ink }]}>
+          {isSlow ? 'Está demorando um pouco' : 'Preparando seu cantinho'}
+        </Text>
+        <Text style={[styles.subtitle, { color: muted }]}>
+          {isSlow ? 'Você pode tentar carregar a sala novamente.' : labels[phase]}
+        </Text>
+      </View>
+      {isSlow ? <Pressable accessibilityRole="button" accessibilityLabel="Tentar carregar a sala novamente" onPress={onRetry}
+        style={({ pressed }) => [styles.retry, { backgroundColor: night ? darkTheme.primary : colors.ink }, pressed && styles.pressed]}>
+        <Ionicons color={night ? darkTheme.actionText : colors.paper} name="refresh-outline" size={17} accessible={false} />
+        <Text style={[styles.retryLabel, { color: night ? darkTheme.actionText : colors.paper }]}>Tentar novamente</Text>
+      </Pressable> : null}
     </View>
-  );
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  content: { width: '100%', maxWidth: 340, alignItems: 'center', gap: 24 },
-  mascot: { width: '72%', maxWidth: 240, aspectRatio: 1 },
-  image: { width: '100%', height: '100%' },
-  copy: { width: '100%', alignItems: 'center', gap: 10 },
-  title: { fontFamily: typography.editorial, fontSize: 28, textAlign: 'center' },
-  subtitle: { fontFamily: typography.ui, fontSize: 16, lineHeight: 24, textAlign: 'center', maxWidth: 300 },
-  status: { minHeight: 48, justifyContent: 'center' },
-  dots: { flexDirection: 'row', gap: 9, paddingVertical: 12 },
-  dot: { width: 7, height: 7, borderRadius: radii.full },
-  retry: { minHeight: 48, paddingHorizontal: 20, borderWidth: 1, borderRadius: radii.full, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  content: { width: '100%', maxWidth: 340, alignItems: 'center', gap: 20 },
+  copy: { width: '100%', alignItems: 'center', gap: 8 },
+  title: { fontFamily: typography.editorial, fontSize: 27, lineHeight: 34, textAlign: 'center' },
+  subtitle: { fontFamily: typography.ui, fontSize: 14, lineHeight: 21, textAlign: 'center', maxWidth: 280 },
+  retry: { minHeight: 48, paddingHorizontal: 20, borderRadius: radii.full, flexDirection: 'row', alignItems: 'center', gap: 8 },
   retryLabel: { fontFamily: typography.ui, fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
 });

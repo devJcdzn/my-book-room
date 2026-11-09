@@ -1,0 +1,2818 @@
+{
+  "version": 4,
+  "contract": {
+    "projection": "orthographic-2:1",
+    "tile": 64,
+    "projectedDepth": 32,
+    "verticalUnit": 32,
+    "margin": 8,
+    "light": "top-left-fixed",
+    "sourceReduction": "already exported once with Lanczos; no additional resampling"
+  },
+  "source": "output/sprites-v2/manifest.json",
+  "palette": {
+    "day": {
+      "wood": "#e59b54",
+      "woodShade": "#805030",
+      "paper": "#f0e0c0",
+      "accent": "#cc7048",
+      "fabric": "#907780",
+      "ceramic": "#c8b9a6",
+      "metal": "#c08b50",
+      "soil": "#52694f",
+      "leaf": "#809b73",
+      "glass": "#91b6b5",
+      "fur": "#f0d0b0",
+      "ink": "#49372f"
+    },
+    "night": {
+      "wood": "#775a42",
+      "woodShade": "#563f30",
+      "paper": "#c6b99e",
+      "accent": "#a75d4b",
+      "fabric": "#71585e",
+      "ceramic": "#a7987d",
+      "metal": "#6c5a48",
+      "soil": "#514434",
+      "leaf": "#56654e",
+      "glass": "#526f76",
+      "fur": "#c5ad83",
+      "ink": "#49372f"
+    },
+    "outline": "#49372f"
+  },
+  "materials": [
+    "wood",
+    "woodShade",
+    "paper",
+    "accent",
+    "fabric",
+    "leaf",
+    "ceramic",
+    "soil",
+    "glass"
+  ],
+  "sourceFamilies": {
+    "desk": {
+      "item": "mesa",
+      "footprint": [
+        1.8,
+        1
+      ],
+      "heightTiles": 1.2,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "tilePixels": 64
+    },
+    "seat": {
+      "item": "cadeira",
+      "footprint": [
+        0.75,
+        0.8
+      ],
+      "heightTiles": 1.55,
+      "materials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "tilePixels": 64
+    },
+    "bookcase": {
+      "item": "estante",
+      "footprint": [
+        1.6,
+        0.6
+      ],
+      "heightTiles": 2.6,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "tilePixels": 64
+    },
+    "lamp": {
+      "item": "luminaria",
+      "footprint": [
+        0.65,
+        0.65
+      ],
+      "heightTiles": 2.5,
+      "materials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "tilePixels": 64
+    },
+    "plant": {
+      "item": "planta",
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "heightTiles": 0.75,
+      "materials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "tilePixels": 64
+    },
+    "rug": {
+      "item": "tapete",
+      "footprint": [
+        3,
+        2.4
+      ],
+      "heightTiles": 0.02,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "tilePixels": 64
+    },
+    "frame": {
+      "item": "quadro",
+      "footprint": [
+        0.65,
+        0.06
+      ],
+      "heightTiles": 0.85,
+      "materials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "tilePixels": 64
+    },
+    "pillow": {
+      "item": "almofada",
+      "footprint": [
+        1,
+        0.8
+      ],
+      "heightTiles": 0.12,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "tilePixels": 64
+    }
+  },
+  "assets": [
+    {
+      "key": "bookcase",
+      "category": "bookcase",
+      "file": "bookcase-0.png",
+      "nightFile": "bookcase-0-night.png",
+      "lineFile": "bookcase-0-line.png",
+      "shadowFile": "bookcase-0-shadow.png",
+      "hitMaskFile": "bookcase-0-hit.png",
+      "runtimeMaskFile": "bookcase-0-materials.png",
+      "width": 88,
+      "height": 146,
+      "tilePixels": 64,
+      "footprint": [
+        1.6,
+        0.6
+      ],
+      "heightTiles": 2.6,
+      "pivot": [
+        44,
+        119
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/estante-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.2153846153846154,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "bookcase",
+      "category": "bookcase",
+      "file": "bookcase-90.png",
+      "nightFile": "bookcase-90-night.png",
+      "lineFile": "bookcase-90-line.png",
+      "shadowFile": "bookcase-90-shadow.png",
+      "hitMaskFile": "bookcase-90-hit.png",
+      "runtimeMaskFile": "bookcase-90-materials.png",
+      "width": 88,
+      "height": 146,
+      "tilePixels": 64,
+      "footprint": [
+        0.6,
+        1.6
+      ],
+      "heightTiles": 2.6,
+      "pivot": [
+        44,
+        119
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/estante-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.2153846153846154,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "bookcase",
+      "category": "bookcase",
+      "file": "bookcase-180.png",
+      "nightFile": "bookcase-180-night.png",
+      "lineFile": "bookcase-180-line.png",
+      "shadowFile": "bookcase-180-shadow.png",
+      "hitMaskFile": "bookcase-180-hit.png",
+      "runtimeMaskFile": "bookcase-180-materials.png",
+      "width": 88,
+      "height": 146,
+      "tilePixels": 64,
+      "footprint": [
+        1.6,
+        0.6
+      ],
+      "heightTiles": 2.6,
+      "pivot": [
+        44,
+        119
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/estante-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.21084337349397592,
+      "sourceOffset": [
+        1,
+        5
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "bookcase",
+      "category": "bookcase",
+      "file": "bookcase-270.png",
+      "nightFile": "bookcase-270-night.png",
+      "lineFile": "bookcase-270-line.png",
+      "shadowFile": "bookcase-270-shadow.png",
+      "hitMaskFile": "bookcase-270-hit.png",
+      "runtimeMaskFile": "bookcase-270-materials.png",
+      "width": 88,
+      "height": 146,
+      "tilePixels": 64,
+      "footprint": [
+        0.6,
+        1.6
+      ],
+      "heightTiles": 2.6,
+      "pivot": [
+        44,
+        119
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/estante-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.21021021021021022,
+      "sourceOffset": [
+        1,
+        5
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "desk",
+      "category": "desk",
+      "file": "desk-0.png",
+      "nightFile": "desk-0-night.png",
+      "lineFile": "desk-0-line.png",
+      "shadowFile": "desk-0-shadow.png",
+      "hitMaskFile": "desk-0-hit.png",
+      "runtimeMaskFile": "desk-0-materials.png",
+      "width": 108,
+      "height": 92,
+      "tilePixels": 64,
+      "footprint": [
+        1.8,
+        1
+      ],
+      "heightTiles": 1.2,
+      "pivot": [
+        54,
+        61
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/mesa-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.18867924528301888,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "desk",
+      "category": "desk",
+      "file": "desk-90.png",
+      "nightFile": "desk-90-night.png",
+      "lineFile": "desk-90-line.png",
+      "shadowFile": "desk-90-shadow.png",
+      "hitMaskFile": "desk-90-hit.png",
+      "runtimeMaskFile": "desk-90-materials.png",
+      "width": 108,
+      "height": 92,
+      "tilePixels": 64,
+      "footprint": [
+        1,
+        1.8
+      ],
+      "heightTiles": 1.2,
+      "pivot": [
+        54,
+        61
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/mesa-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.1906779661016949,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "desk",
+      "category": "desk",
+      "file": "desk-180.png",
+      "nightFile": "desk-180-night.png",
+      "lineFile": "desk-180-line.png",
+      "shadowFile": "desk-180-shadow.png",
+      "hitMaskFile": "desk-180-hit.png",
+      "runtimeMaskFile": "desk-180-materials.png",
+      "width": 108,
+      "height": 92,
+      "tilePixels": 64,
+      "footprint": [
+        1.8,
+        1
+      ],
+      "heightTiles": 1.2,
+      "pivot": [
+        54,
+        61
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/mesa-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.18672199170124482,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "desk",
+      "category": "desk",
+      "file": "desk-270.png",
+      "nightFile": "desk-270-night.png",
+      "lineFile": "desk-270-line.png",
+      "shadowFile": "desk-270-shadow.png",
+      "hitMaskFile": "desk-270-hit.png",
+      "runtimeMaskFile": "desk-270-materials.png",
+      "width": 108,
+      "height": 92,
+      "tilePixels": 64,
+      "footprint": [
+        1,
+        1.8
+      ],
+      "heightTiles": 1.2,
+      "pivot": [
+        54,
+        61
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "paper"
+      ],
+      "sourceFile": "png/mesa-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.18711018711018712,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "frame",
+      "category": "frame",
+      "file": "frame-0.png",
+      "nightFile": "frame-0-night.png",
+      "lineFile": "frame-0-line.png",
+      "shadowFile": "frame-0-shadow.png",
+      "hitMaskFile": "frame-0-hit.png",
+      "runtimeMaskFile": "frame-0-materials.png",
+      "width": 41,
+      "height": 61,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.06
+      ],
+      "heightTiles": 0.85,
+      "pivot": [
+        20.5,
+        31
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "sourceFile": "png/quadro-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.09274193548387097,
+      "sourceOffset": [
+        1,
+        3
+      ],
+      "sockets": {
+        "photo": {
+          "quad": [
+            [
+              12,
+              16
+            ],
+            [
+              26,
+              20
+            ],
+            [
+              25,
+              47
+            ],
+            [
+              12,
+              42
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "key": "frame",
+      "category": "frame",
+      "file": "frame-90.png",
+      "nightFile": "frame-90-night.png",
+      "lineFile": "frame-90-line.png",
+      "shadowFile": "frame-90-shadow.png",
+      "hitMaskFile": "frame-90-hit.png",
+      "runtimeMaskFile": "frame-90-materials.png",
+      "width": 41,
+      "height": 61,
+      "tilePixels": 64,
+      "footprint": [
+        0.06,
+        0.65
+      ],
+      "heightTiles": 0.85,
+      "pivot": [
+        20.5,
+        31
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "sourceFile": "png/quadro-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.09465020576131687,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {
+        "photo": {
+          "quad": [
+            [
+              15,
+              19
+            ],
+            [
+              29,
+              13
+            ],
+            [
+              29,
+              42
+            ],
+            [
+              15,
+              47
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "key": "frame",
+      "category": "frame",
+      "file": "frame-180.png",
+      "nightFile": "frame-180-night.png",
+      "lineFile": "frame-180-line.png",
+      "shadowFile": "frame-180-shadow.png",
+      "hitMaskFile": "frame-180-hit.png",
+      "runtimeMaskFile": "frame-180-materials.png",
+      "width": 41,
+      "height": 61,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.06
+      ],
+      "heightTiles": 0.85,
+      "pivot": [
+        20.5,
+        31
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "sourceFile": "png/quadro-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.0970464135021097,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "frame",
+      "category": "frame",
+      "file": "frame-270.png",
+      "nightFile": "frame-270-night.png",
+      "lineFile": "frame-270-line.png",
+      "shadowFile": "frame-270-shadow.png",
+      "hitMaskFile": "frame-270-hit.png",
+      "runtimeMaskFile": "frame-270-materials.png",
+      "width": 41,
+      "height": 61,
+      "tilePixels": 64,
+      "footprint": [
+        0.06,
+        0.65
+      ],
+      "heightTiles": 0.85,
+      "pivot": [
+        20.5,
+        31
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "accent"
+      ],
+      "sourceFile": "png/quadro-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.0970464135021097,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "lamp",
+      "category": "lamp",
+      "file": "lamp-0.png",
+      "nightFile": "lamp-0-night.png",
+      "lineFile": "lamp-0-line.png",
+      "shadowFile": "lamp-0-shadow.png",
+      "hitMaskFile": "lamp-0-hit.png",
+      "runtimeMaskFile": "lamp-0-materials.png",
+      "width": 60,
+      "height": 125,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.65
+      ],
+      "heightTiles": 2.5,
+      "pivot": [
+        30,
+        106
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "sourceFile": "png/luminaria-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.21212121212121213,
+      "sourceOffset": [
+        1,
+        2
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "lamp",
+      "category": "lamp",
+      "file": "lamp-90.png",
+      "nightFile": "lamp-90-night.png",
+      "lineFile": "lamp-90-line.png",
+      "shadowFile": "lamp-90-shadow.png",
+      "hitMaskFile": "lamp-90-hit.png",
+      "runtimeMaskFile": "lamp-90-materials.png",
+      "width": 60,
+      "height": 125,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.65
+      ],
+      "heightTiles": 2.5,
+      "pivot": [
+        30,
+        106
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "sourceFile": "png/luminaria-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.21212121212121213,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "lamp",
+      "category": "lamp",
+      "file": "lamp-180.png",
+      "nightFile": "lamp-180-night.png",
+      "lineFile": "lamp-180-line.png",
+      "shadowFile": "lamp-180-shadow.png",
+      "hitMaskFile": "lamp-180-hit.png",
+      "runtimeMaskFile": "lamp-180-materials.png",
+      "width": 60,
+      "height": 125,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.65
+      ],
+      "heightTiles": 2.5,
+      "pivot": [
+        30,
+        106
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "sourceFile": "png/luminaria-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.21212121212121213,
+      "sourceOffset": [
+        1,
+        3
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "lamp",
+      "category": "lamp",
+      "file": "lamp-270.png",
+      "nightFile": "lamp-270-night.png",
+      "lineFile": "lamp-270-line.png",
+      "shadowFile": "lamp-270-shadow.png",
+      "hitMaskFile": "lamp-270-hit.png",
+      "runtimeMaskFile": "lamp-270-materials.png",
+      "width": 60,
+      "height": 125,
+      "tilePixels": 64,
+      "footprint": [
+        0.65,
+        0.65
+      ],
+      "heightTiles": 2.5,
+      "pivot": [
+        30,
+        106
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "paper",
+        "wood",
+        "woodShade"
+      ],
+      "sourceFile": "png/luminaria-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.21212121212121213,
+      "sourceOffset": [
+        1,
+        3
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "pillow",
+      "category": "pillow",
+      "file": "pillow-0.png",
+      "nightFile": "pillow-0-night.png",
+      "lineFile": "pillow-0-line.png",
+      "shadowFile": "pillow-0-shadow.png",
+      "hitMaskFile": "pillow-0-hit.png",
+      "runtimeMaskFile": "pillow-0-materials.png",
+      "width": 76,
+      "height": 54,
+      "tilePixels": 64,
+      "footprint": [
+        1,
+        0.8
+      ],
+      "heightTiles": 0.12,
+      "pivot": [
+        38,
+        31
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/almofada-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.11909650924024641,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "pillow",
+      "category": "pillow",
+      "file": "pillow-90.png",
+      "nightFile": "pillow-90-night.png",
+      "lineFile": "pillow-90-line.png",
+      "shadowFile": "pillow-90-shadow.png",
+      "hitMaskFile": "pillow-90-hit.png",
+      "runtimeMaskFile": "pillow-90-materials.png",
+      "width": 76,
+      "height": 54,
+      "tilePixels": 64,
+      "footprint": [
+        0.8,
+        1
+      ],
+      "heightTiles": 0.12,
+      "pivot": [
+        38,
+        31
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/almofada-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.11983471074380166,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "pillow",
+      "category": "pillow",
+      "file": "pillow-180.png",
+      "nightFile": "pillow-180-night.png",
+      "lineFile": "pillow-180-line.png",
+      "shadowFile": "pillow-180-shadow.png",
+      "hitMaskFile": "pillow-180-hit.png",
+      "runtimeMaskFile": "pillow-180-materials.png",
+      "width": 76,
+      "height": 54,
+      "tilePixels": 64,
+      "footprint": [
+        1,
+        0.8
+      ],
+      "heightTiles": 0.12,
+      "pivot": [
+        38,
+        31
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/almofada-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.11934156378600823,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "pillow",
+      "category": "pillow",
+      "file": "pillow-270.png",
+      "nightFile": "pillow-270-night.png",
+      "lineFile": "pillow-270-line.png",
+      "shadowFile": "pillow-270-shadow.png",
+      "hitMaskFile": "pillow-270-hit.png",
+      "runtimeMaskFile": "pillow-270-materials.png",
+      "width": 76,
+      "height": 54,
+      "tilePixels": 64,
+      "footprint": [
+        0.8,
+        1
+      ],
+      "heightTiles": 0.12,
+      "pivot": [
+        38,
+        31
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/almofada-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.11934156378600823,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "plant",
+      "category": "plant",
+      "file": "plant-0.png",
+      "nightFile": "plant-0-night.png",
+      "lineFile": "plant-0-line.png",
+      "shadowFile": "plant-0-shadow.png",
+      "hitMaskFile": "plant-0-hit.png",
+      "runtimeMaskFile": "plant-0-materials.png",
+      "width": 50,
+      "height": 53,
+      "tilePixels": 64,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "heightTiles": 0.75,
+      "pivot": [
+        25,
+        36
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "runtimeMaterials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "sourceFile": "png/planta-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.08121827411167512,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "plant",
+      "category": "plant",
+      "file": "plant-90.png",
+      "nightFile": "plant-90-night.png",
+      "lineFile": "plant-90-line.png",
+      "shadowFile": "plant-90-shadow.png",
+      "hitMaskFile": "plant-90-hit.png",
+      "runtimeMaskFile": "plant-90-materials.png",
+      "width": 50,
+      "height": 53,
+      "tilePixels": 64,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "heightTiles": 0.75,
+      "pivot": [
+        25,
+        36
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "runtimeMaterials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "sourceFile": "png/planta-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.0810126582278481,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "plant",
+      "category": "plant",
+      "file": "plant-180.png",
+      "nightFile": "plant-180-night.png",
+      "lineFile": "plant-180-line.png",
+      "shadowFile": "plant-180-shadow.png",
+      "hitMaskFile": "plant-180-hit.png",
+      "runtimeMaskFile": "plant-180-materials.png",
+      "width": 50,
+      "height": 53,
+      "tilePixels": 64,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "heightTiles": 0.75,
+      "pivot": [
+        25,
+        36
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "runtimeMaterials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "sourceFile": "png/planta-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.0794044665012407,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "plant",
+      "category": "plant",
+      "file": "plant-270.png",
+      "nightFile": "plant-270-night.png",
+      "lineFile": "plant-270-line.png",
+      "shadowFile": "plant-270-shadow.png",
+      "hitMaskFile": "plant-270-hit.png",
+      "runtimeMaskFile": "plant-270-materials.png",
+      "width": 50,
+      "height": 53,
+      "tilePixels": 64,
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "heightTiles": 0.75,
+      "pivot": [
+        25,
+        36
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "runtimeMaterials": [
+        "leaf",
+        "ceramic",
+        "soil"
+      ],
+      "sourceFile": "png/planta-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.08163265306122448,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "rug",
+      "category": "rug",
+      "file": "rug-0.png",
+      "nightFile": "rug-0-night.png",
+      "lineFile": "rug-0-line.png",
+      "shadowFile": "rug-0-shadow.png",
+      "hitMaskFile": "rug-0-hit.png",
+      "runtimeMaskFile": "rug-0-materials.png",
+      "width": 191,
+      "height": 110,
+      "tilePixels": 64,
+      "footprint": [
+        3,
+        2.4
+      ],
+      "heightTiles": 0.02,
+      "pivot": [
+        95.5,
+        58
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/tapete-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.26947040498442365,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "rug",
+      "category": "rug",
+      "file": "rug-90.png",
+      "nightFile": "rug-90-night.png",
+      "lineFile": "rug-90-line.png",
+      "shadowFile": "rug-90-shadow.png",
+      "hitMaskFile": "rug-90-hit.png",
+      "runtimeMaskFile": "rug-90-materials.png",
+      "width": 191,
+      "height": 110,
+      "tilePixels": 64,
+      "footprint": [
+        2.4,
+        3
+      ],
+      "heightTiles": 0.02,
+      "pivot": [
+        95.5,
+        58
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/tapete-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.2682170542635659,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "rug",
+      "category": "rug",
+      "file": "rug-180.png",
+      "nightFile": "rug-180-night.png",
+      "lineFile": "rug-180-line.png",
+      "shadowFile": "rug-180-shadow.png",
+      "hitMaskFile": "rug-180-hit.png",
+      "runtimeMaskFile": "rug-180-materials.png",
+      "width": 191,
+      "height": 110,
+      "tilePixels": 64,
+      "footprint": [
+        3,
+        2.4
+      ],
+      "heightTiles": 0.02,
+      "pivot": [
+        95.5,
+        58
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/tapete-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.2686335403726708,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "rug",
+      "category": "rug",
+      "file": "rug-270.png",
+      "nightFile": "rug-270-night.png",
+      "lineFile": "rug-270-line.png",
+      "shadowFile": "rug-270-shadow.png",
+      "hitMaskFile": "rug-270-hit.png",
+      "runtimeMaskFile": "rug-270-materials.png",
+      "width": 191,
+      "height": 110,
+      "tilePixels": 64,
+      "footprint": [
+        2.4,
+        3
+      ],
+      "heightTiles": 0.02,
+      "pivot": [
+        95.5,
+        58
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "runtimeMaterials": [
+        "fabric",
+        "accent",
+        "paper"
+      ],
+      "sourceFile": "png/tapete-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.2698907956318253,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "seat",
+      "category": "seat",
+      "file": "seat-0.png",
+      "nightFile": "seat-0-night.png",
+      "lineFile": "seat-0-line.png",
+      "shadowFile": "seat-0-shadow.png",
+      "hitMaskFile": "seat-0-hit.png",
+      "runtimeMaskFile": "seat-0-materials.png",
+      "width": 68,
+      "height": 94,
+      "tilePixels": 64,
+      "footprint": [
+        0.75,
+        0.8
+      ],
+      "heightTiles": 1.55,
+      "pivot": [
+        34,
+        73
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "sourceFile": "png/cadeira-frente-direita.png",
+      "sourceView": "frente-direita",
+      "sourceScale": 0.16447368421052633,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "seat",
+      "category": "seat",
+      "file": "seat-90.png",
+      "nightFile": "seat-90-night.png",
+      "lineFile": "seat-90-line.png",
+      "shadowFile": "seat-90-shadow.png",
+      "hitMaskFile": "seat-90-hit.png",
+      "runtimeMaskFile": "seat-90-materials.png",
+      "width": 68,
+      "height": 94,
+      "tilePixels": 64,
+      "footprint": [
+        0.8,
+        0.75
+      ],
+      "heightTiles": 1.55,
+      "pivot": [
+        34,
+        73
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "sourceFile": "png/cadeira-frente-esquerda.png",
+      "sourceView": "frente-esquerda",
+      "sourceScale": 0.16447368421052633,
+      "sourceOffset": [
+        1,
+        1
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "seat",
+      "category": "seat",
+      "file": "seat-180.png",
+      "nightFile": "seat-180-night.png",
+      "lineFile": "seat-180-line.png",
+      "shadowFile": "seat-180-shadow.png",
+      "hitMaskFile": "seat-180-hit.png",
+      "runtimeMaskFile": "seat-180-materials.png",
+      "width": 68,
+      "height": 94,
+      "tilePixels": 64,
+      "footprint": [
+        0.75,
+        0.8
+      ],
+      "heightTiles": 1.55,
+      "pivot": [
+        34,
+        73
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "sourceFile": "png/cadeira-costas-esquerda.png",
+      "sourceView": "costas-esquerda",
+      "sourceScale": 0.16286644951140064,
+      "sourceOffset": [
+        1,
+        9
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "seat",
+      "category": "seat",
+      "file": "seat-270.png",
+      "nightFile": "seat-270-night.png",
+      "lineFile": "seat-270-line.png",
+      "shadowFile": "seat-270-shadow.png",
+      "hitMaskFile": "seat-270-hit.png",
+      "runtimeMaskFile": "seat-270-materials.png",
+      "width": 68,
+      "height": 94,
+      "tilePixels": 64,
+      "footprint": [
+        0.8,
+        0.75
+      ],
+      "heightTiles": 1.55,
+      "pivot": [
+        34,
+        73
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "paper",
+        "woodShade"
+      ],
+      "sourceFile": "png/cadeira-costas-direita.png",
+      "sourceView": "costas-direita",
+      "sourceScale": 0.16286644951140064,
+      "sourceOffset": [
+        1,
+        9
+      ],
+      "sockets": {}
+    },
+    {
+      "key": "window",
+      "category": "window",
+      "file": "window-0.png",
+      "nightFile": "window-0-night.png",
+      "lineFile": "window-0-line.png",
+      "shadowFile": "window-0-shadow.png",
+      "hitMaskFile": "window-0-hit.png",
+      "runtimeMaskFile": "window-0-materials.png",
+      "width": 239,
+      "height": 392,
+      "footprint": [
+        2,
+        0.15
+      ],
+      "heightTiles": 2,
+      "pivot": [
+        120,
+        324
+      ],
+      "orientationDegrees": 0,
+      "turn": 0,
+      "materials": [
+        "wood",
+        "glass",
+        "accent",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "glass"
+      ],
+      "materialMasks": {
+        "wood": "window-0-mask-wood.png",
+        "glass": "window-0-mask-glass.png",
+        "accent": "window-0-mask-accent.png",
+        "woodShade": "window-0-mask-woodShade.png"
+      },
+      "sockets": {},
+      "sourceScale": 2,
+      "reduction": "Lanczos3 once",
+      "tilePixels": 192
+    },
+    {
+      "key": "window",
+      "category": "window",
+      "file": "window-90.png",
+      "nightFile": "window-90-night.png",
+      "lineFile": "window-90-line.png",
+      "shadowFile": "window-90-shadow.png",
+      "hitMaskFile": "window-90-hit.png",
+      "runtimeMaskFile": "window-90-materials.png",
+      "width": 239,
+      "height": 392,
+      "footprint": [
+        0.15,
+        2
+      ],
+      "heightTiles": 2,
+      "pivot": [
+        120,
+        324
+      ],
+      "orientationDegrees": 90,
+      "turn": 90,
+      "materials": [
+        "wood",
+        "glass",
+        "accent",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "glass"
+      ],
+      "materialMasks": {
+        "wood": "window-90-mask-wood.png",
+        "glass": "window-90-mask-glass.png",
+        "accent": "window-90-mask-accent.png",
+        "woodShade": "window-90-mask-woodShade.png"
+      },
+      "sockets": {},
+      "sourceScale": 2,
+      "reduction": "Lanczos3 once",
+      "tilePixels": 192
+    },
+    {
+      "key": "window",
+      "category": "window",
+      "file": "window-180.png",
+      "nightFile": "window-180-night.png",
+      "lineFile": "window-180-line.png",
+      "shadowFile": "window-180-shadow.png",
+      "hitMaskFile": "window-180-hit.png",
+      "runtimeMaskFile": "window-180-materials.png",
+      "width": 239,
+      "height": 392,
+      "footprint": [
+        2,
+        0.15
+      ],
+      "heightTiles": 2,
+      "pivot": [
+        120,
+        324
+      ],
+      "orientationDegrees": 180,
+      "turn": 180,
+      "materials": [
+        "wood",
+        "glass",
+        "accent",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "glass"
+      ],
+      "materialMasks": {
+        "wood": "window-180-mask-wood.png",
+        "glass": "window-180-mask-glass.png",
+        "accent": "window-180-mask-accent.png",
+        "woodShade": "window-180-mask-woodShade.png"
+      },
+      "sockets": {},
+      "sourceScale": 2,
+      "reduction": "Lanczos3 once",
+      "tilePixels": 192
+    },
+    {
+      "key": "window",
+      "category": "window",
+      "file": "window-270.png",
+      "nightFile": "window-270-night.png",
+      "lineFile": "window-270-line.png",
+      "shadowFile": "window-270-shadow.png",
+      "hitMaskFile": "window-270-hit.png",
+      "runtimeMaskFile": "window-270-materials.png",
+      "width": 239,
+      "height": 392,
+      "footprint": [
+        0.15,
+        2
+      ],
+      "heightTiles": 2,
+      "pivot": [
+        120,
+        324
+      ],
+      "orientationDegrees": 270,
+      "turn": 270,
+      "materials": [
+        "wood",
+        "glass",
+        "accent",
+        "woodShade"
+      ],
+      "runtimeMaterials": [
+        "wood",
+        "woodShade",
+        "glass"
+      ],
+      "materialMasks": {
+        "wood": "window-270-mask-wood.png",
+        "glass": "window-270-mask-glass.png",
+        "accent": "window-270-mask-accent.png",
+        "woodShade": "window-270-mask-woodShade.png"
+      },
+      "sockets": {},
+      "sourceScale": 2,
+      "reduction": "Lanczos3 once",
+      "tilePixels": 192
+    }
+  ],
+  "cat": {
+    "variants": [
+      "orange",
+      "black",
+      "gray"
+    ],
+    "variantSource": "runtime material colors",
+    "frames": 4,
+    "durationSeconds": 4,
+    "frameIntervalMs": 1000,
+    "sourceFrameIntervalMs": 400,
+    "directionCount": 4,
+    "orientations": [
+      0,
+      90,
+      180,
+      270
+    ],
+    "width": 61,
+    "height": 61,
+    "tilePixels": 64,
+    "pivot": [
+      30.5,
+      41
+    ],
+    "footprint": [
+      0.75,
+      0.6
+    ],
+    "heightTiles": 0.3,
+    "files": [
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-0-00.png",
+        "nightFile": "cat-0-00-night.png",
+        "lineFile": "cat-0-00-line.png",
+        "shadowFile": "cat-0-00-shadow.png",
+        "hitMaskFile": "cat-0-00-hit.png",
+        "runtimeMaskFile": "cat-0-00-materials.png",
+        "turn": 0,
+        "frame": 0,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-direita-sleep-0.png",
+        "sourceView": "frente-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          16
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-0-01.png",
+        "nightFile": "cat-0-01-night.png",
+        "lineFile": "cat-0-01-line.png",
+        "shadowFile": "cat-0-01-shadow.png",
+        "hitMaskFile": "cat-0-01-hit.png",
+        "runtimeMaskFile": "cat-0-01-materials.png",
+        "turn": 0,
+        "frame": 1,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-direita-sleep-1.png",
+        "sourceView": "frente-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          14
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-0-02.png",
+        "nightFile": "cat-0-02-night.png",
+        "lineFile": "cat-0-02-line.png",
+        "shadowFile": "cat-0-02-shadow.png",
+        "hitMaskFile": "cat-0-02-hit.png",
+        "runtimeMaskFile": "cat-0-02-materials.png",
+        "turn": 0,
+        "frame": 2,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-direita-sleep-2.png",
+        "sourceView": "frente-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          15
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-0-03.png",
+        "nightFile": "cat-0-03-night.png",
+        "lineFile": "cat-0-03-line.png",
+        "shadowFile": "cat-0-03-shadow.png",
+        "hitMaskFile": "cat-0-03-hit.png",
+        "runtimeMaskFile": "cat-0-03-materials.png",
+        "turn": 0,
+        "frame": 3,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-direita-sleep-3.png",
+        "sourceView": "frente-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          15
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-90-00.png",
+        "nightFile": "cat-90-00-night.png",
+        "lineFile": "cat-90-00-line.png",
+        "shadowFile": "cat-90-00-shadow.png",
+        "hitMaskFile": "cat-90-00-hit.png",
+        "runtimeMaskFile": "cat-90-00-materials.png",
+        "turn": 90,
+        "frame": 0,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-esquerda-sleep-0.png",
+        "sourceView": "frente-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          16
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-90-01.png",
+        "nightFile": "cat-90-01-night.png",
+        "lineFile": "cat-90-01-line.png",
+        "shadowFile": "cat-90-01-shadow.png",
+        "hitMaskFile": "cat-90-01-hit.png",
+        "runtimeMaskFile": "cat-90-01-materials.png",
+        "turn": 90,
+        "frame": 1,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-esquerda-sleep-1.png",
+        "sourceView": "frente-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          15
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-90-02.png",
+        "nightFile": "cat-90-02-night.png",
+        "lineFile": "cat-90-02-line.png",
+        "shadowFile": "cat-90-02-shadow.png",
+        "hitMaskFile": "cat-90-02-hit.png",
+        "runtimeMaskFile": "cat-90-02-materials.png",
+        "turn": 90,
+        "frame": 2,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-esquerda-sleep-2.png",
+        "sourceView": "frente-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          15
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-90-03.png",
+        "nightFile": "cat-90-03-night.png",
+        "lineFile": "cat-90-03-line.png",
+        "shadowFile": "cat-90-03-shadow.png",
+        "hitMaskFile": "cat-90-03-hit.png",
+        "runtimeMaskFile": "cat-90-03-materials.png",
+        "turn": 90,
+        "frame": 3,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-frente-esquerda-sleep-3.png",
+        "sourceView": "frente-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          15
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-180-00.png",
+        "nightFile": "cat-180-00-night.png",
+        "lineFile": "cat-180-00-line.png",
+        "shadowFile": "cat-180-00-shadow.png",
+        "hitMaskFile": "cat-180-00-hit.png",
+        "runtimeMaskFile": "cat-180-00-materials.png",
+        "turn": 180,
+        "frame": 0,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-esquerda-sleep-0.png",
+        "sourceView": "costas-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          1
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-180-01.png",
+        "nightFile": "cat-180-01-night.png",
+        "lineFile": "cat-180-01-line.png",
+        "shadowFile": "cat-180-01-shadow.png",
+        "hitMaskFile": "cat-180-01-hit.png",
+        "runtimeMaskFile": "cat-180-01-materials.png",
+        "turn": 180,
+        "frame": 1,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-esquerda-sleep-1.png",
+        "sourceView": "costas-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          1
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-180-02.png",
+        "nightFile": "cat-180-02-night.png",
+        "lineFile": "cat-180-02-line.png",
+        "shadowFile": "cat-180-02-shadow.png",
+        "hitMaskFile": "cat-180-02-hit.png",
+        "runtimeMaskFile": "cat-180-02-materials.png",
+        "turn": 180,
+        "frame": 2,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-esquerda-sleep-2.png",
+        "sourceView": "costas-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          1
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-180-03.png",
+        "nightFile": "cat-180-03-night.png",
+        "lineFile": "cat-180-03-line.png",
+        "shadowFile": "cat-180-03-shadow.png",
+        "hitMaskFile": "cat-180-03-hit.png",
+        "runtimeMaskFile": "cat-180-03-materials.png",
+        "turn": 180,
+        "frame": 3,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-esquerda-sleep-3.png",
+        "sourceView": "costas-esquerda",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          1
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-270-00.png",
+        "nightFile": "cat-270-00-night.png",
+        "lineFile": "cat-270-00-line.png",
+        "shadowFile": "cat-270-00-shadow.png",
+        "hitMaskFile": "cat-270-00-hit.png",
+        "runtimeMaskFile": "cat-270-00-materials.png",
+        "turn": 270,
+        "frame": 0,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-direita-sleep-0.png",
+        "sourceView": "costas-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          11
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-270-01.png",
+        "nightFile": "cat-270-01-night.png",
+        "lineFile": "cat-270-01-line.png",
+        "shadowFile": "cat-270-01-shadow.png",
+        "hitMaskFile": "cat-270-01-hit.png",
+        "runtimeMaskFile": "cat-270-01-materials.png",
+        "turn": 270,
+        "frame": 1,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-direita-sleep-1.png",
+        "sourceView": "costas-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          11
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-270-02.png",
+        "nightFile": "cat-270-02-night.png",
+        "lineFile": "cat-270-02-line.png",
+        "shadowFile": "cat-270-02-shadow.png",
+        "hitMaskFile": "cat-270-02-hit.png",
+        "runtimeMaskFile": "cat-270-02-materials.png",
+        "turn": 270,
+        "frame": 2,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-direita-sleep-2.png",
+        "sourceView": "costas-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          11
+        ]
+      },
+      {
+        "key": "cat",
+        "category": "cat",
+        "file": "cat-270-03.png",
+        "nightFile": "cat-270-03-night.png",
+        "lineFile": "cat-270-03-line.png",
+        "shadowFile": "cat-270-03-shadow.png",
+        "hitMaskFile": "cat-270-03-hit.png",
+        "runtimeMaskFile": "cat-270-03-materials.png",
+        "turn": 270,
+        "frame": 3,
+        "width": 61,
+        "height": 61,
+        "tilePixels": 64,
+        "materials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "runtimeMaterials": [
+          "fur",
+          "accent",
+          "paper"
+        ],
+        "sockets": {},
+        "pivot": [
+          30.5,
+          41
+        ],
+        "footprint": [
+          0.75,
+          0.6
+        ],
+        "heightTiles": 0.3,
+        "sourceFile": "png/gato-costas-direita-sleep-3.png",
+        "sourceView": "costas-direita",
+        "sourceDurationMs": 400,
+        "sourceOffset": [
+          1,
+          11
+        ]
+      }
+    ]
+  },
+  "books": {
+    "lying": {
+      "footprint": [
+        0.35,
+        0.25
+      ],
+      "heightTiles": 0.06,
+      "width": 37,
+      "height": 31,
+      "pivot": [
+        18.5,
+        17
+      ],
+      "tilePixels": 64,
+      "runtimeMaterials": [
+        "accent",
+        "paper",
+        "wood"
+      ],
+      "files": [
+        {
+          "key": "book-lying",
+          "category": "book",
+          "file": "book-lying-0.png",
+          "nightFile": "book-lying-0-night.png",
+          "lineFile": "book-lying-0-line.png",
+          "shadowFile": "book-lying-0-shadow.png",
+          "hitMaskFile": "book-lying-0-hit.png",
+          "runtimeMaskFile": "book-lying-0-materials.png",
+          "width": 37,
+          "height": 31,
+          "tilePixels": 64,
+          "footprint": [
+            0.35,
+            0.25
+          ],
+          "heightTiles": 0.06,
+          "pivot": [
+            18.5,
+            17
+          ],
+          "orientationDegrees": 0,
+          "turn": 0,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-deitado-frente-direita.png",
+          "sourceView": "frente-direita",
+          "sourceScale": 0.06418918918918919,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-lying",
+          "category": "book",
+          "file": "book-lying-90.png",
+          "nightFile": "book-lying-90-night.png",
+          "lineFile": "book-lying-90-line.png",
+          "shadowFile": "book-lying-90-shadow.png",
+          "hitMaskFile": "book-lying-90-hit.png",
+          "runtimeMaskFile": "book-lying-90-materials.png",
+          "width": 37,
+          "height": 31,
+          "tilePixels": 64,
+          "footprint": [
+            0.25,
+            0.35
+          ],
+          "heightTiles": 0.06,
+          "pivot": [
+            18.5,
+            17
+          ],
+          "orientationDegrees": 90,
+          "turn": 90,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-deitado-frente-esquerda.png",
+          "sourceView": "frente-esquerda",
+          "sourceScale": 0.06209150326797386,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-lying",
+          "category": "book",
+          "file": "book-lying-180.png",
+          "nightFile": "book-lying-180-night.png",
+          "lineFile": "book-lying-180-line.png",
+          "shadowFile": "book-lying-180-shadow.png",
+          "hitMaskFile": "book-lying-180-hit.png",
+          "runtimeMaskFile": "book-lying-180-materials.png",
+          "width": 37,
+          "height": 31,
+          "tilePixels": 64,
+          "footprint": [
+            0.35,
+            0.25
+          ],
+          "heightTiles": 0.06,
+          "pivot": [
+            18.5,
+            17
+          ],
+          "orientationDegrees": 180,
+          "turn": 180,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-deitado-costas-esquerda.png",
+          "sourceView": "costas-esquerda",
+          "sourceScale": 0.06109324758842444,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-lying",
+          "category": "book",
+          "file": "book-lying-270.png",
+          "nightFile": "book-lying-270-night.png",
+          "lineFile": "book-lying-270-line.png",
+          "shadowFile": "book-lying-270-shadow.png",
+          "hitMaskFile": "book-lying-270-hit.png",
+          "runtimeMaskFile": "book-lying-270-materials.png",
+          "width": 37,
+          "height": 31,
+          "tilePixels": 64,
+          "footprint": [
+            0.25,
+            0.35
+          ],
+          "heightTiles": 0.06,
+          "pivot": [
+            18.5,
+            17
+          ],
+          "orientationDegrees": 270,
+          "turn": 270,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-deitado-costas-direita.png",
+          "sourceView": "costas-direita",
+          "sourceScale": 0.06418918918918919,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        }
+      ]
+    },
+    "standing": {
+      "footprint": [
+        0.25,
+        0.06
+      ],
+      "heightTiles": 0.35,
+      "width": 28,
+      "height": 34,
+      "pivot": [
+        14,
+        23
+      ],
+      "tilePixels": 64,
+      "runtimeMaterials": [
+        "accent",
+        "paper",
+        "wood"
+      ],
+      "files": [
+        {
+          "key": "book-standing",
+          "category": "book",
+          "file": "book-standing-0.png",
+          "nightFile": "book-standing-0-night.png",
+          "lineFile": "book-standing-0-line.png",
+          "shadowFile": "book-standing-0-shadow.png",
+          "hitMaskFile": "book-standing-0-hit.png",
+          "runtimeMaskFile": "book-standing-0-materials.png",
+          "width": 28,
+          "height": 34,
+          "tilePixels": 64,
+          "footprint": [
+            0.25,
+            0.06
+          ],
+          "heightTiles": 0.35,
+          "pivot": [
+            14,
+            23
+          ],
+          "orientationDegrees": 0,
+          "turn": 0,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-em-pe-frente-direita.png",
+          "sourceView": "frente-direita",
+          "sourceScale": 0.05102040816326531,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-standing",
+          "category": "book",
+          "file": "book-standing-90.png",
+          "nightFile": "book-standing-90-night.png",
+          "lineFile": "book-standing-90-line.png",
+          "shadowFile": "book-standing-90-shadow.png",
+          "hitMaskFile": "book-standing-90-hit.png",
+          "runtimeMaskFile": "book-standing-90-materials.png",
+          "width": 28,
+          "height": 34,
+          "tilePixels": 64,
+          "footprint": [
+            0.06,
+            0.25
+          ],
+          "heightTiles": 0.35,
+          "pivot": [
+            14,
+            23
+          ],
+          "orientationDegrees": 90,
+          "turn": 90,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-em-pe-frente-esquerda.png",
+          "sourceView": "frente-esquerda",
+          "sourceScale": 0.05,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-standing",
+          "category": "book",
+          "file": "book-standing-180.png",
+          "nightFile": "book-standing-180-night.png",
+          "lineFile": "book-standing-180-line.png",
+          "shadowFile": "book-standing-180-shadow.png",
+          "hitMaskFile": "book-standing-180-hit.png",
+          "runtimeMaskFile": "book-standing-180-materials.png",
+          "width": 28,
+          "height": 34,
+          "tilePixels": 64,
+          "footprint": [
+            0.25,
+            0.06
+          ],
+          "heightTiles": 0.35,
+          "pivot": [
+            14,
+            23
+          ],
+          "orientationDegrees": 180,
+          "turn": 180,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-em-pe-costas-esquerda.png",
+          "sourceView": "costas-esquerda",
+          "sourceScale": 0.04950495049504951,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        },
+        {
+          "key": "book-standing",
+          "category": "book",
+          "file": "book-standing-270.png",
+          "nightFile": "book-standing-270-night.png",
+          "lineFile": "book-standing-270-line.png",
+          "shadowFile": "book-standing-270-shadow.png",
+          "hitMaskFile": "book-standing-270-hit.png",
+          "runtimeMaskFile": "book-standing-270-materials.png",
+          "width": 28,
+          "height": 34,
+          "tilePixels": 64,
+          "footprint": [
+            0.06,
+            0.25
+          ],
+          "heightTiles": 0.35,
+          "pivot": [
+            14,
+            23
+          ],
+          "orientationDegrees": 270,
+          "turn": 270,
+          "materials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "runtimeMaterials": [
+            "accent",
+            "paper",
+            "wood"
+          ],
+          "sourceFile": "png/livro-em-pe-costas-direita.png",
+          "sourceView": "costas-direita",
+          "sourceScale": 0.05,
+          "sourceOffset": [
+            1,
+            1
+          ],
+          "sockets": {}
+        }
+      ]
+    }
+  }
+}

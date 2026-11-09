@@ -6,7 +6,7 @@ import {
   type PersistedLibraryState,
 } from '@/src/store/library-store';
 
-export type CloudLibrarySnapshot = Omit<PersistedLibraryState, 'pictureFramePhotoUri'>;
+export type CloudLibrarySnapshot = Omit<PersistedLibraryState, 'pictureFramePhotoUri' | 'legacyRoomLayoutBackup'>;
 
 export type RemoteLibraryBackup = {
   snapshot: CloudLibrarySnapshot;
@@ -18,7 +18,7 @@ export const createCloudLibrarySnapshot = (
   snapshot: PersistedLibraryState,
   pauseTimer = true,
 ): CloudLibrarySnapshot => {
-  const { pictureFramePhotoUri: _localPhoto, ...cloudSnapshot } = snapshot;
+  const { pictureFramePhotoUri: _localPhoto, legacyRoomLayoutBackup: _localRoomLayout, ...cloudSnapshot } = snapshot;
   const timer = cloudSnapshot.activeReadingTimer;
   const activeReadingTimer = pauseTimer && timer?.phase === 'running' ? {
     ...timer, phase: 'paused' as const,

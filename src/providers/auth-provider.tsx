@@ -21,6 +21,8 @@ import {
   createPersistedState,
   getCurrentLibrarySnapshot,
   isDefaultLibrarySnapshot,
+  isDefaultRoomSnapshot,
+  isLibraryStorageScope,
   normalizePersistedState,
   overwriteLibraryStorageScope,
   readLibraryStorageScope,
@@ -156,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let initialSnapshot = getCurrentLibrarySnapshot();
     let synchronizedHash = hashSnapshot(initialSnapshot);
     let confirmed = false;
+    let incompatibleHistory = false;
     if (initialSnapshot.activeReadingTimer?.phase !== 'running' && metadataRef.current?.hash === synchronizedHash && !metadataRef.current.roomPhotoCleanup?.length && !initialSnapshot.profile.avatar?.pending && !initialSnapshot.roomLayout?.legacyPhoto?.pending && !initialSnapshot.roomLayout?.pieces.some(piece => piece.photo?.pending || (piece.photoUri && !piece.photo))) {
       setSyncStatus('synced');
       return;
@@ -248,7 +251,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch { /* Keep local edits until the next successful sync. */ }
         }
         setSyncStatus(message.includes('network') || message.includes('fetch') ? 'offline' : 'error');
-        if (message.includes('a foto local não está disponível')) {
+        if (code === 'PT426') {
+          incompatibleHistory = true;
+          setErrorMessage('Atualize o Nookly para sincronizar. Seus dados continuam salvos neste aparelho.');
+        } else if (message.includes('a foto local não está disponível')) {
           setErrorMessage(stage === 'enviar foto de perfil'
             ? 'Escolha novamente sua foto de perfil para concluir o envio.'
             : 'Uma foto da sala não foi encontrada neste aparelho. Escolha essa foto novamente para concluir o envio.');
@@ -262,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     syncOperationRef.current = operation;
     try { await operation; } finally {
       syncOperationRef.current = null;
-      if (isCurrent() && !conflictRef.current && hashSnapshot(getCurrentLibrarySnapshot()) !== synchronizedHash) {
+      if (isCurrent() && !incompatibleHistory && !conflictRef.current && hashSnapshot(getCurrentLibrarySnapshot()) !== synchronizedHash) {
         if (confirmed) setSyncStatus('syncing');
         if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
         syncTimerRef.current = setTimeout(() => { void syncRequestRef.current(); }, SYNC_DEBOUNCE_MS);
@@ -293,13 +299,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         onboardingAnswers: guestSnapshot.onboardingAnswers,
       } : {};
       const [cachedSnapshot, metadata] = await Promise.all([
-        readLibraryStorageScope(accountScope),
+        isLibraryStorageScope(accountScope) ? guestSnapshot : readLibraryStorageScope(accountScope),
         readMetadata(userId),
       ]);
       // Recover guest data if an earlier login reset the cache before its first backup.
       const restoreGuest = !metadata && cachedSnapshot && isDefaultLibrarySnapshot(cachedSnapshot)
         && !isDefaultLibrarySnapshot(guestSnapshot);
-      let localSnapshot = await prepareRoomPhotos(restoreGuest ? guestSnapshot : cachedSnapshot ?? guestSnapshot, userId);
+      const seed = cachedSnapshot ?? (metadata ? normalizePersistedState(undefined) : guestSnapshot);
+      let localSnapshot: PersistedLibraryState = await prepareRoomPhotos(restoreGuest ? guestSnapshot : seed, userId);
       if (localSnapshot.profile.avatar) {
         localSnapshot = { ...localSnapshot, profile: { ...localSnapshot.profile, avatar: adoptAvatar(localSnapshot.profile.avatar, userId) } };
       }
@@ -324,25 +331,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (sessionError) throw sessionError;
       const remote = await fetchLibraryBackup(supabase, userId);
       metadataRef.current = metadata;
+      localSnapshot = getCurrentLibrarySnapshot();
 
       if (!remote) {
-        await switchLibraryStorageScope(accountScope, localSnapshot);
         syncReadyRef.current = true;
 
       } else {
-        const localChanged = metadata ? hashSnapshot(localSnapshot) !== metadata.hash : !isDefaultLibrarySnapshot(localSnapshot);
+        const localChanged = metadata ? Boolean(cachedSnapshot) && hashSnapshot(localSnapshot) !== metadata.hash : !isDefaultLibrarySnapshot(localSnapshot);
         const remoteChanged = metadata ? remote.revision !== metadata.revision : true;
 
-        if (localChanged && remoteChanged) {
+        const wouldResetRoom = !isDefaultRoomSnapshot(localSnapshot) && isDefaultRoomSnapshot({ ...remote.snapshot, pictureFramePhotoUri: null });
+        if (remoteChanged && (localChanged || wouldResetRoom)) {
           updateConflict({ local: localSnapshot, remote });
           setSyncStatus('conflict');
         } else if (localChanged) {
           metadataRef.current = { revision: remote.revision, updatedAt: remote.updatedAt, hash: metadata?.hash ?? '' };
-          await switchLibraryStorageScope(accountScope, localSnapshot);
           syncReadyRef.current = true;
 
         } else {
-          await switchLibraryStorageScope(accountScope, localSnapshot);
           replaceLibrarySnapshot({ ...remote.snapshot, ...onboarding, activeReadingTimer: remoteChanged ? remote.snapshot.activeReadingTimer : localSnapshot.activeReadingTimer });
           syncReadyRef.current = true;
           await recordBackup(userId, remote, getCurrentLibrarySnapshot());
@@ -545,14 +551,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     switchingRef.current = true;
     authenticationRef.current = true;
     setIsAuthenticating(true);
-    syncReadyRef.current = false;
-    sessionRef.current = null;
-    metadataRef.current = null;
-    setSession(null);
-    updateConflict(null);
-    setSyncStatus('idle');
-    setLastSyncedAt(null);
     try {
+      const userId = sessionRef.current?.user.id;
+      const accountScope = userId ? `user:${userId}` as const : undefined;
+      if (accountScope && isLibraryStorageScope(accountScope)) {
+        await overwriteLibraryStorageScope(accountScope, getCurrentLibrarySnapshot());
+      }
+      syncReadyRef.current = false;
+      sessionRef.current = null;
+      metadataRef.current = null;
+      setSession(null);
+      updateConflict(null);
+      setSyncStatus('idle');
+      setLastSyncedAt(null);
       await switchLibraryStorageScope('guest');
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (!error) trackEvent('account_signed_out');

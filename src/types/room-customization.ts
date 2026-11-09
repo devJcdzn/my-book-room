@@ -1,3 +1,13 @@
+export const ROOM_COLOR_CATEGORIES = [
+  { id: 'base', name: 'Base', colors: ['#E7AE69', '#778DAF', '#8E8492', '#E8D6BC', '#CCD6DD', '#A49C90'] },
+  { id: 'botanic', name: 'Botânica', colors: ['#D8AE78', '#8FAD82', '#EBDDC1'] },
+  { id: 'atelier', name: 'Ateliê', colors: ['#C89E68', '#C08A72', '#EEE1C9'] },
+  { id: 'library', name: 'Biblioteca', colors: ['#85603F', '#92616B', '#D8C6A0'] },
+  { id: 'observatory', name: 'Observatório', colors: ['#B89A61', '#34465E', '#EEE6D3'] },
+  { id: 'teahouse', name: 'Casa de Chá', colors: ['#9A734D', '#8C9275', '#EEE5CF'] },
+] as const;
+export const roomPaletteCategory = (id: string) => ROOM_COLOR_CATEGORIES.find(category => category.id !== 'base' && id.startsWith(`${category.id}-`))?.id ?? 'base';
+
 export type WallPalette = {
   id: string;
   name: string;
@@ -8,9 +18,23 @@ export type WallPalette = {
   cornerColor: string;
 };
 
-export const DEFAULT_WALL_PALETTE_ID = 'warm-sand';
+export const DEFAULT_WALL_PALETTE_ID = 'nocturne-slate';
 
 export const WALL_PALETTES: WallPalette[] = [
+  { id: 'teahouse-sand', name: 'Areia Casa de Chá', subtitle: 'Coleção Casa de Chá', previewColor: '#E4DAC1', backWallColor: '#E4DAC1', leftWallColor: '#C5BAA0', cornerColor: '#544B3C' },
+  { id: 'observatory-blue', name: 'Azul Observatório', subtitle: 'Coleção Observatório', previewColor: '#34465E', backWallColor: '#34465E', leftWallColor: '#26364B', cornerColor: '#1C293B' },
+  {
+    id: 'atelier-clay', name: 'Argila Ateliê', subtitle: 'Coleção Ateliê',
+    previewColor: '#D6B2A1', backWallColor: '#D6B2A1', leftWallColor: '#BE9685', cornerColor: '#A57F6D',
+  },
+  {
+    id: 'library-parchment', name: 'Pergaminho Biblioteca', subtitle: 'Coleção Biblioteca',
+    previewColor: '#D8C6AF', backWallColor: '#D8C6AF', leftWallColor: '#BEA990', cornerColor: '#A28B73',
+  },
+  {
+    id: 'botanic-sage', name: 'Sálvia Botânica', subtitle: 'Coleção Botânica',
+    previewColor: '#A7B595', backWallColor: '#A7B595', leftWallColor: '#929F80', cornerColor: '#78876A',
+  },
   {
     id: 'warm-sand',
     name: 'Areia Quente',
@@ -69,15 +93,15 @@ export const WALL_PALETTES: WallPalette[] = [
     id: 'nocturne-slate',
     name: 'Noite Literária',
     subtitle: 'Profundidade noturna e imersão',
-    previewColor: '#2B3044',
-    backWallColor: '#2B3044',
-    leftWallColor: '#202434',
+    previewColor: '#30374D',
+    backWallColor: '#30374D',
+    leftWallColor: '#24293B',
     cornerColor: '#1A1E2C',
   },
 ];
 
 export const getWallPalette = (id?: string): WallPalette =>
-  WALL_PALETTES.find((palette) => palette.id === id) ?? WALL_PALETTES[0];
+  WALL_PALETTES.find((palette) => palette.id === id) ?? WALL_PALETTES.find(palette => palette.id === 'warm-sand')!;
 
 export type FloorPalette = {
   id: string;
@@ -88,9 +112,23 @@ export type FloorPalette = {
   baseColor: string;
 };
 
-export const DEFAULT_FLOOR_PALETTE_ID = 'golden-oak';
+export const DEFAULT_FLOOR_PALETTE_ID = 'nordic-birch';
 
 export const FLOOR_PALETTES: FloorPalette[] = [
+  { id: 'teahouse-wood', name: 'Madeira Casa de Chá', subtitle: 'Coleção Casa de Chá', plankColor: '#BC9C75', grooveColor: '#735A40', baseColor: '#96764F' },
+  { id: 'observatory-oak', name: 'Carvalho Observatório', subtitle: 'Coleção Observatório', plankColor: '#CCB58A', grooveColor: '#796044', baseColor: '#A58A62' },
+  {
+    id: 'atelier-honey', name: 'Madeira Mel Ateliê', subtitle: 'Coleção Ateliê',
+    plankColor: '#D7B181', grooveColor: '#9B764C', baseColor: '#B68C5A',
+  },
+  {
+    id: 'library-walnut', name: 'Nogueira Biblioteca', subtitle: 'Coleção Biblioteca',
+    plankColor: '#957258', grooveColor: '#604632', baseColor: '#76523C',
+  },
+  {
+    id: 'botanic-birch', name: 'Madeira Botânica', subtitle: 'Coleção Botânica',
+    plankColor: '#E5C99F', grooveColor: '#9D7957', baseColor: '#B58D63',
+  },
   {
     id: 'golden-oak',
     name: 'Carvalho Dourado',
@@ -111,9 +149,9 @@ export const FLOOR_PALETTES: FloorPalette[] = [
     id: 'nordic-birch',
     name: 'Pinho Nórdico',
     subtitle: 'Luminoso, leve e contemporâneo',
-    plankColor: '#DFCEB7',
-    grooveColor: '#B59F85',
-    baseColor: '#8C775D',
+    plankColor: '#E4D3B6',
+    grooveColor: '#DEC39D',
+    baseColor: '#DEC39D',
   },
   {
     id: 'warm-cherry',
@@ -142,7 +180,7 @@ export const FLOOR_PALETTES: FloorPalette[] = [
 ];
 
 export const getFloorPalette = (id?: string): FloorPalette =>
-  FLOOR_PALETTES.find((palette) => palette.id === id) ?? FLOOR_PALETTES[0];
+  FLOOR_PALETTES.find((palette) => palette.id === id) ?? FLOOR_PALETTES.find(palette => palette.id === 'golden-oak')!;
 
 export type RugPalette = {
   id: string;
@@ -153,7 +191,7 @@ export type RugPalette = {
   innerColor: string;
 };
 
-export const DEFAULT_RUG_PALETTE_ID = 'terracotta-classic';
+export const DEFAULT_RUG_PALETTE_ID = 'soft-slate';
 
 export const RUG_PALETTES: RugPalette[] = [
   {
@@ -208,10 +246,11 @@ export const RUG_PALETTES: RugPalette[] = [
     id: 'soft-slate',
     name: 'Ardósia Suave',
     subtitle: 'Modernidade minimalista e foco tranquilo',
-    previewColor: '#484B58',
-    mainColor: '#484B58',
-    innerColor: '#353742',
+    previewColor: '#8E8492',
+    mainColor: '#8E8492',
+    innerColor: '#DEC39D',
   },
+  { id: 'observatory-blue', name: 'Azul Observatório', subtitle: 'Coleção Observatório', previewColor: '#34465E', mainColor: '#34465E', innerColor: '#26364B' },
 ];
 
 export const getRugPalette = (id?: string): RugPalette =>
@@ -229,7 +268,7 @@ export type BookcasePalette = {
   metalColor: string;
 };
 
-export const DEFAULT_BOOKCASE_PALETTE_ID = 'rustic-mahogany';
+export const DEFAULT_BOOKCASE_PALETTE_ID = 'golden-oak';
 
 export const BOOKCASE_PALETTES: BookcasePalette[] = [
   {
@@ -247,8 +286,8 @@ export const BOOKCASE_PALETTES: BookcasePalette[] = [
     id: 'golden-oak',
     name: 'Carvalho Dourado',
     subtitle: 'Tons quentes de mel e harmonia acolhedora',
-    previewColor: '#8C6239',
-    frameColor: '#8C6239',
+    previewColor: '#E7AE69',
+    frameColor: '#E7AE69',
     shelfColor: '#9E7247',
     backColor: '#6E4924',
     trimColor: '#B38555',
@@ -313,6 +352,27 @@ export const BOOKCASE_PALETTES: BookcasePalette[] = [
 
 export const getBookcasePalette = (id?: string): BookcasePalette =>
   BOOKCASE_PALETTES.find((palette) => palette.id === id) ?? BOOKCASE_PALETTES[0];
+
+export type RoomPaletteSelection = {
+  wallPaletteId?: string;
+  floorPaletteId?: string;
+  rugPaletteId?: string;
+  bookcasePaletteId?: string;
+};
+
+export function migrateLegacyRoomPaletteSelection(selection: RoomPaletteSelection): RoomPaletteSelection {
+  const isOldDefault = selection.wallPaletteId === 'warm-sand'
+    && selection.floorPaletteId === 'golden-oak'
+    && selection.rugPaletteId === 'terracotta-classic'
+    && selection.bookcasePaletteId === 'rustic-mahogany';
+  if (!isOldDefault) return selection;
+  return {
+    wallPaletteId: DEFAULT_WALL_PALETTE_ID,
+    floorPaletteId: DEFAULT_FLOOR_PALETTE_ID,
+    rugPaletteId: DEFAULT_RUG_PALETTE_ID,
+    bookcasePaletteId: DEFAULT_BOOKCASE_PALETTE_ID,
+  };
+}
 
 export type CatOption = {
   id: string;
@@ -527,5 +587,4 @@ export const PICTURE_FRAME_STYLES: PictureFrameStyleOption[] = [
 
 export const getPictureFrameStyle = (id?: string): PictureFrameStyleOption =>
   PICTURE_FRAME_STYLES.find((style) => style.id === id) ?? PICTURE_FRAME_STYLES[0];
-
 

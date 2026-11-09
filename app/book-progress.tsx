@@ -1,33 +1,46 @@
+import { TransitionModal } from '@/src/components/transition-modal';
+import { AppTextInput, FieldError } from '@/src/components/app-text-input';
+import { showAlert, showMenu } from '@/src/components/app-dialog';
+import { trackEvent } from '@/src/services/analytics';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { MenuView, type MenuAction } from '@expo/ui/community/menu';
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCover } from '@/src/components/book-cover';
-import { resolveAmbience } from '@/src/components/room/isometric-scene';
-import { openLibraryClient, type OpenLibraryBookDetails } from '@/src/services/open-library';
+import { resolveAmbience } from '@/src/types/ambience';
+import { isValidIsbn, normalizeIsbn, openLibraryClient, type OpenLibraryBookDetails } from '@/src/services/open-library';
 import { deriveBookColor, useLibraryStore } from '@/src/store/library-store';
 import { controls, colors, darkTheme, radii, typography } from '@/src/theme';
 import type { Book, BookSearchResult } from '@/src/types/book';
 
 const pageLimit = 99_999;
+const amazonAssociateTag = process.env.EXPO_PUBLIC_AMAZON_ASSOCIATE_TAG?.trim();
+
+const amazonSearchUrlForBook = (book: Pick<Book, 'title' | 'author' | 'isbn'>) => {
+  if (!amazonAssociateTag) return undefined;
+
+  const normalizedIsbn = book.isbn?.trim();
+  const searchQuery = normalizedIsbn && isValidIsbn(normalizedIsbn)
+    ? normalizeIsbn(normalizedIsbn)
+    : [book.title, book.author === 'Autor desconhecido' ? undefined : book.author].filter(Boolean).join(' ');
+
+  return `https://www.amazon.com.br/s?k=${encodeURIComponent(searchQuery)}&tag=${encodeURIComponent(amazonAssociateTag)}`;
+};
 
 export default function BookProgressPage() {
   const params = useLocalSearchParams<{
@@ -70,7 +83,6 @@ export default function BookProgressPage() {
       ...(Number.isInteger(previewPages) && previewPages > 0 ? { totalPages: previewPages } : {}),
     };
   }, [previewRequested, previewWorkKey, previewTitle, previewAuthor, previewPages, params.coverId, params.firstPublishYear, params.editionKey, params.coverUrl, params.isbn]);
-  const [failedHeaderCoverUrl, setFailedHeaderCoverUrl] = useState<string>();
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const stackedHero = width < 360 || fontScale > 1.2;
@@ -95,17 +107,6 @@ export default function BookProgressPage() {
   const requestCompletion = useLibraryStore((state) => state.requestCompletion);
   const ambienceMode = useLibraryStore((state) => state.ambienceMode);
   const isNight = resolveAmbience(ambienceMode) === 'night';
-  const backgroundColor = isNight ? darkTheme.bg : colors.cream;
-  const palette = {
-    text: isNight ? darkTheme.text : colors.ink,
-    muted: isNight ? darkTheme.textMuted : colors.muted,
-    surface: isNight ? darkTheme.surface : colors.paper,
-    surfaceStrong: isNight ? darkTheme.surfaceElevated : '#EFE4D6',
-    border: isNight ? darkTheme.border : '#E8DCCD',
-    fill: isNight ? darkTheme.accent : colors.terracotta,
-    accent: isNight ? darkTheme.accent : colors.terracottaDark,
-  };
-  const cardPalette = palette;
   const savedBook = books.find((item) => item.id === bookId)
     ?? (previewResult ? books.find((item) => item.openLibraryWorkKey === previewResult.workKey) : undefined);
   const previewBook = useMemo<Book | undefined>(() => previewResult && !savedBook ? {
@@ -125,6 +126,20 @@ export default function BookProgressPage() {
     status: previewTargetStatus,
   } : undefined, [previewResult, savedBook, previewTargetStatus]);
   const bookForLookup = savedBook ?? previewBook;
+  const palette = {
+    isDark: isNight,
+    background: isNight ? darkTheme.bg : colors.cream,
+    surface: isNight ? darkTheme.surface : colors.paper,
+    surfaceStrong: isNight ? darkTheme.surfaceElevated : colors.softFill,
+    text: isNight ? darkTheme.text : colors.ink,
+    muted: isNight ? darkTheme.textMuted : colors.muted,
+    border: isNight ? darkTheme.border : colors.line,
+    accent: isNight ? darkTheme.selectionText : colors.sageDark,
+    fill: isNight ? darkTheme.primary : colors.ink,
+    actionText: isNight ? darkTheme.actionText : colors.paper,
+  };
+  const backgroundColor = palette.background;
+  const cardPalette = palette;
 
   const bookDetailsLookup = useMemo(() => bookForLookup ? ({
     bookId: bookForLookup.id,
@@ -143,10 +158,12 @@ export default function BookProgressPage() {
   const [pageDraft, setPageDraft] = useState<string>();
   const [editingProgress, setEditingProgress] = useState(false);
   const [totalDraft, setTotalDraft] = useState('');
+  const [totalError, setTotalError] = useState('');
   const [editingTotal, setEditingTotal] = useState(false);
   const [completionConfirmationVisible, setCompletionConfirmationVisible] = useState(false);
   const [reviewDraft, setReviewDraft] = useState('');
   const [editingReview, setEditingReview] = useState(false);
+  const [expandedSynopsisId, setExpandedSynopsisId] = useState<string>();
   const [completionRatingDraft, setCompletionRatingDraft] = useState<number>();
   const [pageCountPromptVisible, setPageCountPromptVisible] = useState(false);
   const [pageCountDraft, setPageCountDraft] = useState('');
@@ -164,6 +181,7 @@ export default function BookProgressPage() {
     ...previewBook,
     totalPages: previewBook.totalPages || previewPagesOverride || details?.editionPageCount || 0,
   } : undefined);
+  const synopsisExpanded = Boolean(book && expandedSynopsisId === book.id);
   const hasBibliographicDetails = Boolean(details && (
     details.subjects.length || details.publishers.length || details.publishDate
     || details.firstPublishDate || details.editionPageCount || details.isbn
@@ -185,7 +203,7 @@ export default function BookProgressPage() {
   if (!book) {
     return (
       <View style={[styles.unavailable, { backgroundColor }]}>
-        <StatusBar style={isNight ? 'light' : 'dark'} />
+        <StatusBar style={palette.isDark ? 'light' : 'dark'} />
         <Text style={[styles.unavailableTitle, { color: palette.text }]}>Nenhum livro selecionado</Text>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.secondaryAction}>
           <Text style={styles.secondaryActionLabel}>Voltar à biblioteca</Text>
@@ -193,6 +211,14 @@ export default function BookProgressPage() {
       </View>
     );
   }
+
+  const amazonSearchUrl = amazonSearchUrlForBook(book);
+  const openAmazonBook = () => {
+    if (!amazonSearchUrl) return;
+    void Linking.openURL(amazonSearchUrl)
+      .then(() => trackEvent('amazon_affiliate_link_opened', { surface: isPreview ? 'catalog' : 'library' }))
+      .catch(() => showAlert('Não foi possível abrir a Amazon', 'Tente novamente em instantes.'));
+  };
 
   const shelves = book.status === 'completed' ? completedShelves
     : book.status === 'want-to-read' ? wantToReadShelves : readingShelves;
@@ -292,7 +318,7 @@ export default function BookProgressPage() {
   const saveTotalPages = () => {
     const parsed = Number(totalDraft.trim());
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > pageLimit) {
-      Alert.alert('Total inválido', `Informe um número entre 1 e ${pageLimit.toLocaleString('pt-BR')}.`);
+      setTotalError(`Informe um número entre 1 e ${pageLimit.toLocaleString('pt-BR')}.`);
       return;
     }
     if (isPreview) setPreviewPagesOverride(parsed);
@@ -301,7 +327,7 @@ export default function BookProgressPage() {
   };
 
   const confirmRemove = () => {
-    Alert.alert('Remover livro', `Deseja remover “${book.title}” da sua biblioteca?`, [
+    showAlert('Remover livro', `Deseja remover “${book.title}” da sua biblioteca?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover',
@@ -315,38 +341,54 @@ export default function BookProgressPage() {
     ]);
   };
 
-  const actionMenu: MenuAction[] = [
-    ...(isOnDesk ? [{ id: 'remove-from-desk', title: 'Retirar da mesa' }] : []),
-    {
-      id: 'move-shelf',
-      title: `Mover de ${shelfLabel}`,
-      subactions: shelves.map((shelfId, index) => ({
-        id: `shelf:${shelfId}`,
-        title: shelfNames[shelfId] || `Prateleira ${index + 1}`,
-        state: shelfId === book.shelfId ? 'on' : 'off',
-      })),
-    },
-    { id: 'remove-book', title: 'Remover da biblioteca', attributes: { destructive: true } },
-  ];
+  const openReadingLog = (mode?: 'completion') => {
+    if (!mode) trackEvent('reading_action_used', { action: 'register', surface: 'book' });
+    router.push({ pathname: '/reading-log', params: { bookId: book.id, ...(mode ? { mode } : {}) } });
+  };
 
   const onMenuAction = (event: string) => {
+    if (event === 'register-reading' || event === 'completion-date') {
+      openReadingLog(event === 'completion-date' ? 'completion' : undefined);
+      return;
+    }
+    if (event === 'correct-page') { setEditingProgress(true); return; }
+    if (event === 'reopen') {
+      showAlert('Reabrir leitura?', 'Os registros serão preservados. A data de conclusão será removida.', [
+        { text: 'Cancelar', style: 'cancel' }, { text: 'Reabrir', onPress: () => useLibraryStore.getState().reopenBook(book.id) },
+      ]); return;
+    }
     if (event === 'remove-from-desk') {
       removeFromDesk(book.id);
       return;
     }
-    if (event === 'remove-book') {
-      confirmRemove();
-      return;
-    }
-    if (event.startsWith('shelf:')) moveBookToShelf(book.id, event.slice('shelf:'.length));
   };
+
+  const openBookMenu = () => showMenu('Opções do livro', [
+    { text: 'Registrar leitura', onPress: () => onMenuAction('register-reading') },
+    ...(book.status === 'reading' ? [{ text: 'Corrigir página', onPress: () => onMenuAction('correct-page') }] : []),
+    ...(book.status === 'completed' ? [
+      { text: 'Data de conclusão', onPress: () => onMenuAction('completion-date') },
+      { text: 'Reabrir leitura', onPress: () => onMenuAction('reopen') },
+    ] : []),
+    ...(isOnDesk ? [{ text: 'Retirar da mesa', onPress: () => onMenuAction('remove-from-desk') }] : []),
+    {
+      text: `Mover de ${shelfLabel}`,
+      opensMenu: true,
+      onPress: () => showMenu('Mover para prateleira', shelves.map((shelfId, index) => ({
+        text: shelfNames[shelfId] || `Prateleira ${index + 1}`,
+        selected: shelfId === book.shelfId,
+        onPress: () => moveBookToShelf(book.id, shelfId),
+      }))),
+    },
+    { text: 'Remover da biblioteca', style: 'destructive', onPress: confirmRemove },
+  ]);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.screen, { backgroundColor }]}
     >
-      <StatusBar style={isNight ? 'light' : 'dark'} />
+      <StatusBar style={palette.isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -356,45 +398,25 @@ export default function BookProgressPage() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View pointerEvents="none" style={[styles.backgroundScene, { height: insets.top + 350 }]}>
-          {book.coverUrl && book.coverUrl !== failedHeaderCoverUrl ? (
-            <Image
-              source={{ uri: book.coverUrl }}
-              contentFit="cover"
-              contentPosition="center"
-              onError={() => setFailedHeaderCoverUrl(book.coverUrl)}
-              style={[StyleSheet.absoluteFill, { opacity: isNight ? 0.34 : 0.42 }]}
-            />
-          ) : (
-            <>
-              <Image source={require('@/assets/images/book-details-background.png')} contentFit="cover" contentPosition="top right" style={StyleSheet.absoluteFill} />
-              {isNight ? <View style={[StyleSheet.absoluteFill, styles.backgroundShade]} /> : null}
-            </>
-          )}
-          <View style={[styles.backgroundFade, { experimental_backgroundImage: `linear-gradient(to bottom, ${backgroundColor}00, ${backgroundColor})` }]} />
-        </View>
         <View style={styles.header}>
           <RoundButton accessibilityLabel="Voltar" icon="chevron-back" onPress={() => router.back()} palette={palette} />
           {!isPreview ? (
-            <MenuView
-              actions={actionMenu}
-              onPressAction={(event) => onMenuAction(event.nativeEvent.event)}
-              style={styles.menuTrigger}
-              title="Opções do livro"
-            >
-              <View accessible accessibilityLabel="Mais opções do livro" style={[styles.roundButton, { borderColor: palette.border, backgroundColor: palette.surface }]}>
-                <Ionicons color={palette.text} name="ellipsis-horizontal" size={21} />
-              </View>
-            </MenuView>
+            <RoundButton accessibilityLabel="Mais opções do livro" icon="ellipsis-horizontal" onPress={openBookMenu} palette={palette} />
           ) : <View style={styles.menuTrigger} />}
         </View>
 
         <View style={[styles.hero, stackedHero && styles.heroStacked]}>
-          <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.cover} />
+          <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.cover}>
+            {!book.coverUrl && (
+              <View style={styles.coverFallback} accessible={false}>
+                <Text numberOfLines={5} style={styles.coverTitle}>{book.title}</Text>
+              </View>
+            )}
+          </BookCover>
           <View style={[styles.heroCopy, stackedHero && styles.heroCopyStacked]}>
-            <Text selectable style={[styles.title, { color: palette.text }]}>{book.title}</Text>
+            <Text selectable style={[styles.title, { color: palette.text, textAlign: stackedHero ? 'center' : 'left' }]}>{book.title}</Text>
             <Text selectable style={[styles.author, { color: palette.muted }]}>{book.author}</Text>
-            <View style={[styles.bookStatus, { backgroundColor: isNight ? darkTheme.surface : 'rgba(250,245,238,0.9)' }]}>
+            <View style={[styles.bookStatus, { backgroundColor: palette.surface }]}>
               <Ionicons color={palette.accent} name={isOnDesk ? 'book' : 'book-outline'} size={16} />
               <Text style={[styles.bookStatusText, { color: palette.text }]}>
                 {isOnDesk ? 'Este livro está na mesa'
@@ -407,12 +429,19 @@ export default function BookProgressPage() {
           </View>
         </View>
 
-        <View style={styles.actionRow}>
-          <Pressable
+        {!isPreview && book.status === 'completed' ? (
+          <Pressable accessibilityRole="button" onPress={() => openReadingLog('completion')} style={styles.textAction}>
+            <Text style={{ color: palette.text }}>
+              Conclusão: {book.completedOn?.split('-').reverse().join('/') ?? 'Informar data'}
+            </Text>
+          </Pressable>
+        ) : null}
+        <View style={styles.readingActions}>
+          {book.status !== 'completed' && <Pressable
             accessibilityRole="button"
-            disabled={book.status === 'completed' || completionLocked}
+            disabled={completionLocked}
             onPress={() => {
-              if (book.status === 'completed' || completionLocked) return;
+              if (completionLocked) return;
               if (isPreview) {
                 requestPreviewAdd(previewTargetStatus);
                 return;
@@ -423,55 +452,82 @@ export default function BookProgressPage() {
                 return;
               }
               if (!selectActiveBook(book.id)) {
-                Alert.alert('Mesa cheia', 'A mesa comporta até três livros. Remova um livro da mesa antes de começar outro.');
+                showAlert('Mesa cheia', 'A mesa comporta até três livros. Remova um livro da mesa antes de começar outro.');
                 return;
               }
               if (startReadingTimer(book.id)) router.replace('/reading-timer');
             }}
             style={({ pressed }) => [
               styles.startButton,
-              { backgroundColor: isNight ? darkTheme.accentDark : colors.terracotta },
-              (book.status === 'completed' || completionLocked) && styles.disabledButton,
-              pressed && book.status !== 'completed' && styles.pressed,
+              { backgroundColor: palette.fill },
+              completionLocked && styles.disabledButton,
+              pressed && styles.pressed,
             ]}
           >
-            <Ionicons color={colors.paper} name={isPreview ? 'add' : 'play'} size={17} />
-            <Text numberOfLines={1} style={styles.startButtonText}>
-              {book.status === 'completed' ? 'Leitura concluída'
-                : isPreview ? previewTargetStatus === 'want-to-read' ? 'Adicionar à lista' : 'Adicionar livro'
+            <Ionicons color={palette.actionText} name={isPreview ? 'add' : 'play'} size={17} />
+            <Text style={[styles.startButtonText, { color: palette.actionText }]}>
+              {isPreview ? previewTargetStatus === 'want-to-read' ? 'Adicionar à lista' : 'Adicionar livro'
                   : activeReadingTimer ? 'Retomar sessão'
-                    : isOnDesk ? 'Continuar' : 'Começar'}
+                    : isOnDesk ? 'Continuar leitura' : 'Começar leitura'}
             </Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Concluir leitura"
-            accessibilityRole="button"
-            disabled={!canComplete || completionLocked}
-            onPress={openCompletionConfirmation}
-            style={({ pressed }) => [
-              styles.completeButton,
-              { borderColor: palette.border, backgroundColor: palette.surface },
-              (!canComplete || completionLocked) && styles.disabledButton,
-              pressed && canComplete && styles.pressed,
-            ]}
-          >
-            <Ionicons color={palette.accent} name="checkmark" size={25} />
-          </Pressable>
+          </Pressable>}
+          {!isPreview && <View style={styles.actionRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => openReadingLog()}
+              style={({ pressed }) => [styles.startButton, styles.registerButton, {
+                backgroundColor: isNight ? darkTheme.selection : colors.sageSoft,
+              }, pressed && styles.pressed]}
+            >
+              <Ionicons name="create-outline" color={palette.accent} size={18} accessible={false} />
+              <Text style={[styles.startButtonText, { color: palette.accent }]}>Registrar leitura</Text>
+            </Pressable>
+            {canComplete && <Pressable
+              accessibilityLabel="Concluir leitura"
+              accessibilityRole="button"
+              disabled={completionLocked}
+              onPress={openCompletionConfirmation}
+              style={({ pressed }) => [
+                styles.completeButton,
+                { borderColor: palette.border, backgroundColor: palette.surface },
+                completionLocked && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons color={palette.accent} name="checkmark" size={25} />
+            </Pressable>}
+          </View>}
         </View>
 
-        <View style={[styles.progressCard, { backgroundColor: cardPalette.surface }]}>
+        {amazonSearchUrl ? (
+          <View style={[styles.sectionCard, { backgroundColor: cardPalette.surface, borderColor: cardPalette.border }]}>
+            <Pressable
+              accessibilityLabel={`Ver opções de ${book.title} na Amazon`}
+              accessibilityRole="link"
+              onPress={openAmazonBook}
+              style={({ pressed }) => [styles.amazonButton, pressed && styles.pressed]}
+            >
+              <FontAwesome name="amazon" size={23} color={colors.ink} accessible={false} />
+              <Text style={styles.amazonButtonText}>Ver opções na Amazon</Text>
+              <Ionicons color={colors.ink} name="open-outline" size={17} accessible={false} />
+            </Pressable>
+            <Text style={[styles.amazonCaption, { color: cardPalette.muted }]}>Encontre este livro na Amazon.</Text>
+          </View>
+        ) : null}
+
+        <View style={[styles.progressCard, { backgroundColor: cardPalette.surface, borderColor: cardPalette.border }]}>
           <View style={styles.progressHeading}>
             <Text style={[styles.sectionLabel, { color: cardPalette.muted }]}>Progresso</Text>
             <Text style={[styles.progressPercent, { color: cardPalette.text }]}>{Math.round(progress * 100)}%</Text>
           </View>
-          <View style={[styles.progressTrack, { backgroundColor: cardPalette.surfaceStrong }]}>
-            <View style={[styles.progressFill, { backgroundColor: cardPalette.fill, width: `${progress * 100}%` }]} />
+          <View accessible accessibilityRole="progressbar" accessibilityLabel="Progresso da leitura" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }} style={[styles.progressTrack, { backgroundColor: cardPalette.surfaceStrong }]}>
+            <View style={[styles.progressFill, { backgroundColor: cardPalette.accent, width: `${progress * 100}%` }]} />
           </View>
           {isReading && !isPreview ? (
             <View style={styles.progressActions}>
               {editingProgress ? (
                 <View style={styles.pageInputGroup}>
-                  <TextInput
+                  <AppTextInput
                     accessibilityLabel={`Página atual de ${book.title}`}
                     autoFocus
                     keyboardType="number-pad"
@@ -484,7 +540,7 @@ export default function BookProgressPage() {
                     value={pageDraft ?? String(book.currentPage)}
                   />
                   <Text style={[styles.pageTotal, { color: cardPalette.muted }]}>/ {book.totalPages} páginas</Text>
-                  <Pressable accessibilityLabel="Salvar progresso" accessibilityRole="button" onPress={() => commitPage()} style={styles.progressIconButton}>
+                  <Pressable accessibilityLabel="Corrigir página" accessibilityRole="button" onPress={() => commitPage()} style={styles.progressIconButton}>
                     <Ionicons color={cardPalette.text} name="checkmark" size={19} />
                   </Pressable>
                   <Pressable accessibilityLabel="Cancelar edição do progresso" accessibilityRole="button" onPress={() => { setPageDraft(undefined); setEditingProgress(false); }} style={styles.progressIconButton}>
@@ -497,7 +553,7 @@ export default function BookProgressPage() {
                     {book.currentPage} <Text style={{ color: cardPalette.muted, fontWeight: '400' }}>/ {book.totalPages} páginas</Text>
                   </Text>
                   <Pressable
-                    accessibilityLabel="Editar progresso de leitura"
+                    accessibilityLabel="Corrigir página"
                     accessibilityRole="button"
                     onPress={() => { setPageDraft(String(book.currentPage)); setEditingProgress(true); }}
                     style={styles.progressIconButton}
@@ -509,6 +565,7 @@ export default function BookProgressPage() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
+                  setTotalError('');
                   setTotalDraft(String(book.totalPages));
                   setEditingTotal((value) => !value);
                 }}
@@ -521,25 +578,29 @@ export default function BookProgressPage() {
             <Text style={[styles.completedLabel, { color: cardPalette.text }]}>Leitura concluída · {book.totalPages} páginas</Text>
           ) : <Text style={[styles.completedLabel, { color: cardPalette.muted }]}>{book.totalPages > 0 ? `0 / ${book.totalPages} páginas` : 'Total de páginas não informado'}</Text>}
           {editingTotal ? (
-            <View style={styles.totalEditor}>
-              <TextInput
-                accessibilityLabel="Novo total de páginas"
-                autoFocus
-                keyboardType="number-pad"
-                maxLength={5}
-                onChangeText={setTotalDraft}
-                onSubmitEditing={saveTotalPages}
-                returnKeyType="done"
-                selectTextOnFocus
-                style={[styles.totalInput, { borderColor: cardPalette.border, color: cardPalette.text }]}
-                value={totalDraft}
-              />
-              <Pressable accessibilityRole="button" onPress={saveTotalPages} style={styles.totalSaveButton}>
-                <Text style={[styles.totalSaveLabel, { color: cardPalette.text }]}>Salvar</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => setEditingTotal(false)} style={styles.totalCancelButton}>
-                <Text style={[styles.totalSaveLabel, { color: cardPalette.muted }]}>Cancelar</Text>
-              </Pressable>
+            <View>
+              <View style={styles.totalEditor}>
+                <AppTextInput
+                  accessibilityLabel="Novo total de páginas"
+                  autoFocus
+                  keyboardType="number-pad"
+                  maxLength={5}
+                  invalid={Boolean(totalError)}
+                  onChangeText={value => { setTotalDraft(value); setTotalError(''); }}
+                  onSubmitEditing={saveTotalPages}
+                  returnKeyType="done"
+                  selectTextOnFocus
+                  style={[styles.totalInput, { borderColor: cardPalette.border, color: cardPalette.text }]}
+                  value={totalDraft}
+                />
+                <Pressable accessibilityRole="button" onPress={saveTotalPages} style={styles.totalSaveButton}>
+                  <Text style={[styles.totalSaveLabel, { color: cardPalette.text }]}>Salvar</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => setEditingTotal(false)} style={styles.totalCancelButton}>
+                  <Text style={[styles.totalSaveLabel, { color: cardPalette.muted }]}>Cancelar</Text>
+                </Pressable>
+              </View>
+              <FieldError isNight={palette.isDark} message={totalError} />
             </View>
           ) : null}
         </View>
@@ -561,7 +622,7 @@ export default function BookProgressPage() {
                   style={styles.starTouch}
                 >
                   <Ionicons
-                    color={value <= (book.rating ?? 0) ? cardPalette.accent : cardPalette.border}
+                    color={value <= (book.rating ?? 0) ? cardPalette.accent : cardPalette.muted}
                     name={value <= (book.rating ?? 0) ? 'star' : 'star-outline'}
                     size={22}
                   />
@@ -580,7 +641,7 @@ export default function BookProgressPage() {
             <Ionicons name={editingReview ? 'chevron-up' : 'chevron-forward'} size={17} color={cardPalette.accent} />
           </Pressable>
           {editingReview ? (
-            <TextInput
+            <AppTextInput
               accessibilityLabel={`Resenha de ${book.title}`}
               multiline
               onChangeText={(notes) => updateOpinion(book.id, { notes })}
@@ -596,18 +657,37 @@ export default function BookProgressPage() {
           ) : null}
         </View> : null}
 
-        {details?.description || metadataLoading || metadataFailed ? (
+        {metadataKey ? (
           <View style={[styles.sectionCard, { backgroundColor: cardPalette.surface, borderColor: cardPalette.border }]}>
-            <Text style={[styles.sectionTitle, { color: cardPalette.text }]}>Sobre o livro</Text>
             {details?.description ? (
-              <Text selectable style={[styles.description, { color: cardPalette.muted }]}>{details.description}</Text>
-            ) : metadataLoading ? (
-              <Text style={[styles.description, { color: cardPalette.muted }]}>Carregando informações da Open Library…</Text>
-            ) : metadataFailed ? (
-              <Pressable accessibilityRole="button" onPress={() => setReloadMetadata((value) => value + 1)}>
-                <Text style={[styles.description, { color: cardPalette.muted }]}>Não foi possível carregar os dados. Tentar novamente</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={synopsisExpanded ? 'Recolher sinopse' : 'Expandir sinopse'}
+                accessibilityState={{ expanded: synopsisExpanded }}
+                onPress={() => setExpandedSynopsisId(synopsisExpanded ? undefined : book.id)}
+                style={({ pressed }) => [styles.synopsisHeading, pressed && styles.pressed]}
+              >
+                <Text style={[styles.sectionTitle, { color: cardPalette.text }]}>Sobre o livro</Text>
+                <Ionicons name={synopsisExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={cardPalette.text} />
               </Pressable>
-            ) : null}
+            ) : <View style={styles.synopsisHeading}><Text style={[styles.sectionTitle, { color: cardPalette.text }]}>Sobre o livro</Text></View>}
+            <View style={!synopsisExpanded && styles.synopsisPreview}>
+              {details?.description ? (
+                <Text selectable numberOfLines={synopsisExpanded ? undefined : 4} style={[styles.description, { color: cardPalette.muted }]}>{details.description}</Text>
+              ) : metadataLoading ? (
+                <View accessibilityLabel="Carregando sinopse" accessibilityState={{ busy: true }} accessible style={styles.synopsisSkeleton}>
+                  {(['100%', '94%', '98%', '65%'] as const).map(width => (
+                    <View key={width} style={[styles.synopsisSkeletonLine, { width, backgroundColor: cardPalette.surfaceStrong }]} />
+                  ))}
+                </View>
+              ) : metadataFailed ? (
+                <Pressable accessibilityRole="button" onPress={() => setReloadMetadata((value) => value + 1)}>
+                  <Text style={[styles.description, { color: cardPalette.muted }]}>Não foi possível carregar os dados. Tentar novamente</Text>
+                </Pressable>
+              ) : (
+                <Text style={[styles.description, { color: cardPalette.muted }]}>Sinopse indisponível na Open Library.</Text>
+              )}
+            </View>
           </View>
         ) : null}
 
@@ -617,6 +697,7 @@ export default function BookProgressPage() {
             <BibliographicDetails details={details ?? { subjects: [], publishers: [], firstPublishDate: book.firstPublishYear?.toString(), isbn: book.isbn }} localPages={book.totalPages} palette={cardPalette} />
           </View>
         ) : null}
+
       </ScrollView>
         {isPreview && previewTargetStatus !== 'want-to-read' ? (
         <View style={[styles.previewFooter, { backgroundColor, paddingBottom: Math.max(insets.bottom, 14) }]}>
@@ -626,8 +707,7 @@ export default function BookProgressPage() {
           </Pressable>
         </View>
       ) : null}
-      <Modal
-        animationType="slide"
+      <TransitionModal
         onRequestClose={() => setPageCountPromptVisible(false)}
         transparent
         visible={pageCountPromptVisible}
@@ -638,11 +718,12 @@ export default function BookProgressPage() {
             <View style={styles.sheetGrabber} />
             <Text style={[styles.sheetTitle, { color: palette.text }]}>Total de páginas</Text>
             <Text style={[styles.sheetDescription, { color: palette.muted }]}>Informe o total desta edição para salvar o livro na sua estante.</Text>
-            <TextInput
+            <AppTextInput
               accessibilityLabel="Total de páginas do livro"
               autoFocus
               keyboardType="number-pad"
               maxLength={5}
+              invalid={Boolean(pageCountError)}
               onChangeText={(value) => { setPageCountDraft(value); setPageCountError(''); }}
               onSubmitEditing={confirmPageCount}
               placeholder="Ex.: 320"
@@ -651,20 +732,19 @@ export default function BookProgressPage() {
               style={[styles.pageCountPromptInput, { color: palette.text, backgroundColor: palette.surfaceStrong, borderColor: palette.border }]}
               value={pageCountDraft}
             />
-            {pageCountError ? <Text style={styles.pageCountError}>{pageCountError}</Text> : null}
+            <FieldError isNight={palette.isDark} message={pageCountError} />
             <View style={styles.sheetActions}>
-              <Pressable accessibilityRole="button" onPress={() => setPageCountPromptVisible(false)} style={styles.sheetCancelButton}>
+              <Pressable accessibilityRole="button" onPress={() => setPageCountPromptVisible(false)} style={({ pressed }) => [styles.sheetCancelButton, pressed && styles.pressed]}>
                 <Text style={[styles.sheetCancelLabel, { color: palette.text }]}>Cancelar</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={confirmPageCount} style={[styles.sheetConfirmButton, { backgroundColor: palette.fill }]}>
-                <Text style={[styles.sheetConfirmLabel, { color: isNight ? darkTheme.actionText : colors.paper }]}>Continuar</Text>
+              <Pressable accessibilityRole="button" onPress={confirmPageCount} style={({ pressed }) => [styles.sheetConfirmButton, { backgroundColor: palette.fill }, pressed && styles.pressed]}>
+                <Text style={[styles.sheetConfirmLabel, { color: palette.actionText }]}>Continuar</Text>
               </Pressable>
             </View>
           </View>
         </View>
-      </Modal>
-      <Modal
-        animationType="slide"
+      </TransitionModal>
+      <TransitionModal
         onRequestClose={() => setCompletionConfirmationVisible(false)}
         statusBarTranslucent
         transparent
@@ -676,24 +756,50 @@ export default function BookProgressPage() {
             <View style={[styles.completionSheet, { backgroundColor: palette.surface, paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
               <View style={styles.sheetGrabber} />
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Text style={[styles.sheetTitle, { color: palette.text }]}>Concluir leitura</Text>
+                <View style={styles.completionBook}>
+                  <BookCover color={book.coverColor} coverUrl={book.coverUrl} style={styles.completionCover}>
+                    {!book.coverUrl && <Ionicons name="book-outline" size={21} color={colors.paper} accessible={false} />}
+                  </BookCover>
+                  <View style={styles.completionBookCopy}>
+                    <Text style={[styles.sheetTitle, { color: palette.text }]}>Concluir leitura</Text>
+                    <Text style={{ color: palette.muted }}>{book.title}</Text>
+                  </View>
+                </View>
                 <Text style={[styles.sheetDescription, { color: palette.muted }]}>Guarde sua impressão final. A resenha e a avaliação são opcionais.</Text>
                 {isPreview && book.totalPages < 1 ? (
                   <>
-                    <TextInput
+                    <AppTextInput
                       accessibilityLabel="Total de páginas do livro"
                       keyboardType="number-pad"
                       maxLength={5}
+                      invalid={Boolean(pageCountError)}
                       onChangeText={(value) => { setPageCountDraft(value); setPageCountError(''); }}
                       placeholder="Total de páginas"
                       placeholderTextColor={palette.muted}
                       style={[styles.pageCountPromptInput, { color: palette.text, backgroundColor: palette.surfaceStrong, borderColor: palette.border }]}
                       value={pageCountDraft}
                     />
-                    {pageCountError ? <Text style={styles.pageCountError}>{pageCountError}</Text> : null}
+                    <FieldError isNight={palette.isDark} message={pageCountError} />
                   </>
                 ) : null}
-                <TextInput
+                <View style={[styles.completionRating, { backgroundColor: isNight ? darkTheme.selection : colors.sageSoft }]}>
+                  <Text style={[styles.completionRatingLabel, { color: palette.text }]}>Sua avaliação (opcional)</Text>
+                  <View style={styles.ratingRow}>
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <Pressable
+                        key={value}
+                        accessibilityLabel={`${value} ${value === 1 ? 'estrela' : 'estrelas'}`}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: completionRatingDraft === value }}
+                        onPress={() => setCompletionRatingDraft(completionRatingDraft === value ? undefined : value)}
+                        style={styles.starTouch}
+                      >
+                        <Ionicons color={value <= (completionRatingDraft ?? 0) ? palette.accent : palette.muted} name={value <= (completionRatingDraft ?? 0) ? 'star' : 'star-outline'} size={25} />
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <AppTextInput
                   accessibilityLabel="Resenha final opcional"
                   multiline
                   onChangeText={setReviewDraft}
@@ -703,35 +809,23 @@ export default function BookProgressPage() {
                   textAlignVertical="top"
                   value={reviewDraft}
                 />
-                <View style={styles.completionRating}>
-                  <Text style={[styles.completionRatingLabel, { color: palette.text }]}>Sua avaliação</Text>
-                  <View style={styles.ratingRow}>
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <Pressable
-                        key={value}
-                        accessibilityLabel={`${value} ${value === 1 ? 'estrela' : 'estrelas'}`}
-                        accessibilityRole="button"
-                        onPress={() => setCompletionRatingDraft(completionRatingDraft === value ? undefined : value)}
-                        style={styles.starTouch}
-                      >
-                        <Ionicons color={value <= (completionRatingDraft ?? 0) ? palette.fill : palette.border} name={value <= (completionRatingDraft ?? 0) ? 'star' : 'star-outline'} size={25} />
-                      </Pressable>
-                    ))}
-                  </View>
+                <View style={[styles.completionReward, { borderColor: palette.border }]}>
+                  <Ionicons name="gift-outline" size={19} color={palette.accent} accessible={false} />
+                  <Text style={[styles.completionRewardText, { color: palette.text }]}>Ao concluir, a capa fica disponível para os pôsteres da sala.</Text>
                 </View>
                 <View style={styles.sheetActions}>
-                  <Pressable accessibilityRole="button" onPress={() => setCompletionConfirmationVisible(false)} style={styles.sheetCancelButton}>
+                  <Pressable accessibilityRole="button" onPress={() => setCompletionConfirmationVisible(false)} style={({ pressed }) => [styles.sheetCancelButton, pressed && styles.pressed]}>
                     <Text style={[styles.sheetCancelLabel, { color: palette.text }]}>Agora não</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" onPress={confirmCompletion} style={[styles.sheetConfirmButton, { backgroundColor: palette.fill }]}>
-                    <Text style={[styles.sheetConfirmLabel, { color: isNight ? darkTheme.actionText : colors.paper }]}>Concluir leitura</Text>
+                  <Pressable accessibilityRole="button" onPress={confirmCompletion} style={({ pressed }) => [styles.sheetConfirmButton, { backgroundColor: palette.fill }, pressed && styles.pressed]}>
+                    <Text style={[styles.sheetConfirmLabel, { color: palette.actionText }]}>Concluir leitura</Text>
                   </Pressable>
                 </View>
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </View>
-      </Modal>
+      </TransitionModal>
     </KeyboardAvoidingView>
   );
 }
@@ -812,34 +906,35 @@ function BibliographicDetails({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { gap: 14, paddingHorizontal: 16 },
-  backgroundScene: { position: 'absolute', top: 0, left: 0, right: 0 },
-  backgroundShade: { backgroundColor: 'rgba(32,30,28,0.75)' },
-  backgroundFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 105 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 },
   menuTrigger: { width: controls.iconButton.width, height: controls.iconButton.height },
   roundButton: { ...controls.iconButton, borderWidth: 1 },
-  hero: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, paddingHorizontal: 6, paddingTop: 2, paddingBottom: 2 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: 20, paddingHorizontal: 6, paddingVertical: 8 },
   heroStacked: { flexDirection: 'column', alignItems: 'center' },
-  heroCopy: { flex: 1, minWidth: 0, gap: 10, minHeight: 204 },
-  heroCopyStacked: { alignSelf: 'stretch', flex: 0, minHeight: 0 },
-  cover: { width: 136, height: 204, borderRadius: 8, borderCurve: 'continuous', boxShadow: '0 8px 20px rgba(36, 20, 15, 0.24)' },
-  title: { fontFamily: typography.editorial, fontSize: 22, lineHeight: 28 },
+  heroCopy: { flex: 1, minWidth: 0, gap: 10 },
+  heroCopyStacked: { alignSelf: 'stretch', flex: 0, alignItems: 'center' },
+  cover: { width: 150, height: 225, borderRadius: radii.small, borderCurve: 'continuous', justifyContent: 'center' },
+  coverFallback: { margin: 14, padding: 10, backgroundColor: colors.paper, borderRadius: 4 },
+  coverTitle: { color: colors.ink, fontFamily: typography.editorial, fontSize: 17, textAlign: 'center' },
+  title: { fontFamily: typography.editorial, fontSize: 25, lineHeight: 31 },
   author: { fontSize: 14, lineHeight: 21 },
   bookStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 9, borderRadius: 12 },
   bookStatusText: { fontSize: 12, lineHeight: 18, flexShrink: 1 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 6 },
-  startButton: { ...controls.button, flex: 1, flexDirection: 'row', gap: 6, backgroundColor: colors.terracotta },
-  startButtonText: { ...controls.buttonText, color: colors.paper, lineHeight: 22, flexShrink: 1 },
+  readingActions: { gap: 8 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  startButton: { ...controls.button, flexDirection: 'row', gap: 8 },
+  registerButton: { flex: 1, minHeight: 48 },
+  startButtonText: { ...controls.buttonText, color: colors.paper, lineHeight: 22, flexShrink: 1, textAlign: 'center' },
   completeButton: { ...controls.iconButton, borderWidth: 1 },
   disabledButton: { opacity: 0.55 },
-  pressed: { opacity: 0.78 },
-  progressCard: { gap: 10, padding: 16, borderRadius: 22, borderCurve: 'continuous' },
+  pressed: controls.buttonPressed,
+  progressCard: { gap: 12, padding: 16, borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.large, borderCurve: 'continuous' },
   progressHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionLabel: { fontSize: 14, fontWeight: '600' },
-  progressPercent: { fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
-  progressTrack: { height: 6, overflow: 'hidden', borderRadius: radii.full },
+  progressPercent: { fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  progressTrack: { height: 8, overflow: 'hidden', borderRadius: radii.full },
   progressFill: { height: '100%', borderRadius: radii.full },
-  progressActions: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  progressActions: { minHeight: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
   pageInputGroup: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   pageInput: { minWidth: 48, paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 1, fontSize: 16, fontWeight: '700', textAlign: 'right', fontVariant: ['tabular-nums'] },
   pageTotal: { fontSize: 13 },
@@ -855,6 +950,10 @@ const styles = StyleSheet.create({
   totalCancelButton: { minHeight: controls.iconButton.height, justifyContent: 'center', paddingHorizontal: 4 },
   totalSaveLabel: { fontSize: 14, fontWeight: '600' },
   ratingSection: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  synopsisPreview: { minHeight: 92 },
+  synopsisSkeleton: { height: 92, justifyContent: 'space-around' },
+  synopsisSkeletonLine: { height: 10, borderRadius: 5 },
+  synopsisHeading: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   sectionTitle: { fontFamily: typography.editorial, fontSize: 19, lineHeight: 26 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   starTouch: { minWidth: 28, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
@@ -866,10 +965,13 @@ const styles = StyleSheet.create({
   metadataValue: { flex: 1, fontSize: 14, lineHeight: 20 },
   subjects: { gap: 9, paddingTop: 2 },
   subjectList: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  subjectPill: { paddingVertical: 2 },
-  subjectText: { fontSize: 12 },
+  subjectPill: { maxWidth: '100%', paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, borderCurve: 'continuous' },
+  subjectText: { fontSize: 12, lineHeight: 18, flexShrink: 1 },
   reviewButton: { ...controls.button, flexDirection: 'row', gap: 9 },
   reviewButtonText: { ...controls.buttonText, flex: 1 },
+  amazonButton: { ...controls.button, minHeight: 52, flexDirection: 'row', gap: 12, backgroundColor: '#F4CE91' },
+  amazonButtonText: { ...controls.buttonText, flex: 1, color: colors.ink, fontWeight: '600' },
+  amazonCaption: { fontSize: 12, lineHeight: 18 },
   notesInput: { ...controls.input, minHeight: 112, lineHeight: 23 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(20, 14, 12, 0.44)' },
   modalKeyboard: { flex: 1, justifyContent: 'flex-end' },
@@ -877,20 +979,24 @@ const styles = StyleSheet.create({
   sheetGrabber: { width: 44, height: 5, alignSelf: 'center', marginBottom: 16, borderRadius: 3, backgroundColor: 'rgba(120, 108, 98, 0.36)' },
   pageCountSheet: { paddingHorizontal: 22, paddingTop: 10, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous' },
   pageCountPromptInput: { ...controls.input, minHeight: 52, marginBottom: 4, borderColor: '#E5D8C8', color: colors.ink, backgroundColor: '#F2E8D9' },
-  pageCountError: { marginTop: 5, color: '#B7463D', fontSize: 13 },
   previewFooter: { paddingHorizontal: 22, paddingTop: 10 },
   wantToReadButton: { ...controls.button, flexDirection: 'row', gap: 8, borderWidth: 1 },
   wantToReadLabel: { fontSize: 15, fontWeight: '600' },
   sheetTitle: { marginBottom: 6, color: colors.ink, fontFamily: typography.editorial, fontSize: 25, fontWeight: '600', lineHeight: 32 },
   sheetDescription: { marginBottom: 18, color: colors.muted, fontSize: 14, lineHeight: 20 },
   reviewDraftInput: { ...controls.input, minHeight: 112, borderColor: '#E5D8C8', color: colors.ink, backgroundColor: '#F2E8D9', lineHeight: 22 },
-  completionRating: { minHeight: 58, marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  completionBook: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
+  completionCover: { width: 58, height: 87, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  completionBookCopy: { flex: 1 },
+  completionRating: { marginVertical: 12, padding: 12, gap: 4, borderRadius: radii.medium },
+  completionReward: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  completionRewardText: { flex: 1, fontSize: 13, lineHeight: 19 },
   completionRatingLabel: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  sheetCancelButton: { ...controls.button, flex: 1, borderWidth: 1, borderColor: '#E5D8C8' },
-  sheetCancelLabel: { ...controls.buttonText, color: colors.ink },
-  sheetConfirmButton: { ...controls.button, flex: 1.3, backgroundColor: colors.terracotta },
-  sheetConfirmLabel: { ...controls.buttonText, color: colors.paper },
+  sheetCancelButton: { ...controls.button, flex: 1 },
+  sheetCancelLabel: { ...controls.buttonText, textAlign: 'center' },
+  sheetConfirmButton: { ...controls.button, flex: 1.3, backgroundColor: colors.ink },
+  sheetConfirmLabel: { ...controls.buttonText, color: colors.paper, textAlign: 'center' },
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 },
   unavailableTitle: { fontFamily: typography.editorial, fontSize: 24 },
   secondaryAction: { ...controls.button, backgroundColor: colors.paper },
