@@ -5,5 +5,11 @@
       "destination": "/privacy.html",
       "permanent": true
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/reservar-usuario",
+      "destination": "/reservar-usuario.html"
+    }
   ]
 }

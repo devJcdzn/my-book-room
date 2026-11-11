@@ -52,3 +52,11 @@ O canal do Discord usado pelo webhook deve ser privado. A função mantém a ins
 Paleta do app: creme, sálvia e terracota. Ícone e Niko vêm de `assets/` do projeto. Os arquivos `*-iphone.webp` foram exportados dos mockups com telas reais do arquivo Figma BJ-Screenshots (página 0:1, nós 4054:26, 4054:54, 4054:82 e 4054:110). Para atualizar as telas, exporte esses mockups novamente e substitua as imagens. A fonte Playfair Display é servida localmente.
 
 A página mantém o endpoint existente e o cadastro do TestFlight. O nome interno `BOOKROOM_CONFIG` foi preservado para compatibilidade. Termos, privacidade e suporte descrevem o login opcional, a sincronização e a ausência de compras na versão atual.
+
+## Reserva de nome de usuário
+
+A página `/reservar-usuario` consulta e grava reservas na tabela `username_reservations` por meio da função `reserve-username`. A migration correspondente está em `supabase/migrations/20261111000100_username_reservations.sql`; aplique-a pelo fluxo de banco do projeto antes de publicar a função. A função usa a chave de serviço apenas no servidor e deixa a tabela inacessível às chaves públicas.
+
+`landing/config.js` contém a URL do Supabase e a chave publishable do projeto para chamar a função. Essa chave é pública por definição; nunca coloque uma chave `secret` ou `service_role` na landing. Os arquivos locais não aplicam a migration nem publicam a função automaticamente.
+
+O caminho curto `/reservar-usuario` é um rewrite da Vercel; no servidor local do README, abra `/reservar-usuario.html` diretamente.
