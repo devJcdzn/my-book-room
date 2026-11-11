@@ -15,9 +15,11 @@
   --terra-dark: #8c3f2b;
   --terra-light: #d99573;
   --sage: #657457;
+  --sage-dark: #536149;
   --sage-soft: #e0e5da;
   --soft-fill: #efe6d8;
   --line: #e3d7c7;
+  --danger: #b64135;
 }
 
 * {
@@ -319,7 +321,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible {
 
 .hero-reservation-link {
   margin-top: 16px;
-  color: #f1c7ae;
+  color: var(--sage-soft);
   font-size: 14px;
   text-underline-offset: 4px;
 }
@@ -768,68 +770,101 @@ details[open] summary::after {
   color: var(--terra-dark);
 }
 
+.username-reservation-body {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.username-reservation-body ::selection {
+  background: var(--sage-soft);
+  color: var(--ink);
+}
+
+.username-reservation-body .legal-header {
+  border-bottom-color: rgba(250,245,238,.18);
+}
+
+.username-reservation-body .legal-back {
+  color: var(--paper);
+  font-size: 15px;
+  text-decoration: none;
+}
+
 .username-reservation-page {
-  width: min(690px,calc(100% - 48px));
-  margin: 70px auto 100px;
+  width: min(860px,calc(100% - 48px));
+  margin: 0 auto;
+  padding: 74px 0 96px;
+  text-align: center;
 }
 
 .username-reservation-intro h1 {
-  font-size: clamp(42px,6.4vw,68px);
+  color: var(--paper);
+  font-size: clamp(54px,7vw,90px);
+  line-height: .96;
 }
 
 .username-reservation-intro h1 em {
-  color: var(--terra-dark);
+  color: var(--sage-soft);
 }
 
 .username-reservation-intro p {
-  max-width: 620px;
-  margin-top: 24px;
-  font-size: 19px;
+  max-width: 650px;
+  margin: 24px auto 0;
+  color: #cfc3b8;
+  font-size: 18px;
 }
 
 .username-reservation-card {
-  margin-top: 38px;
-  padding: clamp(24px,5vw,40px);
-  border: 1px solid var(--line);
-  border-radius: 22px;
+  width: min(650px,100%);
+  margin: 42px auto 0;
+  padding: clamp(24px,4vw,36px);
+  border-radius: 16px;
   background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+
+.username-reservation-card p {
+  color: var(--muted);
 }
 
 .username-reservation-form {
   display: grid;
-  gap: 21px;
+  gap: 18px;
 }
 
 .username-reservation-field {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: var(--ink);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .username-reservation-field input {
   width: 100%;
-  min-height: 54px;
-  padding: 12px 14px;
+  min-height: 50px;
+  padding: 13px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fffdfa;
+  background: var(--paper);
   color: var(--ink);
+  font-size: 15px;
 }
 
 .username-reservation-field input::placeholder {
-  color: #9a8d82;
+  color: var(--muted-light, #776b63);
+  opacity: 1;
 }
 
 .username-input-wrap {
-  min-height: 54px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fffdfa;
-  color: var(--muted);
+  background: var(--paper);
+  color: var(--muted-light, #776b63);
 }
 
 .username-input-wrap>span {
@@ -855,26 +890,38 @@ details[open] summary::after {
 }
 
 .username-reservation-submit {
+  display: inline-flex;
+  align-items: center;
   width: 100%;
   min-height: 56px;
   justify-content: center;
-  margin-top: 2px;
-  background: var(--terra-dark);
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--sage);
   color: var(--paper);
+  font: 700 16px system-ui,-apple-system,sans-serif;
+  cursor: pointer;
 }
 
 .username-reservation-submit:disabled {
   opacity: .6;
+  cursor: default;
+}
+
+.username-reservation-submit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
 }
 
 .username-reservation-status {
   min-height: 24px;
-  color: var(--sage-dark, #536149);
+  color: var(--sage-dark);
   font-size: 14px;
 }
 
 .username-reservation-status[data-state="error"] {
-  color: #b64135;
+  color: var(--danger);
 }
 
 .username-reservation-status[data-state="pending"] {
@@ -886,7 +933,7 @@ details[open] summary::after {
 }
 
 .username-reservation-privacy a {
-  color: var(--terra-dark);
+  color: var(--sage-dark);
 }
 
 .username-reservation-success h2 {
@@ -905,7 +952,15 @@ details[open] summary::after {
 .username-reservation-success a {
   display: inline-block;
   margin-top: 24px;
-  color: var(--terra-dark);
+  color: var(--sage-dark);
+}
+
+.username-reservation-body .legal-footer {
+  border-top-color: rgba(250,245,238,.18);
+}
+
+.username-reservation-body .legal-footer p {
+  color: #cfc3b8;
 }
 
 @media(min-width:1600px) {
@@ -1166,13 +1221,25 @@ details[open] summary::after {
     font-size: 17px;
   }
   .username-reservation-page {
-    margin-block: 48px 68px;
+    padding-block: 58px 72px;
   }
   .username-reservation-intro p {
     font-size: 17px;
   }
   .username-reservation-card {
     margin-top: 30px;
+  }
+}
+
+@media(max-width:700px) {
+  .username-reservation-page {
+    padding-block: 48px 64px;
+  }
+  .username-reservation-intro h1 {
+    font-size: clamp(42px,11vw,56px);
+  }
+  .username-reservation-card {
+    padding: 24px;
   }
 }
 
