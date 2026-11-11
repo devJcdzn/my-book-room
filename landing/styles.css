@@ -664,13 +664,6 @@ details[open] summary::after {
   padding-block: 45px;
 }
 
-.footer-brand {
-  font-size: 30px;
-  letter-spacing: -1.5px;
-  font-weight: 650;
-  text-decoration: none;
-}
-
 .site-footer p {
   font-size: 13px;
   margin-top: 5px;
